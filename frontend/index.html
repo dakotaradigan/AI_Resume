@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dakota Radigan | Resume Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-title">Dakota Radigan</div>
+      <div class="brand-subtitle">Resume Assistant</div>
+    </div>
+    <nav class="nav-links">
+      <a href="https://www.linkedin.com/in/dakota-radigan/" target="_blank" rel="noopener">LinkedIn</a>
+      <a href="https://github.com/dakotaradigan" target="_blank" rel="noopener">GitHub</a>
+      <a href="mailto:dakotaradigan@gmail.com">Email</a>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <section class="intro-card">
+      <h1>Ask about Dakota's experience</h1>
+      <p>Product leader with GenAI, RAG, and data-driven strategy experience. Use the chat to learn about projects, skills, and impact.</p>
+      <div class="chips">
+        <button class="chip" data-prompt="Tell me about Dakota's AI projects">AI projects</button>
+        <button class="chip" data-prompt="What is Dakota's experience with Python and SQL?">Python & SQL</button>
+        <button class="chip" data-prompt="What outcomes has Dakota delivered?">Business impact</button>
+        <button class="chip" data-prompt="How did Dakota build the Ben AI chatbot?">Ben AI chatbot</button>
+      </div>
+    </section>
+
+    <section class="chat-card">
+      <div id="chat-log" class="chat-log"></div>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" type="text" placeholder="Ask about skills, projects, or impact..." autocomplete="off" required />
+        <button type="submit">Send</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+

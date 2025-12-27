@@ -1,0 +1,269 @@
+:root {
+  /* Claude-inspired warm color palette */
+  --bg: #f7f5f3;
+  --card: #ffffff;
+  --text: #2d2d2d;
+  --muted: #6b6b6b;
+  --accent: #e27d60;
+  --accent-hover: #c94c33;
+  --border: #e0ddd9;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+}
+
+.brand-title {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.brand-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Stack intro above chat for a slim prompt bar */
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.intro-card {
+  max-width: 100%;
+  padding: 12px 16px;
+}
+
+.intro-card,
+.chat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.intro-card h1 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.intro-card p {
+  color: var(--muted);
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chat-log {
+  height: 420px;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.msg {
+  padding: 12px;
+  border-radius: 10px;
+  max-width: 90%;
+  line-height: 1.5;
+}
+
+.msg.user {
+  background: var(--accent);
+  color: white;
+  align-self: flex-end;
+}
+
+.msg.bot {
+  background: var(--card);
+  border: 1px solid var(--border);
+  align-self: flex-start;
+  color: var(--text);
+}
+
+.msg-body {
+  color: inherit;
+}
+
+/* Markdown formatting in bot messages */
+.msg.bot .msg-body h1,
+.msg.bot .msg-body h2,
+.msg.bot .msg-body h3 {
+  margin: 16px 0 4px 0; /* more space above headers, less below to stay close to content */
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.msg.bot .msg-body h2:first-child,
+.msg.bot .msg-body h3:first-child {
+  margin-top: 0; /* remove top margin for first header */
+}
+
+.msg.bot .msg-body h1 {
+  font-size: 18px;
+}
+
+.msg.bot .msg-body h2 {
+  font-size: 16px;
+}
+
+.msg.bot .msg-body h3 {
+  font-size: 15px;
+}
+
+.msg.bot .msg-body p {
+  margin: 0 0 14px 0; /* more space between paragraphs */
+  line-height: 1.5;
+}
+
+.msg.bot .msg-body p:last-child {
+  margin-bottom: 0;
+}
+
+.msg.bot .msg-body strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.msg.bot .msg-body em {
+  font-style: italic;
+}
+
+.msg.bot .msg-body ul {
+  margin: 4px 0 14px 0; /* close to header above, more space below for paragraphs */
+  padding-left: 22px;
+  list-style-type: disc;
+}
+
+.msg.bot .msg-body ul:last-child {
+  margin-bottom: 0;
+}
+
+.msg.bot .msg-body li {
+  margin: 2px 0; /* small gaps between bullets for readability */
+  line-height: 1.5;
+}
+
+.msg.bot .msg-body a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.msg-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+  text-align: right;
+}
+
+.chat-form {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-form input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  transition: border-color 0.2s ease;
+}
+
+.chat-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.chat-form button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.chat-form button:hover {
+  background: var(--accent-hover);
+}
+
+@media (max-width: 960px) {
+  .chat-log {
+    height: 320px;
+  }
+}
+
