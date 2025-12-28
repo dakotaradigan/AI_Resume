@@ -109,9 +109,14 @@ function addMessage(text, role, timestamp = new Date()) {
 
   div.append(body, meta);
   chatLog.appendChild(div);
-  chatLog.scrollTop = chatLog.scrollHeight;
+  requestScrollToBottom();
   return div;
 }
+
+// --- Chat autoscroll (robust, low-tech-debt) ---
+// We only stick to bottom when the user is already near the bottom.
+let autoScrollEnabled = true;
+let pendingScroll = false;
 
 function isChatNearBottom(thresholdPx = 80) {
   if (!chatLog) return true;
@@ -120,12 +125,33 @@ function isChatNearBottom(thresholdPx = 80) {
   return distance < thresholdPx;
 }
 
-function scrollChatToBottom() {
-  if (!chatLog) return;
-  // Wait a frame so layout/markdown changes have affected scrollHeight.
+function requestScrollToBottom() {
+  if (!chatLog || !autoScrollEnabled) return;
+  if (pendingScroll) return;
+  pendingScroll = true;
   requestAnimationFrame(() => {
+    pendingScroll = false;
+    if (!chatLog || !autoScrollEnabled) return;
     chatLog.scrollTop = chatLog.scrollHeight;
   });
+}
+
+function initChatAutoScroll() {
+  if (!chatLog) return;
+
+  autoScrollEnabled = true;
+
+  chatLog.addEventListener(
+    "scroll",
+    () => {
+      autoScrollEnabled = isChatNearBottom();
+    },
+    { passive: true }
+  );
+
+  // Covers both appends and “Thinking…” -> full reply replacements.
+  const mo = new MutationObserver(() => requestScrollToBottom());
+  mo.observe(chatLog, { childList: true, subtree: true, characterData: true });
 }
 
 function el(tag, attrs = {}, children = []) {
@@ -165,16 +191,18 @@ function renderExperience(items) {
     const bullets = achievements.map((a, idx) =>
       el("li", { class: idx >= 3 ? "is-extra" : "", text: a })
     );
-    const list = bullets.length ? el("ul", { class: "resume-bullets is-collapsed" }, bullets) : null;
+    const list = bullets.length
+      ? el("ul", { class: "resume-bullets is-collapsed" }, bullets)
+      : null;
 
     const extrasCount = Math.max(0, achievements.length - 3);
     const toggle =
       extrasCount > 0
-        ? el(
-            "button",
-            { class: "resume-card-toggle", type: "button", text: `Show more (${extrasCount})` },
-            []
-          )
+        ? el("button", {
+            class: "resume-card-toggle",
+            type: "button",
+            text: `Show more (${extrasCount})`,
+          })
         : null;
 
     if (toggle && list) {
@@ -184,7 +212,13 @@ function renderExperience(items) {
       });
     }
 
-    const card = el("article", { class: "resume-card reveal" }, [titleRow, role, company, list, toggle]);
+    const card = el("article", { class: "resume-card reveal" }, [
+      titleRow,
+      role,
+      company,
+      list,
+      toggle,
+    ]);
     experienceGrid.append(card);
   });
 }
@@ -235,7 +269,6 @@ function initRevealOnScroll() {
   const nodes = Array.from(document.querySelectorAll(".reveal"));
   if (nodes.length === 0) return;
 
-  // If reduced motion, just show everything.
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (prefersReduced) {
@@ -243,7 +276,6 @@ function initRevealOnScroll() {
     return;
   }
 
-  // No IO support: show everything.
   if (!("IntersectionObserver" in window)) {
     nodes.forEach((n) => n.classList.add("is-visible"));
     return;
@@ -447,7 +479,6 @@ async function sendMessage(message) {
     const data = await res.json();
     const body = thinkingEl.querySelector(".msg-body");
     const meta = thinkingEl.querySelector(".msg-meta");
-    const shouldStickToBottom = isChatNearBottom();
     if (body) {
       // Parse markdown for bot responses
       body.innerHTML = parseMarkdown(data.reply ?? "No response received.");
@@ -455,14 +486,13 @@ async function sendMessage(message) {
     if (meta) {
       meta.textContent = formatTime(new Date());
     }
-    if (shouldStickToBottom) scrollChatToBottom();
+    requestScrollToBottom();
   } catch (err) {
     const body = thinkingEl.querySelector(".msg-body");
-    const shouldStickToBottom = isChatNearBottom();
     if (body) {
       body.textContent = "Sorry, something went wrong. Please try again.";
     }
-    if (shouldStickToBottom) scrollChatToBottom();
+    requestScrollToBottom();
     console.error(err);
   } finally {
     setSending(false);
@@ -479,6 +509,9 @@ chatForm.addEventListener("submit", (e) => {
 
 // Seed a friendly greeting.
 addMessage("Hi! Ask about Dakota's experience, projects, or skills.", "bot");
+
+// Robust chat stick-to-bottom behavior.
+initChatAutoScroll();
 
 // Enable theme toggle (sun icon in header).
 initTheme();
