@@ -113,6 +113,21 @@ function addMessage(text, role, timestamp = new Date()) {
   return div;
 }
 
+function isChatNearBottom(thresholdPx = 80) {
+  if (!chatLog) return true;
+  const distance =
+    chatLog.scrollHeight - (chatLog.scrollTop + chatLog.clientHeight);
+  return distance < thresholdPx;
+}
+
+function scrollChatToBottom() {
+  if (!chatLog) return;
+  // Wait a frame so layout/markdown changes have affected scrollHeight.
+  requestAnimationFrame(() => {
+    chatLog.scrollTop = chatLog.scrollHeight;
+  });
+}
+
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   Object.entries(attrs).forEach(([k, v]) => {
@@ -146,12 +161,30 @@ function renderExperience(items) {
     const role = el("div", { class: "resume-card-title", text: exp.role || "" });
     const company = el("div", { class: "resume-card-subtitle", text: exp.company || "" });
 
-    const bullets = safeArray(exp.achievements)
-      .slice(0, 6)
-      .map((a) => el("li", { text: a }));
-    const list = bullets.length ? el("ul", { class: "resume-bullets" }, bullets) : null;
+    const achievements = safeArray(exp.achievements);
+    const bullets = achievements.map((a, idx) =>
+      el("li", { class: idx >= 3 ? "is-extra" : "", text: a })
+    );
+    const list = bullets.length ? el("ul", { class: "resume-bullets is-collapsed" }, bullets) : null;
 
-    const card = el("article", { class: "resume-card" }, [titleRow, role, company, list]);
+    const extrasCount = Math.max(0, achievements.length - 3);
+    const toggle =
+      extrasCount > 0
+        ? el(
+            "button",
+            { class: "resume-card-toggle", type: "button", text: `Show more (${extrasCount})` },
+            []
+          )
+        : null;
+
+    if (toggle && list) {
+      toggle.addEventListener("click", () => {
+        const expanded = list.classList.toggle("is-collapsed") === false;
+        toggle.textContent = expanded ? "Show less" : `Show more (${extrasCount})`;
+      });
+    }
+
+    const card = el("article", { class: "resume-card reveal" }, [titleRow, role, company, list, toggle]);
     experienceGrid.append(card);
   });
 }
@@ -181,7 +214,7 @@ function renderEducation(items) {
       el("div", { class: "resume-card-meta", text: ed.graduation || "" }),
     ]);
     const subtitle = el("div", { class: "resume-card-subtitle", text: ed.degree || "" });
-    educationGrid.append(el("article", { class: "resume-card" }, [row, subtitle]));
+    educationGrid.append(el("article", { class: "resume-card reveal" }, [row, subtitle]));
   });
 }
 
@@ -194,8 +227,40 @@ function renderCertifications(items) {
       el("div", { class: "resume-card-meta", text: c.date || "" }),
     ]);
     const subtitle = el("div", { class: "resume-card-subtitle", text: c.issuer || "" });
-    certificationsGrid.append(el("article", { class: "resume-card" }, [row, subtitle]));
+    certificationsGrid.append(el("article", { class: "resume-card reveal" }, [row, subtitle]));
   });
+}
+
+function initRevealOnScroll() {
+  const nodes = Array.from(document.querySelectorAll(".reveal"));
+  if (nodes.length === 0) return;
+
+  // If reduced motion, just show everything.
+  const prefersReduced =
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersReduced) {
+    nodes.forEach((n) => n.classList.add("is-visible"));
+    return;
+  }
+
+  // No IO support: show everything.
+  if (!("IntersectionObserver" in window)) {
+    nodes.forEach((n) => n.classList.add("is-visible"));
+    return;
+  }
+
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        io.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.08, rootMargin: "0px 0px -10% 0px" }
+  );
+
+  nodes.forEach((n) => io.observe(n));
 }
 
 async function loadAndRenderResume() {
@@ -225,8 +290,14 @@ async function loadAndRenderResume() {
           : personal.summary;
     }
     if (heroEmail && email) heroEmail.href = `mailto:${email}`;
-    if (heroEmail && email) heroEmail.textContent = email;
-    if (heroLocation && personal.location) heroLocation.textContent = personal.location;
+    if (heroEmail && email) {
+      const t = heroEmail.querySelector(".hero-contact-text");
+      if (t) t.textContent = email;
+    }
+    if (heroLocation && personal.location) {
+      const t = heroLocation.querySelector(".hero-contact-text");
+      if (t) t.textContent = personal.location;
+    }
     if (heroLinkedIn && linkedin) heroLinkedIn.href = linkedin;
 
     // Header contact dropdown
@@ -237,6 +308,7 @@ async function loadAndRenderResume() {
     renderSkills(data.skills);
     renderEducation(data.education);
     renderCertifications(data.certifications);
+    initRevealOnScroll();
   } catch (err) {
     console.warn("Resume sections unavailable (did you start the backend?)", err);
     const resumeRoot = document.getElementById("resume");
@@ -375,6 +447,7 @@ async function sendMessage(message) {
     const data = await res.json();
     const body = thinkingEl.querySelector(".msg-body");
     const meta = thinkingEl.querySelector(".msg-meta");
+    const shouldStickToBottom = isChatNearBottom();
     if (body) {
       // Parse markdown for bot responses
       body.innerHTML = parseMarkdown(data.reply ?? "No response received.");
@@ -382,11 +455,14 @@ async function sendMessage(message) {
     if (meta) {
       meta.textContent = formatTime(new Date());
     }
+    if (shouldStickToBottom) scrollChatToBottom();
   } catch (err) {
     const body = thinkingEl.querySelector(".msg-body");
+    const shouldStickToBottom = isChatNearBottom();
     if (body) {
       body.textContent = "Sorry, something went wrong. Please try again.";
     }
+    if (shouldStickToBottom) scrollChatToBottom();
     console.error(err);
   } finally {
     setSending(false);
