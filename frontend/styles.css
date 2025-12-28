@@ -1,41 +1,59 @@
 :root {
-  /* Minimal outlined theme (matches screenshot: airy, thin borders, little/no color) */
-  --bg: #ffffff;
-  --card: #ffffff;
-  --text: #0a0a0a;
-  --muted: #52525b; /* zinc-600 */
-  --border: #d4d4d8; /* zinc-300 */
-  --border-strong: #a1a1aa; /* zinc-400 */
-  --ring: rgba(10, 10, 10, 0.14);
-  --shadow-sm: none;
-  --shadow-md: none;
+  /* Apple-esque: warm paper + forest graphite + sage accent (light mode) */
+  --bg: hsl(80 15% 98%);
+  --card: hsl(80 18% 99%);
+  --text: hsl(150 10% 18%);
+  --muted: hsl(150 8% 38%);
+  --accent: hsl(145 25% 42%);
+
+  /* Hairline borders + soft rings */
+  --border: hsla(150, 10%, 18%, 0.10);
+  --border-strong: hsla(150, 10%, 18%, 0.16);
+  --ring: hsla(145, 25%, 42%, 0.22);
+
+  /* Subtle surfaces */
+  --surface-hover: hsla(150, 10%, 18%, 0.035);
+  --shadow-sm: 0 1px 2px hsla(150, 10%, 18%, 0.06);
+  --shadow-md: 0 16px 48px hsla(150, 10%, 18%, 0.10);
+  --shadow-popover: 0 18px 55px hsla(150, 10%, 18%, 0.14);
 }
 
 /* Explicit theme control (set by JS). */
 :root[data-theme="dark"] {
-    --bg: #0b0b0f;
-    --card: #0f1016;
-    --text: #fafafa;
-    --muted: #a1a1aa;
-    --border: #27272a;
-    --border-strong: #3f3f46;
-    --ring: rgba(250, 250, 250, 0.18);
-    --shadow-sm: none;
-    --shadow-md: none;
+  /* Dark mode: deep green-black + soft sage highlights */
+  --bg: hsl(150 10% 8%);
+  --card: hsl(150 10% 10%);
+  --text: hsl(80 15% 96%);
+  --muted: hsl(80 8% 72%);
+  --accent: hsl(145 25% 55%);
+
+  --border: hsla(80, 15%, 96%, 0.12);
+  --border-strong: hsla(80, 15%, 96%, 0.18);
+  --ring: hsla(145, 25%, 55%, 0.24);
+
+  --surface-hover: hsla(80, 15%, 96%, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 18px 60px rgba(0, 0, 0, 0.55);
+  --shadow-popover: 0 22px 70px rgba(0, 0, 0, 0.65);
 }
 
 /* If JS is disabled, fall back to OS preference. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: #0b0b0f;
-    --card: #0f1016;
-    --text: #fafafa;
-    --muted: #a1a1aa;
-    --border: #27272a;
-    --border-strong: #3f3f46;
-    --ring: rgba(250, 250, 250, 0.18);
-    --shadow-sm: none;
-    --shadow-md: none;
+    --bg: hsl(150 10% 8%);
+    --card: hsl(150 10% 10%);
+    --text: hsl(80 15% 96%);
+    --muted: hsl(80 8% 72%);
+    --accent: hsl(145 25% 55%);
+
+    --border: hsla(80, 15%, 96%, 0.12);
+    --border-strong: hsla(80, 15%, 96%, 0.18);
+    --ring: hsla(145, 25%, 55%, 0.24);
+
+    --surface-hover: hsla(80, 15%, 96%, 0.06);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 18px 60px rgba(0, 0, 0, 0.55);
+    --shadow-popover: 0 22px 70px rgba(0, 0, 0, 0.65);
   }
 }
 
@@ -61,6 +79,8 @@ a {
 
 a:hover {
   text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  text-underline-offset: 3px;
 }
 
 .site-header {
@@ -73,7 +93,7 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 50;
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
   backdrop-filter: blur(8px);
 }
 
@@ -124,12 +144,12 @@ a:hover {
   border: 1px solid var(--border-strong);
   border-radius: 18px;
   background: var(--card);
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-popover);
   z-index: 100;
 }
 
 :root[data-theme="dark"] .contact-menu {
-  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-popover);
 }
 
 .contact-menu-item {
@@ -145,11 +165,11 @@ a:hover {
 
 .contact-menu-item:hover {
   text-decoration: none;
-  background: rgba(10, 10, 10, 0.04);
+  background: var(--surface-hover);
 }
 
 :root[data-theme="dark"] .contact-menu-item:hover {
-  background: rgba(250, 250, 250, 0.06);
+  background: var(--surface-hover);
 }
 
 .contact-icon {
@@ -207,11 +227,11 @@ a:hover {
 }
 
 .theme-toggle:hover {
-  background: rgba(10, 10, 10, 0.04);
+  background: var(--surface-hover);
 }
 
 :root[data-theme="dark"] .theme-toggle:hover {
-  background: rgba(250, 250, 250, 0.06);
+  background: var(--surface-hover);
 }
 
 .theme-toggle:focus-visible {
@@ -285,7 +305,8 @@ a:hover {
 
 .hero-title {
   /* Slightly smaller than the name (like the reference) */
-  font-size: clamp(27px, 2.8vw, 42px);
+  /* Smaller, but never smaller than the tagline text (18px) */
+  font-size: clamp(18px, 2.1vw, 30px);
   line-height: 1.2;
   font-weight: 300;
   margin-bottom: 6px;
@@ -304,8 +325,8 @@ a:hover {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 14px;
-  font-size: 16px;
+  gap: 22px;
+  font-size: 14px;
   color: var(--text);
   opacity: 0.9;
 }
@@ -350,6 +371,10 @@ a:hover {
 
 .hero-contact-item {
   color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: 0.02em;
 }
 
 .hero-contact a:hover {
@@ -357,11 +382,31 @@ a:hover {
   text-decoration: none;
 }
 
+.hero-contact-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+}
+
+.hero-contact-icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.hero-contact-text {
+  line-height: 1.1;
+}
+
 .chat-card {
   border: 1px solid var(--border-strong);
   border-radius: 22px;
   background: var(--card);
   overflow: hidden; /* keep dividers flush */
+  box-shadow: var(--shadow-md);
 }
 
 .chat-header {
@@ -409,7 +454,7 @@ a:hover {
 }
 
 .chip:hover {
-  background: rgba(10, 10, 10, 0.04);
+  background: var(--surface-hover);
 }
 
 .chat-log {
@@ -601,7 +646,7 @@ a:hover {
 }
 
 .send-button:hover {
-  background: rgba(10, 10, 10, 0.04);
+  background: var(--surface-hover);
   transform: translateY(-1px);
 }
 
@@ -657,6 +702,28 @@ a:hover {
   border-radius: 14px;
   background: var(--card);
   padding: 18px 18px 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Subtle reveal-on-scroll (Lovable-like). No layout changes. */
+.reveal {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 420ms ease, transform 420ms ease;
+  will-change: opacity, transform;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 .resume-card-title-row {
@@ -698,6 +765,30 @@ a:hover {
   padding-left: 18px;
   color: var(--text);
   opacity: 0.92;
+}
+
+.resume-bullets.is-collapsed .is-extra {
+  display: none;
+}
+
+.resume-card-toggle {
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 88%, var(--text));
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.resume-card-toggle:hover {
+  opacity: 0.75;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  text-underline-offset: 3px;
 }
 
 .resume-bullets li {
