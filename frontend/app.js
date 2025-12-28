@@ -15,6 +15,7 @@ const heroTagline = document.getElementById("hero-tagline");
 const heroEmail = document.getElementById("hero-email");
 const heroLocation = document.getElementById("hero-location");
 const heroLinkedIn = document.getElementById("hero-linkedin");
+const heroGithub = document.getElementById("hero-github");
 const themeToggle = document.getElementById("theme-toggle");
 const contactToggle = document.getElementById("contact-toggle");
 const contactMenu = document.getElementById("contact-menu");
@@ -290,7 +291,8 @@ function renderCertifications(items) {
   certificationsGrid.innerHTML = "";
   safeArray(items).forEach((c) => {
     const name = c.name || "";
-    const showDate = /PCAP/i.test(name);
+    const showDate =
+      /PCAP/i.test(name) || /Certified Associate Python Programmer/i.test(name);
     const rowChildren = [el("div", { class: "resume-card-title", text: name })];
     if (showDate && c.date) {
       rowChildren.push(el("div", { class: "resume-card-meta", text: c.date }));
@@ -352,6 +354,7 @@ async function loadAndRenderResume() {
     const title = (personal.title || "").trim();
     const email = (personal.email || "").trim();
     const linkedin = (personal.linkedin || "").trim();
+    const github = (personal.github || "").trim();
 
     if (brandTitle && displayName) brandTitle.textContent = displayName.toUpperCase();
     if (heroName && displayName) heroName.textContent = displayName;
@@ -367,6 +370,7 @@ async function loadAndRenderResume() {
       if (t) t.textContent = personal.location;
     }
     if (heroLinkedIn && linkedin) heroLinkedIn.href = linkedin;
+    if (heroGithub && github) heroGithub.href = github;
 
     // Header contact dropdown
     if (contactLinkedIn && linkedin) contactLinkedIn.href = linkedin;

@@ -7,7 +7,7 @@
     "phone": "425-283-9910",
     "email": "dakotaradigan@gmail.com",
     "linkedin": "https://linkedin.com/in/dakota-radigan",
-    "github": "",
+    "github": "https://github.com/dakotaradigan",
     "portfolio": "",
     "summary": "Senior Product Manager with 5+ years shipping data-driven investment solutions and managing technical partnerships. Expert in validating client and operational pain points and translating them into functional specifications that drive measurable business impact. Combining deep investment operations knowledge with technical fluency (SQL, Python, AI) and a bias for action."
   },
@@ -238,7 +238,7 @@
       "credential_url": ""
     },
     {
-      "name": "PCAP – Certified Associate in Python Programming",
+      "name": "Certified Associate Python Programmer",
       "issuer": "Python Institute",
       "date": "2025",
       "status": "In Progress",
