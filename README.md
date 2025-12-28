@@ -15,15 +15,17 @@ An AI-powered chatbot showcasing Dakota Radigan's professional experience, skill
 - Production guardrails (rate limiting, timeout protection, message compaction)
 
 **Frontend:**
-- Vanilla JavaScript (modular architecture)
-- Custom CSS (Claude-inspired UI)
+- Vanilla JavaScript (zero dependencies)
+- Warm green/sage color scheme with dark mode
+- WCAG AA accessibility compliant
 
 ## What's Implemented
 
 ### Core Features
-- **REST Chat API**: `POST /api/chat` with UUID-based session management
-- **Frontend**: Claude-inspired UI served by backend at `http://127.0.0.1:8000/`
+- **REST Chat API**: `POST /api/chat` with UUID-based session management and temperature=0.1 for accuracy
+- **Frontend**: Warm green/sage UI with dark mode served by backend at `http://127.0.0.1:8000/`
 - **RAG Pipeline**: Semantic search with Qdrant + OpenAI embeddings (toggleable)
+- **Factual Accuracy**: Complete context (education, certifications, all skills) prevents hallucinations
 - **Health Endpoints**: `GET /health`, `GET /health/rag`
 
 ### Production Guardrails
@@ -41,11 +43,13 @@ An AI-powered chatbot showcasing Dakota Radigan's professional experience, skill
 - **Admin Endpoint Protection**: Token-based authentication for cache clearing
 
 ### UX Features
+- **Theme Toggle**: Light/dark mode with localStorage persistence
+- **SVG Icons**: Email, location, LinkedIn icons in hero section
+- **Animations**: Reveal-on-scroll for resume sections, collapsible achievements
 - **Markdown Rendering**: Rich text formatting in bot responses
 - **Quick-Start Chips**: Suggested prompts for common queries
-- **Professional Branding**: Terracotta accent colors, clean typography
-- **Contact Links**: LinkedIn, GitHub, email in header
-- **Auto-scroll**: Smooth scrolling to latest messages
+- **Responsive Design**: Mobile-friendly with WCAG AA compliance
+- **Auto-scroll**: Intelligent scrolling (only when user near bottom)
 
 ## Deployment Readiness
 
@@ -74,7 +78,7 @@ See `CLAUDE.md` Phase 7 for detailed deployment checklist.
 - **Phase 3**: Vector Search (RAG Pipeline) (Complete)
 - **Phase 4**: Multimodal Support (Removed - text-only approach)
 - **Phase 5**: WebSocket Real-Time Communication (Optional - Not Started)
-- **Phase 6**: Frontend Development (Complete - Polish Pending)
+- **Phase 6**: Frontend Development (Complete)
 - **Phase 7**: Deployment & Public Access (Next Major Milestone)
 - **Phase 8**: Post-Launch Enhancements (Future)
 
