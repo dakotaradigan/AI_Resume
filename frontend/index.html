@@ -21,7 +21,59 @@
       <a href="#experience">Experience</a>
       <a href="#skills">Skills</a>
       <a href="#education">Education</a>
-      <a href="#contact">Contact</a>
+      <div class="nav-contact">
+        <button
+          id="contact-toggle"
+          class="contact-toggle"
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-controls="contact-menu"
+        >
+          Contact
+        </button>
+        <div id="contact-menu" class="contact-menu" role="menu" aria-label="Contact options" hidden>
+          <a id="contact-linkedin" class="contact-menu-item" role="menuitem" href="#" target="_blank" rel="noopener">
+            <span class="contact-icon" aria-hidden="true">
+              <!-- LinkedIn icon -->
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M6.5 9.2V18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M6.5 6.4h.01" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+                <path d="M10.2 18v-5.2c0-1.7 1-2.7 2.4-2.7 1.4 0 2.2 1 2.2 2.7V18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10.2 9.2V18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="contact-label">LinkedIn</span>
+          </a>
+
+          <a id="contact-email" class="contact-menu-item" role="menuitem" href="mailto:dakotaradigan@gmail.com">
+            <span class="contact-icon" aria-hidden="true">
+              <!-- Mail icon -->
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M4.5 7.5h15v10h-15v-10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="m5.5 8.5 6.5 5 6.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="contact-label">Email</span>
+          </a>
+        </div>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+        <!-- Sun icon -->
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
+            stroke="currentColor"
+            stroke-width="1.8"
+          />
+          <path
+            d="M12 2v2.5M12 19.5V22M4.22 4.22l1.77 1.77M18.01 18.01l1.77 1.77M2 12h2.5M19.5 12H22M4.22 19.78l1.77-1.77M18.01 5.99l1.77-1.77"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
     </nav>
   </header>
 
@@ -80,6 +132,18 @@
       </section>
     </section>
   </main>
+
+  <div id="scroll-hint" class="scroll-hint" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M6 9l6 6 6-6"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </div>
 
   <script src="./app.js"></script>
 </body>

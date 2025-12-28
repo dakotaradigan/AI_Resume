@@ -15,6 +15,12 @@ const heroTagline = document.getElementById("hero-tagline");
 const heroEmail = document.getElementById("hero-email");
 const heroLocation = document.getElementById("hero-location");
 const heroLinkedIn = document.getElementById("hero-linkedin");
+const themeToggle = document.getElementById("theme-toggle");
+const contactToggle = document.getElementById("contact-toggle");
+const contactMenu = document.getElementById("contact-menu");
+const contactLinkedIn = document.getElementById("contact-linkedin");
+const contactEmail = document.getElementById("contact-email");
+const scrollHint = document.getElementById("scroll-hint");
 
 const sessionId =
   typeof crypto !== "undefined" && crypto.randomUUID
@@ -205,6 +211,8 @@ async function loadAndRenderResume() {
     const creds = (personal.credentials || "").trim();
     const displayName = [name, creds].filter(Boolean).join(", ");
     const title = (personal.title || "").trim();
+    const email = (personal.email || "").trim();
+    const linkedin = (personal.linkedin || "").trim();
 
     if (brandTitle && displayName) brandTitle.textContent = displayName.toUpperCase();
     if (heroName && displayName) heroName.textContent = displayName;
@@ -216,10 +224,14 @@ async function loadAndRenderResume() {
           ? `${personal.summary.slice(0, 110).trim()}…`
           : personal.summary;
     }
-    if (heroEmail && personal.email) heroEmail.href = `mailto:${personal.email}`;
-    if (heroEmail && personal.email) heroEmail.textContent = personal.email;
+    if (heroEmail && email) heroEmail.href = `mailto:${email}`;
+    if (heroEmail && email) heroEmail.textContent = email;
     if (heroLocation && personal.location) heroLocation.textContent = personal.location;
-    if (heroLinkedIn && personal.linkedin) heroLinkedIn.href = personal.linkedin;
+    if (heroLinkedIn && linkedin) heroLinkedIn.href = linkedin;
+
+    // Header contact dropdown
+    if (contactLinkedIn && linkedin) contactLinkedIn.href = linkedin;
+    if (contactEmail && email) contactEmail.href = `mailto:${email}`;
 
     renderExperience(data.experience);
     renderSkills(data.skills);
@@ -237,6 +249,111 @@ function setSending(isSending) {
   if (sendButton) {
     sendButton.disabled = isSending;
   }
+}
+
+function getSystemTheme() {
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function getStoredTheme() {
+  try {
+    const v = localStorage.getItem("theme");
+    return v === "dark" || v === "light" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredTheme(theme) {
+  try {
+    localStorage.setItem("theme", theme);
+  } catch {
+    // ignore
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  if (themeToggle) {
+    themeToggle.setAttribute(
+      "aria-label",
+      theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+    );
+    themeToggle.setAttribute(
+      "title",
+      theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+    );
+  }
+}
+
+function initTheme() {
+  const stored = getStoredTheme();
+  applyTheme(stored || getSystemTheme());
+
+  if (themeToggle) {
+    themeToggle.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || getSystemTheme();
+      const next = current === "dark" ? "light" : "dark";
+      setStoredTheme(next);
+      applyTheme(next);
+    });
+  }
+}
+
+function setContactMenuOpen(isOpen) {
+  if (!contactToggle || !contactMenu) return;
+  contactToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  contactMenu.hidden = !isOpen;
+}
+
+function initContactMenu() {
+  if (!contactToggle || !contactMenu) return;
+  setContactMenuOpen(false);
+
+  contactToggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    const isOpen = contactToggle.getAttribute("aria-expanded") === "true";
+    setContactMenuOpen(!isOpen);
+  });
+
+  document.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof Node)) return;
+    if (contactMenu.contains(target) || contactToggle.contains(target)) return;
+    setContactMenuOpen(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setContactMenuOpen(false);
+  });
+}
+
+function initScrollHint() {
+  if (!scrollHint) return;
+
+  const hide = () => scrollHint.classList.add("is-hidden");
+
+  // If there isn't meaningful scroll room, don't show it.
+  const hasScrollRoom = () =>
+    document.documentElement.scrollHeight - window.innerHeight > 80;
+
+  const refresh = () => {
+    if (!hasScrollRoom()) hide();
+  };
+
+  refresh();
+
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (window.scrollY > 20) hide();
+    },
+    { passive: true }
+  );
+
+  window.addEventListener("resize", refresh, { passive: true });
 }
 
 async function sendMessage(message) {
@@ -286,6 +403,15 @@ chatForm.addEventListener("submit", (e) => {
 
 // Seed a friendly greeting.
 addMessage("Hi! Ask about Dakota's experience, projects, or skills.", "bot");
+
+// Enable theme toggle (sun icon in header).
+initTheme();
+
+// Enable contact dropdown menu.
+initContactMenu();
+
+// Subtle hint that more content exists below (auto-hides on scroll).
+initScrollHint();
 
 // Render resume details below chat (Experience / Skills / Education).
 loadAndRenderResume();

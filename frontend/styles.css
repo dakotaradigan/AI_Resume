@@ -11,8 +11,22 @@
   --shadow-md: none;
 }
 
+/* Explicit theme control (set by JS). */
+:root[data-theme="dark"] {
+    --bg: #0b0b0f;
+    --card: #0f1016;
+    --text: #fafafa;
+    --muted: #a1a1aa;
+    --border: #27272a;
+    --border-strong: #3f3f46;
+    --ring: rgba(250, 250, 250, 0.18);
+    --shadow-sm: none;
+    --shadow-md: none;
+}
+
+/* If JS is disabled, fall back to OS preference. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #0b0b0f;
     --card: #0f1016;
     --text: #fafafa;
@@ -76,6 +90,88 @@ a:hover {
   align-items: center;
 }
 
+.nav-contact {
+  position: relative;
+}
+
+.contact-toggle {
+  padding: 6px 2px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.contact-toggle:hover {
+  opacity: 0.7;
+}
+
+.contact-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.contact-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  min-width: 220px;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+}
+
+:root[data-theme="dark"] .contact-menu {
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.55);
+}
+
+.contact-menu-item {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 10px;
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.contact-menu-item:hover {
+  text-decoration: none;
+  background: rgba(10, 10, 10, 0.04);
+}
+
+:root[data-theme="dark"] .contact-menu-item:hover {
+  background: rgba(250, 250, 250, 0.06);
+}
+
+.contact-icon {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.contact-label {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
 .nav-links a {
   padding: 6px 2px;
   border-radius: 8px;
@@ -96,12 +192,45 @@ a:hover {
   box-shadow: 0 0 0 3px var(--ring);
 }
 
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: rgba(10, 10, 10, 0.04);
+}
+
+:root[data-theme="dark"] .theme-toggle:hover {
+  background: rgba(250, 250, 250, 0.06);
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 /* Stack intro above chat for a slim prompt bar */
 .layout {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 34px 16px 44px;
+  padding: 20px 16px 44px;
   max-width: 980px;
   width: 100%;
   margin: 0 auto;
@@ -121,7 +250,7 @@ a:hover {
   box-shadow: none;
 }
 
-.intro-card h1 {
+.intro-card:not(.hero) h1 {
   margin-top: 0;
   margin-bottom: 8px;
   font-size: 30px;
@@ -130,7 +259,7 @@ a:hover {
   line-height: 1.2;
 }
 
-.intro-card p {
+.intro-card:not(.hero) p {
   color: var(--muted);
   margin-top: 0;
   margin-bottom: 16px;
@@ -139,28 +268,31 @@ a:hover {
 }
 
 .hero {
-  padding-top: 12px;
-  padding-bottom: 14px;
+  padding-top: 6px;
+  padding-bottom: 8px;
   text-align: center;
 }
 
 .hero-name {
-  margin: 28px 0 10px;
-  font-size: clamp(56px, 7vw, 96px);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  font-weight: 300; /* the “light + sharp” look */
+  margin: 14px 0 6px;
+  /* Match the top-left “tracked” look, but keep normal casing */
+  font-size: clamp(32px, 3.3vw, 49px);
+  line-height: 1.05;
+  letter-spacing: 0.03em;
+  font-weight: 400;
+  text-transform: none;
 }
 
 .hero-title {
-  font-size: 28px;
+  /* Slightly smaller than the name (like the reference) */
+  font-size: clamp(27px, 2.8vw, 42px);
   line-height: 1.2;
-  font-weight: 400;
-  margin-bottom: 10px;
+  font-weight: 300;
+  margin-bottom: 6px;
 }
 
 .hero-tagline {
-  margin: 0 auto 16px;
+  margin: 0 auto 12px;
   max-width: 740px;
   font-size: 18px;
   line-height: 1.45;
@@ -172,10 +304,48 @@ a:hover {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 18px;
+  gap: 14px;
   font-size: 16px;
   color: var(--text);
   opacity: 0.9;
+}
+
+/* Minimal “more below” hint */
+.scroll-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  color: var(--text);
+  opacity: 0.32;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 40;
+}
+
+.scroll-hint.is-hidden {
+  opacity: 0;
+}
+
+.scroll-hint svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scroll-hint {
+    animation: scrollHintFloat 1.8s ease-in-out infinite;
+  }
+  @keyframes scrollHintFloat {
+    0%,
+    100% {
+      transform: translateX(-50%) translateY(0);
+    }
+    50% {
+      transform: translateX(-50%) translateY(4px);
+    }
+  }
 }
 
 .hero-contact-item {
