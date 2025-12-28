@@ -1,8 +1,20 @@
 const chatLog = document.getElementById("chat-log");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
-const chips = document.querySelectorAll(".chip");
 const sendButton = chatForm.querySelector("button");
+
+const experienceGrid = document.getElementById("experience-grid");
+const skillsGrid = document.getElementById("skills-grid");
+const educationGrid = document.getElementById("education-grid");
+const certificationsGrid = document.getElementById("certifications-grid");
+
+const brandTitle = document.getElementById("brand-title");
+const heroName = document.getElementById("hero-name");
+const heroTitle = document.getElementById("hero-title");
+const heroTagline = document.getElementById("hero-tagline");
+const heroEmail = document.getElementById("hero-email");
+const heroLocation = document.getElementById("hero-location");
+const heroLinkedIn = document.getElementById("hero-linkedin");
 
 const sessionId =
   typeof crypto !== "undefined" && crypto.randomUUID
@@ -95,6 +107,131 @@ function addMessage(text, role, timestamp = new Date()) {
   return div;
 }
 
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  Object.entries(attrs).forEach(([k, v]) => {
+    if (v === null || v === undefined) return;
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else if (k.startsWith("data-")) node.setAttribute(k, v);
+    else node.setAttribute(k, v);
+  });
+  (Array.isArray(children) ? children : [children]).forEach((child) => {
+    if (child === null || child === undefined) return;
+    node.append(child);
+  });
+  return node;
+}
+
+function safeArray(v) {
+  return Array.isArray(v) ? v : [];
+}
+
+function renderExperience(items) {
+  if (!experienceGrid) return;
+  experienceGrid.innerHTML = "";
+
+  safeArray(items).forEach((exp) => {
+    const titleRow = el("div", { class: "resume-card-title-row" }, [
+      el("div", { class: "resume-card-kicker", text: exp.duration || "" }),
+      el("div", { class: "resume-card-meta", text: exp.location || "" }),
+    ]);
+
+    const role = el("div", { class: "resume-card-title", text: exp.role || "" });
+    const company = el("div", { class: "resume-card-subtitle", text: exp.company || "" });
+
+    const bullets = safeArray(exp.achievements)
+      .slice(0, 6)
+      .map((a) => el("li", { text: a }));
+    const list = bullets.length ? el("ul", { class: "resume-bullets" }, bullets) : null;
+
+    const card = el("article", { class: "resume-card" }, [titleRow, role, company, list]);
+    experienceGrid.append(card);
+  });
+}
+
+function renderSkills(skills) {
+  if (!skillsGrid) return;
+  skillsGrid.innerHTML = "";
+
+  const entries = Object.entries(skills || {});
+  entries.forEach(([key, items]) => {
+    const label = key.replace(/_/g, " ").toUpperCase();
+    const chips = safeArray(items).map((s) => el("button", { class: "chip chip--static", type: "button", text: s }));
+    const block = el("section", { class: "skills-block" }, [
+      el("div", { class: "skills-kicker", text: label }),
+      el("div", { class: "skills-chips" }, chips),
+    ]);
+    skillsGrid.append(block);
+  });
+}
+
+function renderEducation(items) {
+  if (!educationGrid) return;
+  educationGrid.innerHTML = "";
+  safeArray(items).forEach((ed) => {
+    const row = el("div", { class: "resume-card-title-row" }, [
+      el("div", { class: "resume-card-title", text: ed.school || "" }),
+      el("div", { class: "resume-card-meta", text: ed.graduation || "" }),
+    ]);
+    const subtitle = el("div", { class: "resume-card-subtitle", text: ed.degree || "" });
+    educationGrid.append(el("article", { class: "resume-card" }, [row, subtitle]));
+  });
+}
+
+function renderCertifications(items) {
+  if (!certificationsGrid) return;
+  certificationsGrid.innerHTML = "";
+  safeArray(items).forEach((c) => {
+    const row = el("div", { class: "resume-card-title-row" }, [
+      el("div", { class: "resume-card-title", text: c.name || "" }),
+      el("div", { class: "resume-card-meta", text: c.date || "" }),
+    ]);
+    const subtitle = el("div", { class: "resume-card-subtitle", text: c.issuer || "" });
+    certificationsGrid.append(el("article", { class: "resume-card" }, [row, subtitle]));
+  });
+}
+
+async function loadAndRenderResume() {
+  // The backend serves the frontend; this endpoint is same-origin.
+  // If someone opens index.html directly without the backend, fail gracefully.
+  try {
+    const res = await fetch("/api/resume");
+    if (!res.ok) throw new Error(`Resume fetch failed: ${res.status}`);
+    const data = await res.json();
+
+    const personal = data.personal || {};
+    const name = (personal.name || "").trim();
+    const creds = (personal.credentials || "").trim();
+    const displayName = [name, creds].filter(Boolean).join(", ");
+    const title = (personal.title || "").trim();
+
+    if (brandTitle && displayName) brandTitle.textContent = displayName.toUpperCase();
+    if (heroName && displayName) heroName.textContent = displayName;
+    if (heroTitle && title) heroTitle.textContent = title;
+    if (heroTagline && personal.summary) {
+      // Keep this short + “hero-like”
+      heroTagline.textContent =
+        personal.summary.length > 110
+          ? `${personal.summary.slice(0, 110).trim()}…`
+          : personal.summary;
+    }
+    if (heroEmail && personal.email) heroEmail.href = `mailto:${personal.email}`;
+    if (heroEmail && personal.email) heroEmail.textContent = personal.email;
+    if (heroLocation && personal.location) heroLocation.textContent = personal.location;
+    if (heroLinkedIn && personal.linkedin) heroLinkedIn.href = personal.linkedin;
+
+    renderExperience(data.experience);
+    renderSkills(data.skills);
+    renderEducation(data.education);
+    renderCertifications(data.certifications);
+  } catch (err) {
+    console.warn("Resume sections unavailable (did you start the backend?)", err);
+    const resumeRoot = document.getElementById("resume");
+    if (resumeRoot) resumeRoot.style.display = "none";
+  }
+}
+
 function setSending(isSending) {
   chatInput.disabled = isSending;
   if (sendButton) {
@@ -147,13 +284,9 @@ chatForm.addEventListener("submit", (e) => {
   sendMessage(message);
 });
 
-chips.forEach((chip) => {
-  chip.addEventListener("click", () => {
-    chatInput.value = chip.dataset.prompt;
-    chatInput.focus();
-  });
-});
-
 // Seed a friendly greeting.
 addMessage("Hi! Ask about Dakota's experience, projects, or skills.", "bot");
+
+// Render resume details below chat (Experience / Skills / Education).
+loadAndRenderResume();
 

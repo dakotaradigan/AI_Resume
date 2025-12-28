@@ -3,43 +3,81 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#0b1220" />
   <title>Dakota Radigan | Resume Assistant</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header class="site-header">
     <div class="brand">
-      <div class="brand-title">Dakota Radigan</div>
-      <div class="brand-subtitle">Resume Assistant</div>
+      <div id="brand-title" class="brand-title">DAKOTA RADIGAN, MBA</div>
     </div>
     <nav class="nav-links">
-      <a href="https://www.linkedin.com/in/dakota-radigan/" target="_blank" rel="noopener">LinkedIn</a>
-      <a href="https://github.com/dakotaradigan" target="_blank" rel="noopener">GitHub</a>
-      <a href="mailto:dakotaradigan@gmail.com">Email</a>
+      <a href="#home">Home</a>
+      <a href="#experience">Experience</a>
+      <a href="#skills">Skills</a>
+      <a href="#education">Education</a>
+      <a href="#contact">Contact</a>
     </nav>
   </header>
 
   <main class="layout">
-    <section class="intro-card">
-      <h1>Ask about Dakota's experience</h1>
-      <p>Product leader with GenAI, RAG, and data-driven strategy experience. Use the chat to learn about projects, skills, and impact.</p>
-      <div class="chips">
-        <button class="chip" data-prompt="Tell me about Dakota's AI projects">AI projects</button>
-        <button class="chip" data-prompt="What is Dakota's experience with Python and SQL?">Python & SQL</button>
-        <button class="chip" data-prompt="What outcomes has Dakota delivered?">Business impact</button>
-        <button class="chip" data-prompt="How did Dakota build the Ben AI chatbot?">Ben AI chatbot</button>
+    <section id="home" class="intro-card hero">
+      <h1 id="hero-name" class="hero-name">Dakota Radigan, MBA</h1>
+      <div id="hero-title" class="hero-title">Senior Product Manager</div>
+      <p id="hero-tagline" class="hero-tagline">
+        Shipping data-driven investment solutions with AI &amp; technical fluency
+      </p>
+
+      <div id="contact" class="hero-contact">
+        <a id="hero-email" class="hero-contact-item" href="mailto:dakotaradigan@gmail.com">dakotaradigan@gmail.com</a>
+        <span id="hero-location" class="hero-contact-item">Seattle, WA</span>
+        <a id="hero-linkedin" class="hero-contact-item" href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">LinkedIn</a>
       </div>
     </section>
 
     <section class="chat-card">
+      <div class="chat-header">
+        <span class="chat-header-icon" aria-hidden="true">✦</span>
+        <span class="chat-header-title">Ask me anything about my background</span>
+      </div>
       <div id="chat-log" class="chat-log"></div>
       <form id="chat-form" class="chat-form">
         <input id="chat-input" type="text" placeholder="Ask about skills, projects, or impact..." autocomplete="off" required />
-        <button type="submit">Send</button>
+        <button type="submit" class="send-button" aria-label="Send message">
+          <span class="send-icon" aria-hidden="true">↗</span>
+        </button>
       </form>
+    </section>
+
+    <section id="resume" class="resume">
+      <section id="experience" class="resume-section">
+        <h2>Experience</h2>
+        <div id="experience-grid" class="resume-grid resume-grid--one"></div>
+      </section>
+
+      <section id="skills" class="resume-section">
+        <h2>Skills &amp; Technologies</h2>
+        <div id="skills-grid" class="skills-grid"></div>
+      </section>
+
+      <section id="education" class="resume-section">
+        <h2>Education &amp; Certifications</h2>
+        <div class="resume-grid resume-grid--two">
+          <div>
+            <div class="section-kicker">Education</div>
+            <div id="education-grid" class="resume-grid resume-grid--one"></div>
+          </div>
+          <div>
+            <div class="section-kicker">Certifications</div>
+            <div id="certifications-grid" class="resume-grid resume-grid--one"></div>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 

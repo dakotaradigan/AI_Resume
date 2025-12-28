@@ -226,6 +226,29 @@ def load_resume_context() -> str:
     return _format_resume_context(data)
 
 
+@lru_cache(maxsize=1)
+def load_resume_json_public() -> dict:
+    """
+    Public resume payload for the frontend UI.
+    Intentionally excludes phone number.
+    """
+    settings = get_settings()
+    resume_path = settings.data_dir / "resume.json"
+    try:
+        data = json.loads(resume_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"Resume data not found: {resume_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Resume data is not valid JSON: {resume_path}") from exc
+    except OSError as exc:
+        raise RuntimeError(f"Unable to read resume data: {resume_path}") from exc
+
+    personal = dict(data.get("personal", {}) or {})
+    personal.pop("phone", None)
+    data["personal"] = personal
+    return data
+
+
 def retrieve_rag_context(
     rag_pipeline: RAGPipeline | None,
     query: str,
@@ -438,11 +461,23 @@ def build_app() -> FastAPI:
 
         load_system_prompt.cache_clear()
         load_resume_context.cache_clear()
+        load_resume_json_public.cache_clear()
         logger.info("Cache cleared: system_prompt and resume_context")
         return {
             "status": "success",
             "message": "Cache cleared. Fresh data will be loaded on next request.",
         }
+
+    @app.get("/api/resume")
+    async def get_resume() -> dict:
+        """
+        Public resume data used to render the sections below the chatbot UI.
+        """
+        try:
+            return load_resume_json_public()
+        except RuntimeError as exc:
+            logger.exception("Failed to load resume JSON for frontend")
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/chat")
     async def chat(payload: ChatRequest, request: Request) -> ChatResponse:
