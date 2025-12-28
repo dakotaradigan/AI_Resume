@@ -194,9 +194,33 @@ def _format_resume_context(data: dict) -> str:
     skills = data.get("skills", {})
     if skills:
         lines.append("Skills:")
-        technical = skills.get("technical", []) or []
-        if technical:
-            lines.append(f"- Technical: {', '.join(technical)}")
+        for category, items in skills.items():
+            if items:
+                category_name = category.replace("_", " ").title()
+                lines.append(f"- {category_name}: {', '.join(items)}")
+
+    education = data.get("education", [])
+    if education:
+        lines.append("Education:")
+        for edu in education:
+            degree = edu.get("degree", "")
+            school = edu.get("school", "")
+            graduation = edu.get("graduation", "")
+            edu_parts = [p for p in [degree, school, graduation] if p]
+            if edu_parts:
+                lines.append(f"- {', '.join(edu_parts)}")
+
+    certifications = data.get("certifications", [])
+    if certifications:
+        lines.append("Certifications:")
+        # Include top 5 most recent/relevant certifications
+        for cert in certifications[:5]:
+            name = cert.get("name", "")
+            issuer = cert.get("issuer", "")
+            date = cert.get("date", "")
+            cert_parts = [p for p in [name, issuer, date] if p]
+            if cert_parts:
+                lines.append(f"- {' - '.join(cert_parts)}")
 
     return "\n".join(lines)
 
@@ -564,6 +588,7 @@ def build_app() -> FastAPI:
             response = await client.messages.create(
                 model=settings.anthropic_model,
                 max_tokens=settings.anthropic_max_tokens,
+                temperature=0.1,  # Low temperature for factual accuracy
                 system=system_message,
                 messages=messages,
             )
