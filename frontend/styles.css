@@ -753,6 +753,15 @@ a:hover {
   margin-top: 2px;
 }
 
+.resume-card-status {
+  margin-top: 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--muted) 88%, var(--text));
+  opacity: 0.9;
+}
+
 .resume-card-meta {
   font-size: 14px;
   color: var(--text);

@@ -22,6 +22,10 @@ const contactLinkedIn = document.getElementById("contact-linkedin");
 const contactEmail = document.getElementById("contact-email");
 const scrollHint = document.getElementById("scroll-hint");
 
+// Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
+const HERO_TAGLINE =
+  "Senior Product Manager with 5+ years shipping data-driven investment solutions";
+
 const sessionId =
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
@@ -36,6 +40,35 @@ function formatTime(date) {
  * Handles: **bold**, *italic*, ## headings, - lists
  */
 function parseMarkdown(text) {
+  // Normalize markdown list continuations so wrapped/indented lines stay inside
+  // the same bullet item (prevents awkward paragraph breaks).
+  const normalizeListContinuations = (input) => {
+    const lines = String(input || "").split("\n");
+    const out = [];
+
+    const isListStart = (line) =>
+      /^(\s*)(- |\* |\+ |\d+\.\s+)/.test(line);
+
+    for (const rawLine of lines) {
+      const line = rawLine ?? "";
+      const continuationMatch = line.match(/^(\s{2,}|\t+)(\S.*)$/);
+
+      if (
+        continuationMatch &&
+        out.length > 0 &&
+        isListStart(out[out.length - 1])
+      ) {
+        // Append wrapped line to previous list item.
+        out[out.length - 1] = `${out[out.length - 1].trimEnd()} ${continuationMatch[2].trim()}`;
+        continue;
+      }
+
+      out.push(line);
+    }
+
+    return out.join("\n");
+  };
+
   // Escape HTML to prevent XSS
   const escapeHtml = (str) =>
     str
@@ -45,7 +78,7 @@ function parseMarkdown(text) {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
-  let html = escapeHtml(text);
+  let html = escapeHtml(normalizeListContinuations(text));
 
   // Convert **bold** to <strong>
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
@@ -256,12 +289,21 @@ function renderCertifications(items) {
   if (!certificationsGrid) return;
   certificationsGrid.innerHTML = "";
   safeArray(items).forEach((c) => {
-    const row = el("div", { class: "resume-card-title-row" }, [
-      el("div", { class: "resume-card-title", text: c.name || "" }),
-      el("div", { class: "resume-card-meta", text: c.date || "" }),
-    ]);
+    const name = c.name || "";
+    const showDate = /PCAP/i.test(name);
+    const rowChildren = [el("div", { class: "resume-card-title", text: name })];
+    if (showDate && c.date) {
+      rowChildren.push(el("div", { class: "resume-card-meta", text: c.date }));
+    }
+    const row = el("div", { class: "resume-card-title-row" }, rowChildren);
     const subtitle = el("div", { class: "resume-card-subtitle", text: c.issuer || "" });
-    certificationsGrid.append(el("article", { class: "resume-card reveal" }, [row, subtitle]));
+    const status =
+      c.status && String(c.status).trim() && String(c.status).toLowerCase() !== "completed"
+        ? el("div", { class: "resume-card-status", text: c.status })
+        : null;
+    certificationsGrid.append(
+      el("article", { class: "resume-card reveal" }, [row, subtitle, status])
+    );
   });
 }
 
@@ -314,13 +356,7 @@ async function loadAndRenderResume() {
     if (brandTitle && displayName) brandTitle.textContent = displayName.toUpperCase();
     if (heroName && displayName) heroName.textContent = displayName;
     if (heroTitle && title) heroTitle.textContent = title;
-    if (heroTagline && personal.summary) {
-      // Keep this short + “hero-like”
-      heroTagline.textContent =
-        personal.summary.length > 110
-          ? `${personal.summary.slice(0, 110).trim()}…`
-          : personal.summary;
-    }
+    if (heroTagline) heroTagline.textContent = HERO_TAGLINE;
     if (heroEmail && email) heroEmail.href = `mailto:${email}`;
     if (heroEmail && email) {
       const t = heroEmail.querySelector(".hero-contact-text");

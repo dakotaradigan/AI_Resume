@@ -217,44 +217,51 @@
 
   "certifications": [
     {
+      "name": "Finance Certification",
+      "issuer": "Washington State University",
+      "date": "",
+      "status": "Completed",
+      "credential_url": ""
+    },
+    {
       "name": "AI Product Management",
       "issuer": "Product Faculty (OpenAI-led)",
-      "date": "2024",
+      "date": "",
       "status": "Completed",
       "credential_url": ""
     },
     {
       "name": "PCEP – Certified Entry-Level Python Programmer",
       "issuer": "Python Institute",
-      "date": "2024",
+      "date": "",
       "status": "Completed",
       "credential_url": ""
     },
     {
       "name": "PCAP – Certified Associate in Python Programming",
       "issuer": "Python Institute",
-      "date": "2024",
+      "date": "2025",
       "status": "In Progress",
       "credential_url": ""
     },
     {
       "name": "Using Python to Access Web Data & Databases",
       "issuer": "Coursera",
-      "date": "2024",
+      "date": "",
       "status": "Completed",
       "credential_url": ""
     },
     {
       "name": "AI Fluency: Frameworks & Foundations",
       "issuer": "Anthropic",
-      "date": "2024",
+      "date": "",
       "status": "Completed",
       "credential_url": ""
     },
     {
       "name": "Introduction to Model Context Protocol",
       "issuer": "Anthropic",
-      "date": "2024",
+      "date": "",
       "status": "Completed",
       "credential_url": ""
     }

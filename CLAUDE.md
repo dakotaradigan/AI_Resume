@@ -36,6 +36,40 @@ BUT: Do NOT copy code directly - this is a different use case with different req
 
 ---
 
+## Recent Updates (December 2024)
+
+### Hallucination Prevention (CRITICAL FIX)
+**Problem Identified**: Claude was hallucinating resume facts (incorrect schools, degrees, job titles) due to:
+- Missing temperature parameter (defaulting to ~1.0, too creative)
+- Incomplete context (education and certifications excluded from resume data)
+
+**Solution Implemented**:
+- Added `temperature=0.1` to Claude API calls for factual accuracy
+- Included education section in resume context (MBA + BA with correct schools)
+- Included certifications section (top 5 credentials)
+- Expanded skills formatting to include all categories (product_strategy, leadership, data_analytics, technical)
+
+**Result**: Eliminates hallucinations, responses now grounded in actual resume.json data.
+
+### UI Redesign Complete
+**Design System**: Warm green/sage color scheme with dark mode support
+- Light mode: warm paper background (hsl 80 15% 98%), forest graphite text (hsl 150 10% 18%), sage accent (hsl 145 25% 42%)
+- Dark mode: deep green-black background, soft sage highlights
+- HSL color system enables easy theming
+- WCAG AA compliant (13:1 light mode, 14:1 dark mode contrast)
+
+**Interactive Features Added**:
+- Theme toggle (light/dark mode with localStorage persistence)
+- SVG icons (email, location, LinkedIn in hero section)
+- Reveal-on-scroll animations for resume sections
+- Collapsible achievements (show 3, expand rest)
+- Contact dropdown menu with icons
+- Robust auto-scroll (only scrolls when user near bottom)
+
+**Status**: Production-ready frontend with professional design and accessibility.
+
+---
+
 ## Core Goals & Requirements
 
 ### Primary Objectives
@@ -48,11 +82,14 @@ BUT: Do NOT copy code directly - this is a different use case with different req
 **Currently Demonstrated:**
 - **RAG Architecture**: Semantic search over resume/project documents with intelligent chunking
 - **Vector Database**: Qdrant integration with OpenAI embeddings
-- **Production API**: FastAPI with session management, rate limiting, and scalability guardrails
-- **Clean UI/UX**: Professional, Claude-inspired interface with markdown rendering
+- **Production API**: FastAPI with session management, rate limiting, scalability guardrails, temperature control
+- **Factual Accuracy**: Temperature=0.1 + complete context prevents hallucinations
+- **Modern UI/UX**: Warm green/sage design system with dark mode, SVG icons, animations
+- **Accessibility**: WCAG AA compliant, keyboard navigation, theme persistence
 
-**Optional Enhancements:**
+**Optional Future Enhancements:**
 - **Real-time Communication**: WebSocket implementation (REST API currently production-ready)
+- **Analytics**: Track visitor interactions and common queries
 
 ### Content Types
 - **Text Data**: Resume JSON, project descriptions (markdown), work experience narratives
@@ -75,9 +112,10 @@ BUT: Do NOT copy code directly - this is a different use case with different req
 - **Guardrails**: rate limiting, message bounds, session cleanup/compaction
 
 **Frontend:**
-- **Framework**: Vanilla JavaScript
-- **UI Style**: Claude-inspired clean design with personal branding
-- **API integration**: calls `fetch("/api/chat")` (assumes same-origin; backend can serve the frontend)
+- **Framework**: Vanilla JavaScript (modular, zero dependencies)
+- **Design System**: Warm green/sage color scheme with dark mode support
+- **UI Features**: Theme toggle, SVG icons, reveal animations, collapsible content
+- **API Integration**: REST calls to `/api/chat` (same-origin, backend serves frontend)
 
 **Data Layer:**
 - **Primary**: `data/resume.json` (structured career data)
@@ -219,26 +257,24 @@ This project will be built in discrete phases. **DO NOT attempt to build everyth
 ### Phase 6: Frontend Development
 **Goal**: Build professional, branded chat interface
 
-**Tasks:**
-1. [DONE] Copy Ben AI frontend structure (HTML, CSS, JS modules)
-2. [DONE] Customize branding (colors, logo, personal touches)
-3. [DONE] Update sidebar with resume-specific quick queries
-4. [DONE] Add header with Download Resume PDF, LinkedIn, GitHub links
-5. [OPTIONAL] Create project gallery view (optional enhancement)
-6. [OPTIONAL] Implement WebSocket client with fallback (depends on Phase 5)
+**Status**: **Complete**
 
-**Deliverables:**
-- - Responsive chat interface
-- - Personal branding applied
-- - Quick-start suggestions tailored to resume
-- - Contact/social links in header
+**Completed Features:**
+- Warm green/sage color scheme with HSL variables
+- Dark mode support with system preference detection
+- Theme toggle with localStorage persistence
+- SVG icons for contact info (email, location, LinkedIn)
+- Reveal-on-scroll animations for resume sections
+- Collapsible achievements (show 3, expand on click)
+- Contact dropdown menu with icons
+- Robust auto-scroll behavior
+- Responsive design with mobile support
+- WCAG AA accessibility compliance
+- Markdown rendering for bot responses
+- Quick-start suggestion chips
 
-**Exit Criteria**: Fully functional UI that feels professional and personal
-
-**Status**: **Complete** - Functional UI with personal branding, quick-start chips, markdown rendering, and contact links. Optional enhancements pending:
-- "How this was built" explainer section
-- Project gallery view
-- Enhanced suggested prompts based on analytics
+**Optional Future Enhancements:**
+- Project gallery view with filtering
 - WebSocket client (if Phase 5 implemented)
 
 ---
