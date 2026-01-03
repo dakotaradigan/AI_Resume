@@ -47,9 +47,18 @@ An AI-powered chatbot showcasing Dakota Radigan's professional experience, skill
 - **SVG Icons**: Email, location, LinkedIn icons in hero section
 - **Animations**: Reveal-on-scroll for resume sections, collapsible achievements
 - **Markdown Rendering**: Rich text formatting in bot responses
-- **Quick-Start Chips**: Suggested prompts for common queries
 - **Responsive Design**: Mobile-friendly with WCAG AA compliance
 - **Auto-scroll**: Intelligent scrolling (only when user near bottom)
+
+### Content & Single Source of Truth
+- **Resume data**: `data/resume.json` drives the resume sections and hero links (email / LinkedIn / GitHub).
+- **System prompt**: `data/system_prompt.txt` controls chat behavior, safety rules, and formatting guidance.
+
+### Troubleshooting (Common Gotchas)
+- **Updated `resume.json` but UI didn’t change**:
+  - Restart the backend **or** call `POST /admin/cache/clear` (dev).
+  - Hard refresh the browser.
+  - Note: `/api/resume` is cached server-side for performance.
 
 ## Deployment Readiness
 
@@ -161,6 +170,41 @@ python3 -m http.server 3000
 ```
 
 Note: Separate serving requires updating `fetch()` calls in `app.js` to use full backend URL.
+
+## Project Notes (quick reference)
+
+### Architecture (high level)
+- **Backend**: FastAPI (`backend/main.py`)
+  - Serves frontend static files via `StaticFiles` at `/`
+  - Chat endpoint: `POST /api/chat`
+  - Resume data endpoint: `GET /api/resume`
+  - Cache clear (dev/admin): `POST /admin/cache/clear`
+- **Frontend**: Vanilla JS/CSS/HTML
+  - `frontend/index.html`
+  - `frontend/styles.css`
+  - `frontend/app.js`
+- **Data source of truth**: `data/resume.json`
+- **System prompt**: `data/system_prompt.txt`
+
+### Caching (common gotcha)
+- Backend caches resume/system prompt via `lru_cache`.
+- If you update `data/resume.json` or `data/system_prompt.txt` and don’t see changes:
+  - Restart the backend **or**
+  - Call `POST /admin/cache/clear` (dev)
+  - Then hard refresh the browser
+
+### UI behaviors to remember
+- **Theme**: explicit theme via `data-theme` on `:root`, persisted in `localStorage` (toggle in header).
+- **Chat autoscroll**: “stick to bottom” only when user is already near bottom (MutationObserver-based).
+- **Markdown rendering**:
+  - Frontend `parseMarkdown()` escapes HTML (XSS defense).
+  - Normalizes indented/wrapped bullet continuations to keep list spacing clean.
+- **Experience cards**: show top 3 bullets by default with “Show more / Show less”.
+- **Certifications**: dates hidden except for the PCAP/Certified Associate Python Programmer entry; “In Progress” shown as a status label.
+
+### Privacy / public data policy
+- `/api/resume` is public UI data.
+- Phone should not be exposed there unless intentionally required.
 
 ## Development
 

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import threading
 import time
 from collections import defaultdict
 from pathlib import Path
 from functools import lru_cache
+from typing import Any
 from uuid import uuid4
 
 from anthropic import AsyncAnthropic, AnthropicError
@@ -29,6 +32,9 @@ COMPACT_CHAR_LIMIT = 800
 SESSION_MESSAGES: dict[str, list[dict]] = {}
 SESSION_METADATA: dict[str, dict] = {}  # Track creation time, last access
 RATE_LIMIT_TRACKER: dict[str, list[float]] = defaultdict(list)  # RateLimitKey -> [timestamps]
+
+# Reindex lock: Prevent concurrent re-indexing operations (wastes API costs)
+REINDEX_LOCK = threading.Lock()
 
 
 def _get_client_ip(request: Request) -> str:
@@ -397,7 +403,6 @@ def _initialize_rag(settings) -> RAGPipeline | None:
 
     try:
         resume_path = settings.data_dir / "resume.json"
-
         logger.info("Initializing RAG pipeline...")
         pipeline = initialize_rag_pipeline(
             openai_api_key=settings.openai_api_key,
@@ -416,6 +421,13 @@ def _initialize_rag(settings) -> RAGPipeline | None:
 def build_app() -> FastAPI:
     app = FastAPI(title="Resume Assistant")
     settings = get_settings()
+    app.state.reindex_status = {
+        "running": False,
+        "started_at": None,
+        "finished_at": None,
+        "last_result": None,
+        "last_error": None,
+    }
 
     # Initialize RAG pipeline on startup and store in app.state
     app.state.rag_pipeline = _initialize_rag(settings)
@@ -452,6 +464,17 @@ def build_app() -> FastAPI:
         """FastAPI dependency that returns the initialized RAG pipeline."""
         return getattr(app.state, "rag_pipeline", None)
 
+    def _require_admin(x_admin_token: str | None) -> None:
+        if settings.admin_token:
+            if x_admin_token != settings.admin_token:
+                raise HTTPException(status_code=401, detail="Unauthorized.")
+            return
+        if settings.environment != "development":
+            raise HTTPException(
+                status_code=503,
+                detail="Admin endpoint disabled (ADMIN_TOKEN not configured).",
+            )
+
     @app.get("/health/rag")
     async def rag_health() -> dict[str, str | bool]:
         """Check RAG pipeline status for debugging and monitoring."""
@@ -474,14 +497,7 @@ def build_app() -> FastAPI:
 
         Note: In production, this endpoint should be protected with authentication.
         """
-        if settings.environment != "development":
-            if not settings.admin_token:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Admin endpoint disabled (ADMIN_TOKEN not configured).",
-                )
-            if x_admin_token != settings.admin_token:
-                raise HTTPException(status_code=401, detail="Unauthorized.")
+        _require_admin(x_admin_token)
 
         load_system_prompt.cache_clear()
         load_resume_context.cache_clear()
@@ -491,6 +507,86 @@ def build_app() -> FastAPI:
             "status": "success",
             "message": "Cache cleared. Fresh data will be loaded on next request.",
         }
+
+    @app.post("/admin/rag/reindex")
+    async def reindex_rag(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
+        """
+        Force re-index of RAG pipeline (deletes and recreates Qdrant collection).
+
+        Use this endpoint after updating resume.json or other source data to
+        refresh the vector search index without restarting the server.
+
+        Authentication:
+        - Development: No token required
+        - Production: Requires X-Admin-Token header matching ADMIN_TOKEN env var
+
+        Concurrency Protection:
+        - Only one reindex operation allowed at a time (prevents wasted API costs)
+        - Returns 429 if reindex already in progress
+
+        Returns:
+            Operation details including old/new chunk counts and status
+        """
+        _require_admin(x_admin_token)
+
+        # Validate RAG is enabled
+        rag_pipeline = get_rag_pipeline()
+        if rag_pipeline is None:
+            raise HTTPException(
+                status_code=503,
+                detail="RAG pipeline not initialized (check USE_RAG and API keys in settings).",
+            )
+
+        # Prevent concurrent re-indexing (would waste API costs on duplicate embeddings)
+        if not REINDEX_LOCK.acquire(blocking=False):
+            raise HTTPException(
+                status_code=429,
+                detail="Re-indexing already in progress. Please wait for it to complete.",
+            )
+
+        # Perform re-indexing in thread pool to avoid blocking event loop
+        try:
+            resume_path = settings.data_dir / "resume.json"
+            app.state.reindex_status.update(
+                {
+                    "running": True,
+                    "started_at": time.time(),
+                    "finished_at": None,
+                    "last_error": None,
+                }
+            )
+            # Run blocking operation in thread pool (prevents freezing other requests)
+            result = await asyncio.to_thread(rag_pipeline.reindex, resume_path)
+            app.state.reindex_status.update(
+                {
+                    "running": False,
+                    "finished_at": time.time(),
+                    "last_result": result,
+                }
+            )
+            logger.info(f"RAG re-index completed: {result['message']}")
+            return result
+        except Exception as exc:
+            logger.exception("Failed to re-index RAG pipeline")
+            app.state.reindex_status.update(
+                {
+                    "running": False,
+                    "finished_at": time.time(),
+                    "last_error": str(exc),
+                }
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Re-indexing failed: {str(exc)}",
+            ) from exc
+        finally:
+            # Always release lock, even if operation failed
+            REINDEX_LOCK.release()
+
+    @app.get("/admin/rag/reindex/status")
+    async def reindex_status(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
+        _require_admin(x_admin_token)
+        return app.state.reindex_status
 
     @app.get("/api/resume")
     async def get_resume() -> dict:
@@ -632,4 +728,3 @@ def build_app() -> FastAPI:
 
 
 app = build_app()
-

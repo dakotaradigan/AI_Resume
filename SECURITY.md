@@ -96,6 +96,10 @@ Thanks for understanding!"
 - Prevents AI hallucination of fake credentials or experience
 - Protects Dakota's professional reputation
 
+### Public Data / PII Policy (IMPORTANT)
+- `/api/resume` is intended for public UI rendering.
+- **Phone is not exposed via `/api/resume`** (UI does not display phone); the public UI uses email / LinkedIn / GitHub.
+
 **Location**: `backend/main.py:567` - Claude API call with `temperature=0.1`
 
 **Why This Matters**: Hallucinated credentials could damage professional credibility. This is a security issue, not just UX.

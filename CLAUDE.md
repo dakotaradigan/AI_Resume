@@ -65,6 +65,7 @@ BUT: Do NOT copy code directly - this is a different use case with different req
 - Collapsible achievements (show 3, expand rest)
 - Contact dropdown menu with icons
 - Robust auto-scroll (only scrolls when user near bottom)
+- Markdown list normalization (wrapped/indented bullet continuations render as a single bullet)
 
 **Status**: Production-ready frontend with professional design and accessibility.
 

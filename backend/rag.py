@@ -176,8 +176,11 @@ Technologies: {', '.join(exp.get('technologies', []))}
             highlights = proj.get("highlights", [])
             highlights_text = "\n".join([f"- {h}" for h in highlights])
 
+            # Add distinguishing context early in the chunk
             main_text = f"""
 Project: {proj.get('name', '')}
+Context: {proj.get('context', '')}
+Timeframe: {proj.get('timeframe', '')}
 Tagline: {proj.get('tagline', '')}
 
 Description:
@@ -192,7 +195,6 @@ Problem Solved:
 Impact:
 {proj.get('impact', '')}
 
-Context: {proj.get('context', '')}
 Tech Stack: {', '.join(proj.get('tech_stack', []))}
             """.strip()
 
@@ -209,8 +211,11 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
             # Architecture details chunk (if present)
             arch_details = proj.get("architecture_details")
             if arch_details:
+                # Add distinguishing context at the beginning
                 arch_text_parts = [
                     f"Project: {proj.get('name', '')} - Architecture Details",
+                    f"Context: {proj.get('context', '')}",
+                    f"Timeframe: {proj.get('timeframe', '')}",
                     "",
                     f"Frontend: {arch_details.get('frontend', '')}",
                     f"Backend: {arch_details.get('backend', '')}",
@@ -342,6 +347,62 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
 
         return formatted_results
 
+    def reindex(self, resume_path: Path) -> dict[str, Any]:
+        """
+        Force re-indexing of resume data.
+
+        Deletes the existing collection and creates a fresh one with current data.
+        This is useful when resume.json has been updated and changes need to be
+        immediately reflected in the RAG system without restarting the backend.
+
+        Args:
+            resume_path: Path to resume.json
+
+        Returns:
+            Dictionary with operation details:
+            {
+                "status": "success",
+                "collection_name": str,
+                "old_points_count": int,
+                "new_points_count": int,
+                "message": str
+            }
+        """
+        # Get current point count before deletion
+        old_points_count = 0
+        try:
+            collection_info = self.qdrant_client.get_collection(self.collection_name)
+            old_points_count = collection_info.points_count
+            logger.info(f"Current collection has {old_points_count} points")
+        except Exception:
+            logger.info("Collection doesn't exist yet, will create fresh")
+
+        # Delete existing collection
+        try:
+            self.qdrant_client.delete_collection(self.collection_name)
+            logger.info(f"Deleted collection: {self.collection_name}")
+        except Exception:
+            logger.info(f"Collection {self.collection_name} didn't exist, will create fresh")
+
+        # Re-create collection
+        self._initialize_collection()
+
+        # Chunk and index fresh data
+        chunks = self.chunk_resume_data(resume_path)
+        self.index_chunks(chunks)
+
+        new_points_count = len(chunks)
+        message = f"Re-indexed {new_points_count} chunks (was {old_points_count})"
+        logger.info(f"✅ {message}")
+
+        return {
+            "status": "success",
+            "collection_name": self.collection_name,
+            "old_points_count": old_points_count,
+            "new_points_count": new_points_count,
+            "message": message,
+        }
+
 
 def initialize_rag_pipeline(
     openai_api_key: str,
@@ -369,15 +430,21 @@ def initialize_rag_pipeline(
     )
 
     # Check if collection already has data (avoid re-indexing on every startup)
-    collection_info = pipeline.qdrant_client.get_collection(pipeline.collection_name)
-    points_count = collection_info.points_count
+    try:
+        collection_info = pipeline.qdrant_client.get_collection(pipeline.collection_name)
+        points_count = collection_info.points_count
 
-    if points_count > 0:
-        logger.info(f"Collection already indexed with {points_count} points, skipping re-indexing")
-    else:
-        logger.info("Collection empty, indexing resume data...")
-        # Chunk and index resume data
-        chunks = pipeline.chunk_resume_data(resume_path)
-        pipeline.index_chunks(chunks)
+        if points_count > 0:
+            logger.info(f"Collection already indexed with {points_count} points, skipping re-indexing")
+            return pipeline
+    except Exception:
+        # Collection doesn't exist yet, will be created during indexing
+        logger.info("Collection doesn't exist, will create and index...")
+
+    # Collection is empty or doesn't exist - index it
+    logger.info("Indexing resume data...")
+    chunks = pipeline.chunk_resume_data(resume_path)
+    pipeline.index_chunks(chunks)
+    logger.info(f"✅ Indexed {len(chunks)} chunks successfully")
 
     return pipeline

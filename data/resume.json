@@ -78,6 +78,42 @@
 
   "projects": [
     {
+      "name": "Resume Assistant: AI-Powered Professional Portfolio",
+      "tagline": "Interactive chatbot reimagining how recruiters discover talent through conversational AI",
+      "tech_stack": ["Claude Opus 4.5", "RAG Pipeline", "Qdrant Vector DB", "FastAPI", "REST API", "Python", "OpenAI Embeddings", "JavaScript", "Custom CSS", "Semantic Search"],
+      "description": "Built an AI-powered chatbot that transforms the traditional resume into an interactive conversation. Recruiters can ask natural language questions ('What's your AI experience?') and receive contextual answers powered by RAG architecture. The portfolio piece itself demonstrates the technical capabilities it showcases—proving AI/ML expertise through a working AI product.",
+      "highlights": [
+        "Reimagined professional discovery: shifted from passive document to interactive conversation",
+        "Implemented full RAG pipeline with semantic search, intelligent chunking, and context retrieval",
+        "Built production-ready guardrails: rate limiting, session management, hallucination prevention (temperature=0.1)",
+        "Designed warm green/sage UI with dark mode, WCAG AA accessibility, and custom CSS design system",
+        "Created dual-purpose innovation: functional recruiter tool + technical showcase of AI/ML capabilities",
+        "Engineered for scale: concurrent session support, pluggable state management, security layers"
+      ],
+      "problem_solved": "Traditional resumes are static, one-size-fits-all documents that force recruiters to linearly parse dense text, often missing relevant details. For candidates with diverse technical backgrounds, the best-fit information gets overlooked in seconds-long skims.",
+      "impact": "Transforms resume experience from passive reading to interactive discovery. Demonstrates forward-thinking product development and provides working proof of AI/ML engineering expertise. Creates memorable differentiation and interview conversation starters.",
+      "context": "Personal portfolio project deployed as public-facing chatbot accessible from LinkedIn profile",
+      "timeframe": "2024-2025",
+      "repo_url": "",
+      "demo_url": "",
+      "images": [],
+      "detailed_description_file": "resume_assistant.md",
+      "architecture_details": {
+        "frontend": "JavaScript with custom CSS design system, markdown rendering, theme toggle, responsive layout",
+        "backend": "FastAPI with session management, rate limiting, input validation, timeout protection",
+        "ai_orchestration": "Claude Opus 4.5, RAG Pipeline (Qdrant + OpenAI embeddings), semantic search with score threshold",
+        "data_layer": "Vector Store (Qdrant) with semantic chunking + metadata tagging for intelligent retrieval",
+        "core_capabilities": [
+          "Semantic Search - retrieves relevant resume context based on natural language queries",
+          "Session Management - UUID-based tracking with auto-compaction and cleanup",
+          "Hallucination Prevention - temperature=0.1 ensures factual accuracy, no fabricated credentials",
+          "Security Guardrails - prompt injection protection, rate limiting (20 req/min), input validation",
+          "Interactive Discovery - conversational interface replacing static document parsing",
+          "Production Engineering - scalable architecture with pluggable state, environment-aware config"
+        ]
+      }
+    },
+    {
       "name": "Ben AI: Intelligent Benchmark Assistant",
       "tagline": "Full-stack AI chatbot: Personal PoC to production deployment reducing advisor research time from hours to seconds",
       "tech_stack": ["GPT-4o", "RAG Pipeline", "Pinecone Vector DB", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],

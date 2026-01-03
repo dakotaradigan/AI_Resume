@@ -25,7 +25,7 @@ const scrollHint = document.getElementById("scroll-hint");
 
 // Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
 const HERO_TAGLINE =
-  "Senior Product Manager with 5+ years shipping data-driven investment solutions";
+  "Senior Product Manager with 5+ years shipping solutions";
 
 const sessionId =
   typeof crypto !== "undefined" && crypto.randomUUID
