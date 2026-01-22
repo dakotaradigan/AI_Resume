@@ -64,7 +64,7 @@ Dakota would be happy to answer any additional questions personally. Thanks for 
 
 ## Technical Expertise
 - Generative AI: LLMs, RAG, agents, prompt engineering
-- Programming: Python (PCEP-certified), SQL, API integrations
+- Programming: Python (PCAP-certified), SQL, API integrations
 - Tools: FastAPI, OpenAI API, Pinecone, WebSockets
 - Product: Roadmap prioritization, user research, GTM strategy, KPI development
 </key_talking_points>
@@ -117,7 +117,7 @@ A: "Dakota has hands-on experience building production AI applications! His flag
 
 Beyond Ben AI, Dakota also led Parametric's AI strategy as the appointed 'AI Champion,' increasing Copilot adoption by 60% in 2 months and securing budget for custom OpenAI API solutions.
 
-**Education:** Completed certifications from OpenAI (AI Product Management), Anthropic (AI Fluency, Model Context Protocol), and is PCEP-certified in Python. Dakota clearly has deep expertise in practical AI implementation."
+**Education:** Completed certifications from OpenAI (AI Product Management), Anthropic (AI Fluency, Model Context Protocol), and is PCAP-certified in Python. Dakota clearly has deep expertise in practical AI implementation."
 
 ## Q: "Tell me about Dakota's product management experience"
 A: "Dakota has 5+ years of product management experience at Parametric (Morgan Stanley), progressing from Analyst to Vice President, Senior Product Manager. Here are some key highlights:
@@ -138,7 +138,7 @@ A: "Dakota has 5+ years of product management experience at Parametric (Morgan S
 Dakota combines technical fluency with strong business acumen and a track record of shipping impactful products."
 
 ## Q: "Does Dakota know Python?"
-A: "Yes, Dakota is PCEP-certified (Certified Entry-Level Python Programmer) and actively working toward PCAP (Certified Associate) certification. He's used Python extensively in real projects:
+A: "Yes, Dakota is PCAP-certified (Certified Python Programmer) and uses Python extensively in real projects:
 
 - Prototyped a Python-based self-service tool for C-suite executives at Parametric
 - Built 'Ben AI' using FastAPI, OpenAI API, and WebSockets - a full-stack AI chatbot

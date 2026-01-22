@@ -110,6 +110,8 @@ class RAGPipeline:
         - Each job experience: 1 chunk (with all achievements)
         - Each project: 1-3 chunks depending on detail
         - Skills: 1 chunk
+        - Education: 1 chunk
+        - Certifications: 1 chunk
 
         Args:
             resume_path: Path to resume.json
@@ -254,6 +256,58 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
                     tags=["skills", "technical", "leadership"],
                 )
             )
+
+        # Education chunk
+        education = data.get("education", [])
+        if education:
+            edu_parts = []
+            for edu in education:
+                edu_lines = [
+                    f"Degree: {edu.get('degree', '')}",
+                    f"School: {edu.get('school', '')}",
+                    f"Graduated: {edu.get('graduation', '')}",
+                ]
+                # Filter out empty values (matches personal chunk pattern)
+                edu_text = "\n".join([line for line in edu_lines if line and not line.endswith(": ")])
+                if edu_text:
+                    edu_parts.append(edu_text)
+                    edu_parts.append("")  # Spacing between degrees
+
+            if edu_parts:
+                chunks.append(
+                    DocumentChunk(
+                        text="\n".join(edu_parts).strip(),
+                        chunk_type="education",
+                        title="Education",
+                        tags=["education", "academic"],
+                    )
+                )
+
+        # Certifications chunk
+        certifications = data.get("certifications", [])
+        if certifications:
+            cert_parts = []
+            for cert in certifications:
+                name = cert.get("name", "").strip()
+                issuer = cert.get("issuer", "").strip()
+                status = cert.get("status", "").strip()
+
+                # Build cert line only if we have name or issuer
+                if name or issuer:
+                    cert_line = " - ".join([p for p in [name, issuer] if p])
+                    if status:
+                        cert_line += f" ({status})"
+                    cert_parts.append(cert_line)
+
+            if cert_parts:
+                chunks.append(
+                    DocumentChunk(
+                        text="\n".join(cert_parts).strip(),
+                        chunk_type="certifications",
+                        title="Certifications",
+                        tags=["certifications", "credentials"],
+                    )
+                )
 
         logger.info(f"Created {len(chunks)} document chunks")
         return chunks
