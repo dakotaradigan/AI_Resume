@@ -26,6 +26,9 @@ build/
 *.log
 logs/
 
+# Development notes (local only)
+in-flight-development.md
+
 # Qdrant data (local development)
 qdrant_storage/
 

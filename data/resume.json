@@ -204,7 +204,7 @@
     ],
     "technical": [
       "Generative AI (LLMs, RAG, Agents)",
-      "Python (PCEP-Certified)",
+      "Python (PCAP-Certified)",
       "SQL",
       "API Integrations",
       "Automation",
@@ -253,8 +253,8 @@
 
   "certifications": [
     {
-      "name": "Finance Certification",
-      "issuer": "Washington State University",
+      "name": " PCAP - Certified Associate Python Programmer",
+      "issuer": "Python Institute",
       "date": "",
       "status": "Completed",
       "credential_url": ""
@@ -267,17 +267,10 @@
       "credential_url": ""
     },
     {
-      "name": "PCEP – Certified Entry-Level Python Programmer",
-      "issuer": "Python Institute",
+      "name": "Finance Certification",
+      "issuer": "Washington State University",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
-    },
-    {
-      "name": "Certified Associate Python Programmer",
-      "issuer": "Python Institute",
-      "date": "2025",
-      "status": "In Progress",
       "credential_url": ""
     },
     {
