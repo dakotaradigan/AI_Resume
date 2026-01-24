@@ -339,7 +339,15 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
         """Index chunks into Qdrant with embeddings."""
         points = []
 
-        for idx, chunk in enumerate(chunks):
+        # Filter empty chunks to avoid wasting embedding API calls
+        valid_chunks = [c for c in chunks if c.text and c.text.strip()]
+        if len(valid_chunks) < len(chunks):
+            logger.warning(
+                f"Filtered {len(chunks) - len(valid_chunks)} empty chunks "
+                f"(processing {len(valid_chunks)} valid chunks)"
+            )
+
+        for idx, chunk in enumerate(valid_chunks):
             # Generate embedding
             embedding = self.embed_text(chunk.text)
 
@@ -428,15 +436,24 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
             collection_info = self.qdrant_client.get_collection(self.collection_name)
             old_points_count = collection_info.points_count
             logger.info(f"Current collection has {old_points_count} points")
-        except Exception:
-            logger.info("Collection doesn't exist yet, will create fresh")
+        except Exception as exc:
+            # Collection doesn't exist (404) or other Qdrant error
+            exc_str = str(exc).lower()
+            if "not found" in exc_str or "doesn't exist" in exc_str or "404" in exc_str:
+                logger.info("Collection doesn't exist yet, will create fresh")
+            else:
+                logger.warning(f"Could not get collection info: {exc}")
 
         # Delete existing collection
         try:
             self.qdrant_client.delete_collection(self.collection_name)
             logger.info(f"Deleted collection: {self.collection_name}")
-        except Exception:
-            logger.info(f"Collection {self.collection_name} didn't exist, will create fresh")
+        except Exception as exc:
+            exc_str = str(exc).lower()
+            if "not found" in exc_str or "doesn't exist" in exc_str or "404" in exc_str:
+                logger.info(f"Collection {self.collection_name} didn't exist, will create fresh")
+            else:
+                logger.warning(f"Could not delete collection (will try to recreate): {exc}")
 
         # Re-create collection
         self._initialize_collection()
@@ -491,9 +508,13 @@ def initialize_rag_pipeline(
         if points_count > 0:
             logger.info(f"Collection already indexed with {points_count} points, skipping re-indexing")
             return pipeline
-    except Exception:
+    except Exception as exc:
         # Collection doesn't exist yet, will be created during indexing
-        logger.info("Collection doesn't exist, will create and index...")
+        exc_str = str(exc).lower()
+        if "not found" in exc_str or "doesn't exist" in exc_str or "404" in exc_str:
+            logger.info("Collection doesn't exist, will create and index...")
+        else:
+            logger.warning(f"Could not check collection status: {exc}. Will attempt to index...")
 
     # Collection is empty or doesn't exist - index it
     logger.info("Indexing resume data...")

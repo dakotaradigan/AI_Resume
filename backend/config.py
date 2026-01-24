@@ -41,6 +41,34 @@ def _to_bool(value: str | None, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _to_int(value: str | None, default: int) -> int:
+    """Parse int from env var with fallback to default on invalid input."""
+    if value is None:
+        return default
+    try:
+        return int(value.strip())
+    except ValueError:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Invalid int value '{value}', using default: {default}"
+        )
+        return default
+
+
+def _to_float(value: str | None, default: float) -> float:
+    """Parse float from env var with fallback to default on invalid input."""
+    if value is None:
+        return default
+    try:
+        return float(value.strip())
+    except ValueError:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Invalid float value '{value}', using default: {default}"
+        )
+        return default
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     load_dotenv()
@@ -56,17 +84,17 @@ def get_settings() -> Settings:
             "ANTHROPIC_MODEL",
             "claude-opus-4-5-20251101",
         ),
-        anthropic_max_tokens=int(os.getenv("ANTHROPIC_MAX_TOKENS", "2048")),
+        anthropic_max_tokens=_to_int(os.getenv("ANTHROPIC_MAX_TOKENS"), 2048),
         environment=os.getenv("ENVIRONMENT", "development"),
         debug=_to_bool(os.getenv("DEBUG"), default=False),
         data_dir=data_dir,
         # Scalability settings (use defaults if not set)
-        rate_limit_requests_per_minute=int(
-            os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "20")
+        rate_limit_requests_per_minute=_to_int(
+            os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE"), 20
         ),
-        session_max_age_seconds=int(os.getenv("SESSION_MAX_AGE_SECONDS", "3600")),
-        api_timeout_seconds=float(os.getenv("API_TIMEOUT_SECONDS", "30.0")),
-        max_user_message_chars=int(os.getenv("MAX_USER_MESSAGE_CHARS", "2000")),
+        session_max_age_seconds=_to_int(os.getenv("SESSION_MAX_AGE_SECONDS"), 3600),
+        api_timeout_seconds=_to_float(os.getenv("API_TIMEOUT_SECONDS"), 30.0),
+        max_user_message_chars=_to_int(os.getenv("MAX_USER_MESSAGE_CHARS"), 2000),
         admin_token=os.getenv("ADMIN_TOKEN", ""),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
