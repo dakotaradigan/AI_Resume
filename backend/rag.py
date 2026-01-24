@@ -87,19 +87,27 @@ class RAGPipeline:
         return self._openai_client
 
     def _initialize_collection(self) -> None:
-        """Create Qdrant collection if it doesn't exist."""
-        collections = self.qdrant_client.get_collections().collections
-        collection_names = [c.name for c in collections]
+        """
+        Create Qdrant collection if it doesn't exist (idempotent).
 
-        if self.collection_name not in collection_names:
+        Uses try/except pattern to handle race conditions where multiple
+        workers might try to create the same collection simultaneously.
+        """
+        try:
             # text-embedding-3-small produces 1536-dimensional vectors
             self.qdrant_client.create_collection(
                 collection_name=self.collection_name,
                 vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
             )
             logger.info(f"Created collection: {self.collection_name}")
-        else:
-            logger.info(f"Collection already exists: {self.collection_name}")
+        except Exception as exc:
+            exc_str = str(exc).lower()
+            # Collection already exists - this is expected in race conditions
+            if "already exists" in exc_str or "409" in exc_str:
+                logger.info(f"Collection already exists: {self.collection_name}")
+            else:
+                # Unexpected error - re-raise
+                raise
 
     def chunk_resume_data(self, resume_path: Path) -> list[DocumentChunk]:
         """
