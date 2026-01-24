@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import threading
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -29,12 +28,129 @@ COMPACT_KEEP_RECENT = 10
 COMPACT_CHAR_LIMIT = 800
 
 # Scalability: In-memory storage (easy to swap to Redis later)
-SESSION_MESSAGES: dict[str, list[dict]] = {}
-SESSION_METADATA: dict[str, dict] = {}  # Track creation time, last access
-RATE_LIMIT_TRACKER: dict[str, list[float]] = defaultdict(list)  # RateLimitKey -> [timestamps]
+# Wrapped in SessionStore class for async-safe access
+class SessionStore:
+    """
+    Thread-safe session storage for async FastAPI.
+
+    Wraps session messages, metadata, and rate limits with asyncio.Lock()
+    to prevent race conditions when multiple coroutines access the same session.
+
+    Migration path: Replace internal dicts with Redis when scaling to multiple workers.
+    """
+
+    def __init__(self):
+        self._messages: dict[str, list[dict]] = {}
+        self._metadata: dict[str, dict] = {}
+        self._rate_limits: dict[str, list[float]] = defaultdict(list)
+        self._lock = asyncio.Lock()
+
+    async def get_history(self, session_id: str) -> list[dict]:
+        """Get session history, creating empty list if needed."""
+        async with self._lock:
+            if session_id not in self._messages:
+                self._messages[session_id] = []
+            return self._messages[session_id]
+
+    async def set_history(self, session_id: str, history: list[dict]) -> None:
+        """Replace session history (used after compaction)."""
+        async with self._lock:
+            self._messages[session_id] = history
+
+    async def append_message(self, session_id: str, role: str, text: str) -> None:
+        """Append a message to session history."""
+        async with self._lock:
+            if session_id not in self._messages:
+                self._messages[session_id] = []
+            self._messages[session_id].append({
+                "role": role,
+                "content": [{"type": "text", "text": text}]
+            })
+
+    async def update_metadata(self, session_id: str) -> None:
+        """Track session creation and last access time for cleanup."""
+        async with self._lock:
+            now = time.time()
+            if session_id not in self._metadata:
+                self._metadata[session_id] = {"created_at": now, "last_access": now}
+            else:
+                self._metadata[session_id]["last_access"] = now
+
+    async def check_rate_limit(self, key: str, max_requests: int, window: float = 60.0) -> bool:
+        """
+        Check if request is within rate limit.
+        Returns True if allowed, False if limit exceeded.
+        """
+        async with self._lock:
+            now = time.time()
+            timestamps = self._rate_limits[key]
+
+            # Remove timestamps older than the window
+            timestamps[:] = [ts for ts in timestamps if now - ts < window]
+
+            # Check if limit exceeded
+            if len(timestamps) >= max_requests:
+                return False
+
+            # Add current request timestamp
+            timestamps.append(now)
+            return True
+
+    async def cleanup_expired(self, max_age_seconds: int) -> int:
+        """
+        Remove sessions older than max_age_seconds.
+        Returns count of cleaned sessions.
+        """
+        async with self._lock:
+            now = time.time()
+            expired = []
+
+            for sid, meta in self._metadata.items():
+                if now - meta.get("last_access", 0) > max_age_seconds:
+                    expired.append(sid)
+
+            for sid in expired:
+                self._messages.pop(sid, None)
+                self._metadata.pop(sid, None)
+
+            return len(expired)
+
+    async def cleanup_stale_rate_limits(self, window: float = 60.0) -> None:
+        """Remove rate limit entries that haven't been used recently."""
+        async with self._lock:
+            now = time.time()
+            stale_cutoff = now - (window * 2)
+            stale_keys = [
+                key for key, timestamps in self._rate_limits.items()
+                if timestamps and timestamps[-1] < stale_cutoff
+            ]
+            for key in stale_keys:
+                self._rate_limits.pop(key, None)
+
+
+# Global session store instance
+_session_store: SessionStore | None = None
+
+
+def get_session_store() -> SessionStore:
+    """Get or create the global session store."""
+    global _session_store
+    if _session_store is None:
+        _session_store = SessionStore()
+    return _session_store
+
 
 # Reindex lock: Prevent concurrent re-indexing operations (wastes API costs)
-REINDEX_LOCK = threading.Lock()
+# Using asyncio.Lock for proper async context support
+_reindex_lock: asyncio.Lock | None = None
+
+
+def get_reindex_lock() -> asyncio.Lock:
+    """Get or create the global reindex lock."""
+    global _reindex_lock
+    if _reindex_lock is None:
+        _reindex_lock = asyncio.Lock()
+    return _reindex_lock
 
 
 def _get_client_ip(request: Request) -> str:
@@ -62,89 +178,7 @@ class ChatResponse(BaseModel):
 
 
 # === Scalability Helper Functions ===
-
-
-def _check_rate_limit(rate_limit_key: str) -> bool:
-    """
-    Rate limiting: Allow max N requests per minute per key (defaults to client IP).
-    Returns True if request is allowed, False if rate limit exceeded.
-
-    Migration path: Replace with Redis-based rate limiting when scaling.
-    """
-    settings = get_settings()
-    now = time.time()
-    window = 60.0  # 1 minute window
-
-    # Get recent request timestamps for this key
-    timestamps = RATE_LIMIT_TRACKER[rate_limit_key]
-
-    # Remove timestamps older than the window
-    timestamps[:] = [ts for ts in timestamps if now - ts < window]
-
-    # Check if limit exceeded
-    if len(timestamps) >= settings.rate_limit_requests_per_minute:
-        return False
-
-    # Add current request timestamp
-    timestamps.append(now)
-    return True
-
-
-def _cleanup_rate_limits() -> None:
-    """
-    Prevent unbounded growth of RATE_LIMIT_TRACKER by deleting keys that haven't
-    been used recently.
-    """
-    now = time.time()
-    window = 60.0
-    stale_cutoff = now - (window * 2)
-    keys = list(RATE_LIMIT_TRACKER.keys())
-    for key in keys:
-        ts = RATE_LIMIT_TRACKER.get(key)
-        if ts and ts[-1] < stale_cutoff:
-            RATE_LIMIT_TRACKER.pop(key, None)
-
-
-def _cleanup_old_sessions() -> None:
-    """
-    Session cleanup: Remove sessions older than max age to prevent memory leaks.
-    Runs on each request (lightweight check).
-
-    Thread-safe: Creates snapshot of session IDs before iteration to avoid
-    "dictionary changed size during iteration" errors in concurrent environments.
-
-    Migration path: Use Redis TTL for automatic expiration when scaling.
-    """
-    settings = get_settings()
-    now = time.time()
-    max_age = settings.session_max_age_seconds
-
-    # Thread-safe: Create snapshot of session IDs to avoid race conditions
-    session_ids = list(SESSION_METADATA.keys())
-
-    # Find expired sessions by checking each ID individually
-    expired = []
-    for sid in session_ids:
-        meta = SESSION_METADATA.get(sid)
-        if meta and now - meta.get("last_access", 0) > max_age:
-            expired.append(sid)
-
-    # Clean up expired sessions (use .pop() which is atomic for individual operations)
-    for sid in expired:
-        SESSION_MESSAGES.pop(sid, None)
-        SESSION_METADATA.pop(sid, None)
-
-    if expired:
-        logger.info(f"Cleaned up {len(expired)} expired sessions")
-
-
-def _update_session_metadata(session_id: str) -> None:
-    """Track session creation and last access time for cleanup."""
-    now = time.time()
-    if session_id not in SESSION_METADATA:
-        SESSION_METADATA[session_id] = {"created_at": now, "last_access": now}
-    else:
-        SESSION_METADATA[session_id]["last_access"] = now
+# Note: Rate limiting and session cleanup are now handled by SessionStore class above.
 
 
 # === Data Loading Functions ===
@@ -322,22 +356,9 @@ def retrieve_rag_context(
         return load_resume_context(), False
 
 
-def _get_session_history(session_id: str) -> list[dict]:
-    history = SESSION_MESSAGES.get(session_id)
-    if history is None:
-        history = []
-        SESSION_MESSAGES[session_id] = history
-    return history
-
-
-def _append_session_message(session_id: str, role: str, text: str) -> None:
-    history = _get_session_history(session_id)
-    history.append({"role": role, "content": [{"type": "text", "text": text}]})
-    _compact_session_history(session_id)
-
-
-def _compact_session_history(session_id: str) -> None:
-    history = _get_session_history(session_id)
+async def _compact_session_history(session_id: str, store: SessionStore) -> None:
+    """Compact session history to prevent unbounded growth."""
+    history = await store.get_history(session_id)
     if len(history) <= COMPACT_AFTER:
         return
 
@@ -376,7 +397,7 @@ def _compact_session_history(session_id: str) -> None:
     if len(new_history) > MAX_SESSION_MESSAGES:
         new_history = new_history[-MAX_SESSION_MESSAGES:]
 
-    SESSION_MESSAGES[session_id] = new_history
+    await store.set_history(session_id, new_history)
 
 
 def _initialize_rag(settings) -> RAGPipeline | None:
@@ -538,50 +559,49 @@ def build_app() -> FastAPI:
             )
 
         # Prevent concurrent re-indexing (would waste API costs on duplicate embeddings)
-        if not REINDEX_LOCK.acquire(blocking=False):
+        reindex_lock = get_reindex_lock()
+        if reindex_lock.locked():
             raise HTTPException(
                 status_code=429,
                 detail="Re-indexing already in progress. Please wait for it to complete.",
             )
 
-        # Perform re-indexing in thread pool to avoid blocking event loop
-        try:
-            resume_path = settings.data_dir / "resume.json"
-            app.state.reindex_status.update(
-                {
-                    "running": True,
-                    "started_at": time.time(),
-                    "finished_at": None,
-                    "last_error": None,
-                }
-            )
-            # Run blocking operation in thread pool (prevents freezing other requests)
-            result = await asyncio.to_thread(rag_pipeline.reindex, resume_path)
-            app.state.reindex_status.update(
-                {
-                    "running": False,
-                    "finished_at": time.time(),
-                    "last_result": result,
-                }
-            )
-            logger.info(f"RAG re-index completed: {result['message']}")
-            return result
-        except Exception as exc:
-            logger.exception("Failed to re-index RAG pipeline")
-            app.state.reindex_status.update(
-                {
-                    "running": False,
-                    "finished_at": time.time(),
-                    "last_error": str(exc),
-                }
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=f"Re-indexing failed: {str(exc)}",
-            ) from exc
-        finally:
-            # Always release lock, even if operation failed
-            REINDEX_LOCK.release()
+        # Perform re-indexing with async lock protection
+        async with reindex_lock:
+            try:
+                resume_path = settings.data_dir / "resume.json"
+                app.state.reindex_status.update(
+                    {
+                        "running": True,
+                        "started_at": time.time(),
+                        "finished_at": None,
+                        "last_error": None,
+                    }
+                )
+                # Run blocking operation in thread pool (prevents freezing other requests)
+                result = await asyncio.to_thread(rag_pipeline.reindex, resume_path)
+                app.state.reindex_status.update(
+                    {
+                        "running": False,
+                        "finished_at": time.time(),
+                        "last_result": result,
+                    }
+                )
+                logger.info(f"RAG re-index completed: {result['message']}")
+                return result
+            except Exception as exc:
+                logger.exception("Failed to re-index RAG pipeline")
+                app.state.reindex_status.update(
+                    {
+                        "running": False,
+                        "finished_at": time.time(),
+                        "last_error": str(exc),
+                    }
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Re-indexing failed: {str(exc)}",
+                ) from exc
 
     @app.get("/admin/rag/reindex/status")
     async def reindex_status(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
@@ -602,19 +622,26 @@ def build_app() -> FastAPI:
     @app.post("/api/chat")
     async def chat(payload: ChatRequest, request: Request) -> ChatResponse:
         session_id = payload.session_id or str(uuid4())
+        store = get_session_store()
 
         # === Scalability Guardrails ===
 
         # 1. Session cleanup: Remove old sessions periodically
-        _cleanup_old_sessions()
-        _cleanup_rate_limits()
+        expired_count = await store.cleanup_expired(settings.session_max_age_seconds)
+        if expired_count > 0:
+            logger.info(f"Cleaned up {expired_count} expired sessions")
+        await store.cleanup_stale_rate_limits()
 
         # 2. Update session metadata (tracks last access for cleanup)
-        _update_session_metadata(session_id)
+        await store.update_metadata(session_id)
 
         # 3. Rate limiting: Prevent abuse (default key = client IP)
         rate_limit_key = _get_client_ip(request)
-        if not _check_rate_limit(rate_limit_key):
+        allowed = await store.check_rate_limit(
+            rate_limit_key,
+            max_requests=settings.rate_limit_requests_per_minute
+        )
+        if not allowed:
             raise HTTPException(
                 status_code=429,
                 detail=(
@@ -675,7 +702,7 @@ def build_app() -> FastAPI:
         )
 
         try:
-            history = _get_session_history(session_id)
+            history = await store.get_history(session_id)
             messages = [
                 *history,
                 {"role": "user", "content": [{"type": "text", "text": message}]},
@@ -710,8 +737,10 @@ def build_app() -> FastAPI:
                 "Please try asking in a different way."
             )
 
-        _append_session_message(session_id, "user", message)
-        _append_session_message(session_id, "assistant", reply_text)
+        # Append messages and compact history
+        await store.append_message(session_id, "user", message)
+        await store.append_message(session_id, "assistant", reply_text)
+        await _compact_session_history(session_id, store)
 
         return ChatResponse(reply=reply_text, session_id=session_id)
 
