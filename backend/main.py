@@ -497,15 +497,13 @@ def build_app() -> FastAPI:
             )
 
     @app.get("/health/rag")
-    async def rag_health() -> dict[str, str | bool]:
-        """Check RAG pipeline status for debugging and monitoring."""
+    async def rag_health() -> dict[str, bool]:
+        """Check RAG pipeline status for monitoring."""
         rag_pipeline = get_rag_pipeline()
         return {
             "rag_enabled": settings.use_rag,
             "rag_initialized": rag_pipeline is not None,
-            "openai_key_configured": bool(settings.openai_api_key),
-            "qdrant_url": settings.qdrant_url or "",
-            "qdrant_api_key_configured": bool(settings.qdrant_api_key),
+            "qdrant_configured": bool(settings.qdrant_url),
         }
 
     @app.post("/admin/cache/clear")
