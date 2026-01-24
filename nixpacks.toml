@@ -1,9 +1,0 @@
-[variables]
-NIXPACKS_PYTHON_VERSION = "3.11"
-
-[phases.install]
-dependsOn = ["setup"]
-cmds = ["python -m pip install --user -r backend/requirements.txt"]
-
-[start]
-cmd = "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
