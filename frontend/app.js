@@ -98,6 +98,11 @@ function parseMarkdown(text) {
   // Wrap consecutive <li> in <ul>
   html = html.replace(/(<li>.*?<\/li>\n?)+/gs, (match) => `<ul>${match}</ul>`);
 
+  // Remove newlines from within <ul> blocks to prevent <br> tags between bullets
+  html = html.replace(/<ul>(.*?)<\/ul>/gs, (match, content) => {
+    return `<ul>${content.replace(/\n/g, '')}</ul>`;
+  });
+
   // Split into paragraphs by double newlines
   const paragraphs = html.split(/\n\n+/);
 
