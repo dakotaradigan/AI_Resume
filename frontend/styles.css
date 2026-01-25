@@ -402,6 +402,7 @@ a:hover {
 }
 
 .chat-card {
+  position: relative; /* for absolute positioning of suggestions */
   border: 1px solid var(--border-strong);
   border-radius: 22px;
   background: var(--card);
@@ -486,7 +487,18 @@ a:hover {
 
 /* Suggestion chips for new visitors */
 .chat-suggestions {
-  padding: 0 18px 14px;
+  position: absolute;
+  bottom: 60px; /* above the input form */
+  left: 0;
+  right: 0;
+  padding: 14px 18px;
+  background: linear-gradient(to top, var(--card), transparent);
+  pointer-events: none; /* allow clicking through the gradient */
+}
+
+.chat-suggestions .suggestions-banner,
+.chat-suggestions .chips {
+  pointer-events: auto; /* but allow clicking the actual content */
 }
 
 .suggestions-banner {
