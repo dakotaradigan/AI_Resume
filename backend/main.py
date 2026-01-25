@@ -72,7 +72,12 @@ class SessionStore:
         async with self._lock:
             now = time.time()
             if session_id not in self._metadata:
-                self._metadata[session_id] = {"created_at": now, "last_access": now}
+                self._metadata[session_id] = {
+                    "created_at": now,
+                    "last_access": now,
+                    "unlimited": False,
+                    "user_message_count": 0
+                }
             else:
                 self._metadata[session_id]["last_access"] = now
 
@@ -170,6 +175,16 @@ def _get_client_ip(request: Request) -> str:
 class ChatRequest(BaseModel):
     message: str
     session_id: str | None = None
+
+
+class UnlockRequest(BaseModel):
+    password: str
+    session_id: str
+
+
+class UnlockResponse(BaseModel):
+    success: bool
+    message: str
 
 
 class ChatResponse(BaseModel):
@@ -648,6 +663,18 @@ def build_app() -> FastAPI:
                 ),
             )
 
+        # 4. Chat limit protection: Free users limited to N exchanges
+        async with store._lock:
+            meta = store._metadata.get(session_id, {})
+            if not meta.get("unlimited", False) and meta.get("user_message_count", 0) >= settings.free_chat_limit:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "You've reached the free chat limit. To continue, enter the password "
+                        "found on Dakota's resume."
+                    ),
+                )
+
         # === Validation ===
 
         # Input bounds
@@ -737,10 +764,51 @@ def build_app() -> FastAPI:
 
         # Append messages and compact history
         await store.append_message(session_id, "user", message)
+
+        # Increment chat limit counter
+        async with store._lock:
+            if session_id in store._metadata:
+                store._metadata[session_id]["user_message_count"] = (
+                    store._metadata[session_id].get("user_message_count", 0) + 1
+                )
+
         await store.append_message(session_id, "assistant", reply_text)
         await _compact_session_history(session_id, store)
 
         return ChatResponse(reply=reply_text, session_id=session_id)
+
+    @app.post("/api/unlock")
+    async def unlock_chat(payload: UnlockRequest) -> UnlockResponse:
+        """
+        Unlock unlimited chat access with password.
+        Password is found on Dakota's resume PDF.
+        """
+        store = get_session_store()
+
+        # Check if password is configured
+        if not settings.chat_password:
+            return UnlockResponse(
+                success=False,
+                message="Chat password not configured."
+            )
+
+        # Verify password (case-insensitive)
+        provided = payload.password.strip().lower()
+        if not provided or provided != settings.chat_password.lower():
+            return UnlockResponse(
+                success=False,
+                message="Incorrect password. Please check Dakota's resume."
+            )
+
+        # Grant unlimited access
+        async with store._lock:
+            if payload.session_id in store._metadata:
+                store._metadata[payload.session_id]["unlimited"] = True
+
+        return UnlockResponse(
+            success=True,
+            message="Unlimited chat access granted! Continue the conversation."
+        )
 
     # Serve the frontend files from ../frontend
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"

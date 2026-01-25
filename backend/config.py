@@ -28,6 +28,10 @@ class Settings:
     max_user_message_chars: int = 2000  # Prevent token exhaustion / abuse
     admin_token: str = ""  # Protect admin endpoints when set (recommended in prod)
 
+    # Chat limit protection
+    chat_password: str = ""  # Password to unlock unlimited chat access
+    free_chat_limit: int = 4  # Number of exchanges before requiring password
+
     # RAG settings (Phase 3)
     openai_api_key: str = ""  # For embeddings
     qdrant_url: str | None = None  # Required when USE_RAG=true
@@ -96,6 +100,9 @@ def get_settings() -> Settings:
         api_timeout_seconds=_to_float(os.getenv("API_TIMEOUT_SECONDS"), 30.0),
         max_user_message_chars=_to_int(os.getenv("MAX_USER_MESSAGE_CHARS"), 2000),
         admin_token=os.getenv("ADMIN_TOKEN", ""),
+        # Chat limit protection
+        chat_password=os.getenv("CHAT_PASSWORD", ""),
+        free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 4),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         qdrant_url=os.getenv("QDRANT_URL"),

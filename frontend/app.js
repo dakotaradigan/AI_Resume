@@ -513,6 +513,75 @@ async function sendMessage(message) {
     });
 
     if (!res.ok) {
+      // Handle chat limit (403)
+      if (res.status === 403) {
+        const errorData = await res.json().catch(() => ({}));
+        const body = thinkingEl.querySelector(".msg-body");
+        if (body) {
+          body.innerHTML = `
+            <p style="margin-bottom: 12px;">${errorData.detail || "You've hit the free chat limit."}</p>
+            <form id="unlock-form" style="display: flex; gap: 8px; align-items: center;">
+              <input
+                type="text"
+                id="unlock-password"
+                placeholder="Enter password"
+                autocomplete="off"
+                style="flex: 1; padding: 8px 12px; border: 1px solid var(--muted); border-radius: 6px; font-family: inherit; background: var(--bg);"
+              />
+              <button
+                type="submit"
+                style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 500;"
+              >
+                Unlock
+              </button>
+            </form>
+            <p id="unlock-error" style="margin-top: 8px; color: #e57373; font-size: 14px; display: none;"></p>
+          `;
+
+          // Handle unlock form submission
+          const unlockForm = body.querySelector("#unlock-form");
+          unlockForm?.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const passwordInput = body.querySelector("#unlock-password");
+            const errorEl = body.querySelector("#unlock-error");
+            const password = passwordInput?.value.trim();
+
+            if (!password) {
+              errorEl.textContent = "Please enter a password.";
+              errorEl.style.display = "block";
+              return;
+            }
+
+            try {
+              const unlockRes = await fetch("/api/unlock", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password, session_id: sessionId }),
+              });
+
+              const unlockData = await unlockRes.json();
+
+              if (unlockData.success) {
+                body.innerHTML = `<p style="color: var(--accent);">✓ ${unlockData.message}</p>`;
+                requestScrollToBottom();
+                // Re-enable chat input
+                chatInput.disabled = false;
+                chatInput.focus();
+              } else {
+                errorEl.textContent = unlockData.message || "Incorrect password.";
+                errorEl.style.display = "block";
+              }
+            } catch (unlockErr) {
+              errorEl.textContent = "Failed to unlock. Please try again.";
+              errorEl.style.display = "block";
+              console.error(unlockErr);
+            }
+          });
+        }
+        requestScrollToBottom();
+        return;
+      }
+
       throw new Error(`Request failed: ${res.status}`);
     }
 
