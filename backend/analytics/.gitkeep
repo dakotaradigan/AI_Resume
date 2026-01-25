@@ -1,0 +1,2 @@
+# This file ensures the analytics/ folder is tracked in git
+# The actual data files (queries.json) are gitignored for privacy
