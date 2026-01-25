@@ -555,7 +555,7 @@ a:hover {
 }
 
 .msg.bot .msg-body ul {
-  margin: 4px 0 14px 0; /* close to header above, more space below for paragraphs */
+  margin: 4px 0 12px 0; /* space after list for paragraphs */
   padding-left: 22px;
   list-style-type: disc;
 }
@@ -565,8 +565,8 @@ a:hover {
 }
 
 .msg.bot .msg-body li {
-  margin: 2px 0; /* small gaps between bullets for readability */
-  line-height: 1.5;
+  margin: 0; /* no gaps between bullets for tighter formatting */
+  line-height: 1.2; /* tighter line spacing */
 }
 
 .msg.bot .msg-body a {
