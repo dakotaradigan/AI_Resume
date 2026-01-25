@@ -30,7 +30,7 @@ class Settings:
 
     # Chat limit protection
     chat_password: str = ""  # Password to unlock unlimited chat access
-    free_chat_limit: int = 4  # Number of exchanges before requiring password
+    free_chat_limit: int = 2  # Number of exchanges before requiring password
 
     # RAG settings (Phase 3)
     openai_api_key: str = ""  # For embeddings
@@ -102,7 +102,7 @@ def get_settings() -> Settings:
         admin_token=os.getenv("ADMIN_TOKEN", ""),
         # Chat limit protection
         chat_password=os.getenv("CHAT_PASSWORD", ""),
-        free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 4),
+        free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         qdrant_url=os.getenv("QDRANT_URL"),

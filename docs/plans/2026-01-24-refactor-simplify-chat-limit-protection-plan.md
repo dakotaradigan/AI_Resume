@@ -13,6 +13,7 @@ Refactor the chat limit protection feature to eliminate over-engineering (56% co
 **Current State**: 166 lines of code with unnecessary abstraction
 **Target State**: ~90 lines with direct, transparent data access
 **Impact**: Security fix + improved code quality for portfolio demonstration
+**Chat Limit**: 2 exchanges (4 total messages) before password required
 
 ## Problem Statement
 
@@ -169,8 +170,8 @@ async with self._lock:
 - [ ] No bypass when `CHAT_PASSWORD=""` in config
 
 ### Functionality
-- [ ] Free users limited to 4 exchanges (8 total messages: 4 user + 4 bot)
-- [ ] Unlimited users can send >4 messages
+- [ ] Free users limited to 2 exchanges (4 total messages: 2 user + 2 bot)
+- [ ] Unlimited users can send >2 messages
 - [ ] Count persists across requests within session lifetime
 - [ ] Password unlock works before hitting limit
 - [ ] Password unlock works after hitting limit
@@ -216,16 +217,16 @@ Replace line 823 with direct dict access (see Phase 4 above)
 
 ### Step 5: Test All Scenarios
 ```bash
-# Scenario 1: Free limit (4 messages)
-POST /api/chat x4 → 200 OK
-POST /api/chat (5th) → 403 Forbidden
+# Scenario 1: Free limit (2 exchanges = 4 messages total)
+POST /api/chat x2 → 200 OK
+POST /api/chat (3rd) → 403 Forbidden
 
 # Scenario 2: Empty password bypass attempt
 POST /api/unlock {"password": ""} → {"success": false}
 
 # Scenario 3: Correct password
 POST /api/unlock {"password": "takealook"} → {"success": true}
-POST /api/chat (5th) → 200 OK
+POST /api/chat (3rd) → 200 OK
 
 # Scenario 4: Case-insensitive
 POST /api/unlock {"password": "TAKEALOOK"} → {"success": true}
