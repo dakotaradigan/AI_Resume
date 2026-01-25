@@ -482,6 +482,31 @@ a:hover {
   border-radius: 999px;
 }
 
+/* Suggestion chips for new visitors */
+.chat-suggestions {
+  padding: 0 18px 14px;
+}
+
+.suggestions-banner {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* Subtle pulse on chat card - runs twice then stops */
+@keyframes chatPulse {
+  0%, 100% { box-shadow: var(--shadow-md); }
+  50% { box-shadow: var(--shadow-md), 0 0 0 4px var(--ring); }
+}
+
+.chat-card {
+  animation: chatPulse 1.2s ease-in-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-card { animation: none; }
+}
+
 .msg {
   padding: 12px 14px;
   border-radius: 18px;

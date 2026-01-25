@@ -22,6 +22,7 @@ const contactMenu = document.getElementById("contact-menu");
 const contactLinkedIn = document.getElementById("contact-linkedin");
 const contactEmail = document.getElementById("contact-email");
 const scrollHint = document.getElementById("scroll-hint");
+const suggestionsEl = document.getElementById("suggestions");
 
 // Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
 const HERO_TAGLINE =
@@ -506,6 +507,7 @@ function initScrollHint() {
 }
 
 async function sendMessage(message) {
+  suggestionsEl?.remove();
   addMessage(message, "user");
   const thinkingEl = addMessage("Thinking...", "bot");
   setSending(true);
@@ -635,6 +637,11 @@ initContactMenu();
 
 // Subtle hint that more content exists below (auto-hides on scroll).
 initScrollHint();
+
+// Suggestion chips - click to send, remove on use.
+suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
+  chip.addEventListener("click", () => sendMessage(chip.textContent.trim()));
+});
 
 // Render resume details below chat (Experience / Skills / Education).
 loadAndRenderResume();

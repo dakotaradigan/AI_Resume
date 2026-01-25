@@ -138,9 +138,17 @@
     <section class="chat-card">
       <div class="chat-header">
         <span class="chat-header-icon" aria-hidden="true">✦</span>
-        <span class="chat-header-title">AI-powered (Claude)</span>
+        <span class="chat-header-title">Dakota's AI Resume - ask me anything!</span>
       </div>
       <div id="chat-log" class="chat-log"></div>
+      <div id="suggestions" class="chat-suggestions">
+        <div class="suggestions-banner">Not sure where to start? Try one of these:</div>
+        <div class="chips">
+          <button class="chip" type="button">What's Dakota's background?</button>
+          <button class="chip" type="button">Tell me about AI projects</button>
+          <button class="chip" type="button">What technologies does he know?</button>
+        </div>
+      </div>
       <form id="chat-form" class="chat-form">
         <input id="chat-input" type="text" placeholder="Ask about skills, projects, or impact..." autocomplete="off" required />
         <button type="submit" class="send-button" aria-label="Send message">
