@@ -442,19 +442,21 @@ a:hover {
 }
 
 .chip {
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   background: transparent;
-  color: var(--text);
+  color: color-mix(in srgb, var(--text) 70%, transparent);
   padding: 8px 14px;
   border-radius: 999px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   transition: all 0.2s ease;
 }
 
 .chip:hover {
   background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 .chat-log {
