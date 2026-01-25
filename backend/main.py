@@ -18,6 +18,7 @@ from starlette.staticfiles import StaticFiles
 
 from config import get_settings
 from rag import initialize_rag_pipeline, RAGPipeline
+from analytics.analytics import log_query
 
 logger = logging.getLogger("resume-assistant")
 
@@ -774,6 +775,9 @@ def build_app() -> FastAPI:
 
         await store.append_message(session_id, "assistant", reply_text)
         await _compact_session_history(session_id, store)
+
+        # Log query for analytics (privacy: queries.json is gitignored)
+        log_query(session_id, message, reply_text)
 
         return ChatResponse(reply=reply_text, session_id=session_id)
 
