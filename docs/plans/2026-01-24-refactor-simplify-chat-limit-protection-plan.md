@@ -349,6 +349,6 @@ async def unlock_chat(payload: UnlockRequest) -> UnlockResponse:
 - [x] Phase 4: Simplify unlock endpoint
 - [ ] Test all 4 scenarios (free limit, empty password, correct password, case-insensitive)
 - [x] Verify Python syntax (`python3 -m py_compile backend/main.py`)
-- [ ] Commit with clear explanation of changes
-- [ ] Push to GitHub
+- [x] Commit with clear explanation of changes
+- [x] Push to GitHub
 - [ ] Verify in Railway deployment
