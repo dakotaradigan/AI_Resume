@@ -533,7 +533,7 @@ async function sendMessage(message) {
                 id="unlock-password"
                 placeholder="Enter password"
                 autocomplete="off"
-                style="flex: 1; padding: 8px 12px; border: 1px solid var(--muted); border-radius: 6px; font-family: inherit; background: var(--bg);"
+                style="flex: 1; padding: 8px 12px; border: 1px solid var(--muted); border-radius: 6px; font-family: inherit; background: var(--bg); color: var(--accent);"
               />
               <button
                 type="submit"

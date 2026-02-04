@@ -1,14 +1,14 @@
 ---
 id: "011"
 status: pending
-priority: p2
+priority: p3
 type: fix
 title: Use constant-time password comparison
 created: 2026-02-03
 tags: [security]
 ---
 
-# 011-P2: Constant-Time Password Comparison
+# 011-P3: Constant-Time Password Comparison
 
 ## Problem
 Password comparison vulnerable to timing attacks.
