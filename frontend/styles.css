@@ -674,9 +674,9 @@ a:hover {
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background: transparent;
-  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, var(--border-strong));
+  background: var(--accent);
+  color: white;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -685,12 +685,13 @@ a:hover {
 }
 
 .send-button:hover {
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--accent) 85%, black);
   transform: translateY(-1px);
 }
 
 .send-button:disabled {
-  opacity: 0.5;
+  background: color-mix(in srgb, var(--accent) 30%, var(--card));
+  color: color-mix(in srgb, white 70%, var(--muted));
   cursor: not-allowed;
 }
 
