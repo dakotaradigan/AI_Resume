@@ -5,12 +5,13 @@ import json
 import logging
 import time
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 from functools import lru_cache
 from typing import Any
 from uuid import uuid4
 
-from anthropic import AsyncAnthropic, AnthropicError
+from anthropic import AsyncAnthropic, AnthropicError, RateLimitError
 from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -27,6 +28,16 @@ MAX_SESSION_MESSAGES = 24
 COMPACT_AFTER = 12
 COMPACT_KEEP_RECENT = 10
 COMPACT_CHAR_LIMIT = 800
+
+# Daily conversation limit to control API costs
+DAILY_CONVERSATION_LIMIT = 1
+_daily_conversation_count: dict[str, int] = {}  # {"2026-02-03": 42}
+
+BUSY_MESSAGE = (
+    "Lots of interest today! The AI assistant is taking a quick break. "
+    "Feel free to reach out directly at dakotaradigan@gmail.com or connect on LinkedIn. "
+    "We'll be back soon!"
+)
 
 # Scalability: In-memory storage (easy to swap to Redis later)
 # Wrapped in SessionStore class for async-safe access
@@ -694,7 +705,12 @@ def build_app() -> FastAPI:
                 ),
             )
 
-        # 4. Chat limit protection: Free users limited to N exchanges (atomic check+increment)
+        # 4. Daily conversation limit: Control API costs
+        today = date.today().isoformat()
+        if _daily_conversation_count.get(today, 0) >= DAILY_CONVERSATION_LIMIT:
+            raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
+
+        # 5. Chat limit protection: Free users limited to N exchanges (atomic check+increment)
         allowed, reason = await store.check_and_increment_limit(session_id, settings.free_chat_limit)
         if not allowed:
             raise HTTPException(status_code=403, detail=reason)
@@ -769,6 +785,9 @@ def build_app() -> FastAPI:
             reply_text = "".join(
                 block.text for block in response.content if block.type == "text"
             )
+        except RateLimitError as exc:
+            logger.warning("Anthropic rate limit or spending cap hit")
+            raise HTTPException(status_code=503, detail=BUSY_MESSAGE) from exc
         except AnthropicError as exc:
             logger.exception("Anthropic API request failed after retries")
             raise HTTPException(
@@ -795,6 +814,9 @@ def build_app() -> FastAPI:
 
         # Log query for analytics (privacy: queries.json is gitignored)
         log_query(session_id, message, reply_text)
+
+        # Increment daily conversation counter
+        _daily_conversation_count[today] = _daily_conversation_count.get(today, 0) + 1
 
         return ChatResponse(reply=reply_text, session_id=session_id)
 

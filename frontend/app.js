@@ -589,7 +589,14 @@ async function sendMessage(message) {
         return;
       }
 
-      throw new Error(`Request failed: ${res.status}`);
+      // Show API error message for any non-OK response
+      const errorData = await res.json().catch(() => ({}));
+      const body = thinkingEl.querySelector(".msg-body");
+      if (body) {
+        body.textContent = errorData.detail || "Sorry, something went wrong. Please try again.";
+      }
+      requestScrollToBottom();
+      return;
     }
 
     const data = await res.json();
