@@ -305,6 +305,12 @@ Content updates should take less than 5 minutes end-to-end.
 - Do NOT add Co-Authored-By lines for AI assistants
 - This is Dakota's portfolio - all work is attributed to Dakota
 
+**Git Workflow:**
+- ALWAYS default to creating a PR instead of pushing directly to main
+- ASK before pushing to main, even for hotfixes
+- Before adding commits to an existing branch, check if its PR was already merged
+- Use `gh pr view <number> --json state,mergedAt` to verify PR status
+
 ---
 
 ## Current Status: Production Deployed
