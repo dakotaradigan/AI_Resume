@@ -85,6 +85,29 @@ Resume Assistant is an interactive chatbot showcasing Dakota Radigan's professio
 
 ## Development Philosophy
 
+### Simple Wins Over Complex
+
+**This is the #1 principle for this codebase.**
+
+- Prefer the simplest solution that works
+- No over-engineering - solve the problem, nothing more
+- No tech debt - every change should be production-quality
+- If a fix requires more than ~50 lines of new code, reconsider the approach
+- All plans MUST be reviewed for simplicity before implementation
+- When in doubt, delete code rather than add complexity
+
+**Questions to ask before any change:**
+1. Is this the simplest way to solve the problem?
+2. Am I adding complexity that isn't strictly necessary?
+3. Could I delete something instead of adding something?
+4. Will someone understand this in 6 months without context?
+
+**Anti-patterns to avoid:**
+- "Future-proofing" that adds complexity now
+- Abstractions for single-use cases
+- Configuration options nobody will change
+- Defensive code for scenarios that can't happen
+
 ### Incremental Development
 This project was built in discrete phases. Each phase was completable in 1-2 focused work sessions and fully functional before moving to the next.
 

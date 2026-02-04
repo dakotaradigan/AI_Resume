@@ -142,7 +142,7 @@ class RAGPipeline:
                 f"Summary: {personal.get('summary', '')}",
                 f"Email: {personal.get('email', '')}",
                 f"LinkedIn: {personal.get('linkedin', '')}",
-                f"Phone: {personal.get('phone', '')}",
+                # Phone intentionally excluded - PII should not be in RAG context
             ]
             text = "\n".join([p for p in text_parts if p and not p.endswith(": ")])
             chunks.append(

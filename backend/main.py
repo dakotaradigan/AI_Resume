@@ -102,6 +102,36 @@ class SessionStore:
             timestamps.append(now)
             return True
 
+    async def check_and_increment_limit(self, session_id: str, limit: int) -> tuple[bool, str]:
+        """
+        Atomically check chat limit and increment count if allowed.
+        Returns (allowed, reason) - allowed=True if under limit.
+        """
+        async with self._lock:
+            meta = self._metadata.get(session_id, {})
+
+            if meta.get("unlimited", False):
+                meta["user_message_count"] = meta.get("user_message_count", 0) + 1
+                self._metadata[session_id] = meta
+                return True, ""
+
+            current_count = meta.get("user_message_count", 0)
+            if current_count >= limit:
+                return False, (
+                    "You've reached the free chat limit. To continue, enter the password "
+                    "found on Dakota's resume."
+                )
+
+            meta["user_message_count"] = current_count + 1
+            self._metadata[session_id] = meta
+            return True, ""
+
+    async def set_unlimited(self, session_id: str, value: bool) -> None:
+        """Set unlimited access for a session."""
+        async with self._lock:
+            if session_id in self._metadata:
+                self._metadata[session_id]["unlimited"] = value
+
     async def cleanup_expired(self, max_age_seconds: int) -> int:
         """
         Remove sessions older than max_age_seconds.
@@ -664,17 +694,10 @@ def build_app() -> FastAPI:
                 ),
             )
 
-        # 4. Chat limit protection: Free users limited to N exchanges
-        async with store._lock:
-            meta = store._metadata.get(session_id, {})
-            if not meta.get("unlimited", False) and meta.get("user_message_count", 0) >= settings.free_chat_limit:
-                raise HTTPException(
-                    status_code=403,
-                    detail=(
-                        "You've reached the free chat limit. To continue, enter the password "
-                        "found on Dakota's resume."
-                    ),
-                )
+        # 4. Chat limit protection: Free users limited to N exchanges (atomic check+increment)
+        allowed, reason = await store.check_and_increment_limit(session_id, settings.free_chat_limit)
+        if not allowed:
+            raise HTTPException(status_code=403, detail=reason)
 
         # === Validation ===
 
@@ -700,11 +723,13 @@ def build_app() -> FastAPI:
             # Use RAG retrieval if enabled, otherwise fall back to static context
             rag_pipeline = get_rag_pipeline()
             if settings.use_rag and rag_pipeline is not None:
-                resume_context, used_rag = retrieve_rag_context(
+                # Run in thread pool to avoid blocking event loop during API calls
+                resume_context, used_rag = await asyncio.to_thread(
+                    retrieve_rag_context,
                     rag_pipeline,
                     message,
-                    limit=3,
-                    score_threshold=0.5
+                    3,    # limit
+                    0.5   # score_threshold
                 )
                 context_label = "RETRIEVED CONTEXT" if used_rag else "RESUME DATA"
             else:
@@ -765,14 +790,6 @@ def build_app() -> FastAPI:
 
         # Append messages and compact history
         await store.append_message(session_id, "user", message)
-
-        # Increment chat limit counter
-        async with store._lock:
-            if session_id in store._metadata:
-                store._metadata[session_id]["user_message_count"] = (
-                    store._metadata[session_id].get("user_message_count", 0) + 1
-                )
-
         await store.append_message(session_id, "assistant", reply_text)
         await _compact_session_history(session_id, store)
 
@@ -805,14 +822,23 @@ def build_app() -> FastAPI:
             )
 
         # Grant unlimited access
-        async with store._lock:
-            if payload.session_id in store._metadata:
-                store._metadata[payload.session_id]["unlimited"] = True
+        await store.set_unlimited(payload.session_id, True)
 
         return UnlockResponse(
             success=True,
             message="Unlimited chat access granted! Continue the conversation."
         )
+
+    # Expose API docs before static mount (otherwise "/" catches them)
+    from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+
+    @app.get("/docs", include_in_schema=False)
+    async def swagger_ui():
+        return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Docs")
+
+    @app.get("/openapi.json", include_in_schema=False)
+    async def openapi_json():
+        return app.openapi()
 
     # Serve the frontend files from ../frontend
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
