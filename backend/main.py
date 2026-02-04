@@ -30,7 +30,7 @@ COMPACT_KEEP_RECENT = 10
 COMPACT_CHAR_LIMIT = 800
 
 # Daily conversation limit to control API costs
-DAILY_CONVERSATION_LIMIT = 1
+DAILY_CONVERSATION_LIMIT = 50
 _daily_conversation_count: dict[str, int] = {}  # {"2026-02-03": 42}
 
 BUSY_MESSAGE = (

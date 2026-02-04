@@ -300,6 +300,11 @@ Content updates should take less than 5 minutes end-to-end.
 4. **Refactor:** If it feels messy, clean it up now
 5. **Test:** Verify it works before moving on
 
+**Git Commits:**
+- All commits should be authored by Dakota Radigan only
+- Do NOT add Co-Authored-By lines for AI assistants
+- This is Dakota's portfolio - all work is attributed to Dakota
+
 ---
 
 ## Current Status: Production Deployed
