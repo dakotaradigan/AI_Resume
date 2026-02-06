@@ -128,6 +128,76 @@ function parseMarkdown(text) {
   return html;
 }
 
+// --- Feedback UI ---
+let firstResponseFeedbackShown = false;
+
+function addFeedbackUI(messageEl, trigger) {
+  const feedback = document.createElement("div");
+  feedback.className = "msg-feedback";
+  feedback.innerHTML = `
+    <button class="feedback-btn" data-rating="up" title="Good response">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+      </svg>
+    </button>
+    <button class="feedback-btn" data-rating="down" title="Could be better">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>
+      </svg>
+    </button>
+  `;
+
+  const commentBox = document.createElement("div");
+  commentBox.className = "feedback-comment";
+  commentBox.style.display = "none";
+  commentBox.innerHTML = `
+    <input type="text" placeholder="What could be better?" maxlength="200" />
+    <button type="button">Send</button>
+  `;
+
+  feedback.querySelectorAll(".feedback-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (btn.disabled) return;
+      feedback.querySelectorAll(".feedback-btn").forEach(b => b.disabled = true);
+
+      const rating = btn.dataset.rating;
+      btn.classList.add("selected");
+
+      if (rating === "down") {
+        commentBox.style.display = "flex";
+        commentBox.querySelector("input").focus();
+      } else {
+        await submitFeedback(rating, "", trigger);
+        feedback.innerHTML = "<span class='feedback-thanks'>Thanks for the feedback!</span>";
+      }
+    });
+  });
+
+  const sendBtn = commentBox.querySelector("button");
+  sendBtn.addEventListener("click", async () => {
+    if (sendBtn.disabled) return;
+    sendBtn.disabled = true;
+    const comment = commentBox.querySelector("input").value.trim();
+    await submitFeedback("down", comment, trigger);
+    feedback.innerHTML = "<span class='feedback-thanks'>Thanks for the feedback!</span>";
+  });
+
+  messageEl.appendChild(feedback);
+  messageEl.appendChild(commentBox);
+}
+
+async function submitFeedback(rating, comment, trigger) {
+  try {
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, rating, comment, trigger }),
+    });
+  } catch (err) {
+    console.error("Feedback submission failed:", err);
+  }
+}
+
 function addMessage(text, role, timestamp = new Date()) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
@@ -570,6 +640,7 @@ async function sendMessage(message) {
 
               if (unlockData.success) {
                 body.innerHTML = `<p style="color: var(--accent);">✓ ${unlockData.message}</p>`;
+                addFeedbackUI(thinkingEl, "password_unlock");
                 requestScrollToBottom();
                 // Re-enable chat input
                 chatInput.disabled = false;
@@ -609,6 +680,13 @@ async function sendMessage(message) {
     if (meta) {
       meta.textContent = formatTime(new Date());
     }
+
+    // Show feedback UI on first successful response
+    if (!firstResponseFeedbackShown) {
+      firstResponseFeedbackShown = true;
+      addFeedbackUI(thinkingEl, "first_response");
+    }
+
     requestScrollToBottom();
   } catch (err) {
     const body = thinkingEl.querySelector(".msg-body");
@@ -631,7 +709,8 @@ chatForm.addEventListener("submit", (e) => {
 });
 
 // Seed a friendly greeting.
-addMessage("Hi! Ask about Dakota's experience, projects, or skills.", "bot");
+const introMsg = addMessage("Hi! Ask about Dakota's experience, projects, or skills.", "bot");
+introMsg.classList.add("intro");
 
 // Robust chat stick-to-bottom behavior.
 initChatAutoScroll();

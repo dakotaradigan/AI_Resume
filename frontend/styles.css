@@ -545,6 +545,10 @@ a:hover {
   color: var(--text);
 }
 
+.msg.intro {
+  color: var(--muted);
+}
+
 .msg-body {
   color: inherit;
 }
@@ -656,10 +660,10 @@ a:hover {
 
 .chat-form input {
   flex: 1;
-  padding: 10px 0;
-  border-radius: 0;
-  border: none;
-  background: transparent;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
   color: var(--text);
   font-size: 15px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -667,7 +671,8 @@ a:hover {
 
 .chat-form input:focus {
   outline: none;
-  box-shadow: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .send-button {
@@ -871,6 +876,112 @@ a:hover {
 
 .chip--static:hover {
   background: transparent;
+}
+
+/* AI Disclaimer - inline with chat header */
+.ai-disclaimer {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Site Footer */
+.site-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  font-size: 14px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  margin-top: 48px;
+}
+
+.footer-links {
+  display: flex;
+  gap: 16px;
+}
+
+.footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: var(--accent);
+}
+
+/* Feedback UI */
+.msg-feedback {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.feedback-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.feedback-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.feedback-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.feedback-btn.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.feedback-comment {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.feedback-comment input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.feedback-comment button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.feedback-thanks {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 @media (max-width: 960px) {
