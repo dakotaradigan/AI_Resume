@@ -14,6 +14,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 ANALYTICS_FILE = Path(__file__).parent / "queries.json"
+FEEDBACK_FILE = Path(__file__).parent / "feedback.json"
 
 
 def log_query(session_id: str, query: str, response_preview: str = "") -> None:
@@ -41,3 +42,32 @@ def log_query(session_id: str, query: str, response_preview: str = "") -> None:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except Exception as e:
         logger.warning(f"Failed to log query: {e}")
+
+
+def log_feedback(session_id: str, rating: str, comment: str = "", trigger: str = "") -> None:
+    """
+    Log user feedback (thumbs up/down).
+
+    Args:
+        session_id: Session identifier
+        rating: "up" or "down"
+        comment: Optional comment (typically on thumbs down)
+        trigger: What triggered the feedback prompt ("first_response" or "password_unlock")
+    """
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "session_id": session_id,
+        "rating": rating,
+        "comment": comment,
+        "trigger": trigger
+    }
+
+    try:
+        with open(FEEDBACK_FILE, "a", encoding="utf-8") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                f.write(json.dumps(entry) + "\n")
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+    except Exception as e:
+        logger.warning(f"Failed to log feedback: {e}")

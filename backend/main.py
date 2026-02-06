@@ -8,18 +8,18 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from anthropic import AsyncAnthropic, AnthropicError, RateLimitError
 from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
 
 from config import get_settings
 from rag import initialize_rag_pipeline, RAGPipeline
-from analytics.analytics import log_query
+from analytics.analytics import log_query, log_feedback
 
 logger = logging.getLogger("resume-assistant")
 
@@ -227,6 +227,13 @@ class UnlockRequest(BaseModel):
 class UnlockResponse(BaseModel):
     success: bool
     message: str
+
+
+class FeedbackRequest(BaseModel):
+    session_id: str = Field(..., min_length=1, max_length=100)
+    rating: Literal["up", "down"]
+    comment: str = Field(default="", max_length=500)
+    trigger: Literal["first_response", "password_unlock", ""] = ""
 
 
 class ChatResponse(BaseModel):
@@ -850,6 +857,18 @@ def build_app() -> FastAPI:
             success=True,
             message="Unlimited chat access granted! Continue the conversation."
         )
+
+    @app.post("/api/feedback")
+    async def submit_feedback(payload: FeedbackRequest):
+        """Log user feedback (thumbs up/down)."""
+        await asyncio.to_thread(
+            log_feedback,
+            payload.session_id,
+            payload.rating,
+            payload.comment,
+            payload.trigger
+        )
+        return {"success": True}
 
     # Expose API docs before static mount (otherwise "/" catches them)
     from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
