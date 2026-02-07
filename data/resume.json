@@ -22,7 +22,7 @@
       "description": "Leading product strategy and technical partnerships for investment solutions at a leading direct indexing firm.",
       "achievements": [
         "Led technical investment integration with Wells Fargo, aligning internal/external engineering teams to deliver pilot 2 weeks early—securing $32M initial AUM and a $3B+ pipeline",
-        "Launched new investment product MVP ahead of schedule; validated market needs and iterated rapidly to capture $75M AUM within 6 months of release",
+        "Launched a new investment product MVP ahead of schedule; validated market needs and iterated rapidly to capture $75M AUM within 6 months of release",
         "Shipped 3 high-impact features reducing manual client touchpoints on ~75k accounts",
         "Brought Ben AI from personal PoC to production deployment—architected and scaled the RAG-based GenAI assistant, projected to autonomously resolve ~3,500+ annual email inquiries and slash response times from hours to minutes",
         "Established product analytics to monitor KPIs (time-to-onboard, adoption), identifying friction and pain points to drive data-backed roadmap prioritization",
@@ -253,7 +253,7 @@
 
   "certifications": [
     {
-      "name": " PCAP - Certified Associate Python Programmer",
+      "name": "PCAP - Certified Associate Python Programmer",
       "issuer": "Python Institute",
       "date": "",
       "status": "Completed",
