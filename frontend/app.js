@@ -14,13 +14,9 @@ const heroTitle = document.getElementById("hero-title");
 const heroTagline = document.getElementById("hero-tagline");
 const heroEmail = document.getElementById("hero-email");
 const heroLocation = document.getElementById("hero-location");
-const heroLinkedIn = document.getElementById("hero-linkedin");
-const heroGithub = document.getElementById("hero-github");
 const themeToggle = document.getElementById("theme-toggle");
 const contactToggle = document.getElementById("contact-toggle");
 const contactMenu = document.getElementById("contact-menu");
-const contactLinkedIn = document.getElementById("contact-linkedin");
-const contactEmail = document.getElementById("contact-email");
 const scrollHint = document.getElementById("scroll-hint");
 const suggestionsEl = document.getElementById("suggestions");
 
@@ -429,14 +425,10 @@ async function loadAndRenderResume() {
     const displayName = [name, creds].filter(Boolean).join(", ");
     const title = (personal.title || "").trim();
     const email = (personal.email || "").trim();
-    const linkedin = (personal.linkedin || "").trim();
-    const github = (personal.github || "").trim();
-
     if (brandTitle && displayName) brandTitle.textContent = displayName.toUpperCase();
     if (heroName && displayName) heroName.textContent = displayName;
     if (heroTitle && title) heroTitle.textContent = title;
     if (heroTagline) heroTagline.textContent = HERO_TAGLINE;
-    if (heroEmail && email) heroEmail.href = `mailto:${email}`;
     if (heroEmail && email) {
       const t = heroEmail.querySelector(".hero-contact-text");
       if (t) t.textContent = email;
@@ -445,12 +437,6 @@ async function loadAndRenderResume() {
       const t = heroLocation.querySelector(".hero-contact-text");
       if (t) t.textContent = personal.location;
     }
-    if (heroLinkedIn && linkedin) heroLinkedIn.href = linkedin;
-    if (heroGithub && github) heroGithub.href = github;
-
-    // Header contact dropdown
-    if (contactLinkedIn && linkedin) contactLinkedIn.href = linkedin;
-    if (contactEmail && email) contactEmail.href = `mailto:${email}`;
 
     renderExperience(data.experience);
     renderSkills(data.skills);
