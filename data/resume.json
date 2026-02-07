@@ -1,4 +1,4 @@
-{
+I'm{
   "personal": {
     "name": "Dakota Radigan",
     "title": "Senior Product Manager",
@@ -23,8 +23,8 @@
       "achievements": [
         "Led technical investment integration with Wells Fargo, aligning internal/external engineering teams to deliver pilot 2 weeks early—securing $32M initial AUM and a $3B+ pipeline",
         "Launched a new investment product MVP ahead of schedule; validated market needs and iterated rapidly to capture $75M AUM within 6 months of release",
-        "Shipped 3 high-impact features reducing manual client touchpoints on ~75k accounts",
-        "Brought Ben AI from personal PoC to production deployment—architected and scaled the RAG-based GenAI assistant, projected to autonomously resolve ~3,500+ annual email inquiries and slash response times from hours to minutes",
+        "Shipped a high-impact features reducing manual client touchpoints on ~75k accounts",
+        "Built a RAG-based GenAI from PoC to internal production — projected to autonomously resolve ~2,500+ annual email inquiries and slash response times for clients from ~2 hours to minutes",
         "Established product analytics to monitor KPIs (time-to-onboard, adoption), identifying friction and pain points to drive data-backed roadmap prioritization",
         "Appointed firm-wide 'AI Champion,' leading an 8-person task force to drive strategy. Increased Copilot adoption by 60% in 2 months and secured budget for dedicated engineering to scale custom OpenAI API solutions"
       ],
