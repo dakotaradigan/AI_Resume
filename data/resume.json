@@ -55,7 +55,7 @@
       "description": "Scaled direct indexing product suite and led platform configuration for new investment strategies.",
       "achievements": [
         "Scaled the direct indexing suite by launching 18 new benchmark strategies within 9 months, leading platform configuration to drive $100M+ in new AUM",
-        "Wrote functional specifications for a digital onboarding portal, leading the engineering rollout",
+        "Wrote functional specifications for a digital onboarding portal",
         "Engineered SQL reporting and heatmaps to diagnose bottlenecks and drive targeted CRM optimizations across Sales, Client Service, and operations"
       ],
       "technologies": ["SQL", "CRM Tools", "Platform Configuration", "Requirements Gathering"]
