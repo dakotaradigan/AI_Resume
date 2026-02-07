@@ -3,89 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#0b1220" />
-  <title>Dakota Radigan | Resume Assistant</title>
+  <meta name="theme-color" content="#f7f3ee" />
+  <meta name="description" content="Dakota Radigan, MBA — Senior Product Manager. Interactive AI-powered resume showcasing experience, skills, and projects." />
+  <title>Dakota Radigan, MBA | Senior Product Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header class="site-header">
+  <header id="site-header" class="site-header">
     <div class="brand">
       <div id="brand-title" class="brand-title">DAKOTA RADIGAN, MBA</div>
     </div>
-    <nav class="nav-links">
+    <nav id="nav-links" class="nav-links">
       <a href="#home">Home</a>
       <a href="#experience">Experience</a>
-      <a href="#skills">Skills</a>
       <a href="#education">Education</a>
-      <div class="nav-contact">
-        <button
-          id="contact-toggle"
-          class="contact-toggle"
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded="false"
-          aria-controls="contact-menu"
-        >
-          Contact
-        </button>
-        <div id="contact-menu" class="contact-menu" role="menu" aria-label="Contact options" hidden>
-          <a id="contact-linkedin" class="contact-menu-item" role="menuitem" href="#" target="_blank" rel="noopener">
-            <span class="contact-icon" aria-hidden="true">
-              <!-- LinkedIn icon -->
-              <svg viewBox="0 0 24 24" fill="none">
-                <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.6"/>
-                <path d="M8 11v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                <path d="M8 8.2h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                <path d="M12 18v-4.1c0-1.6.9-2.6 2.4-2.6 1.4 0 2.2 1 2.2 2.6V18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 11v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <span class="contact-label">LinkedIn</span>
-          </a>
-
-          <a id="contact-email" class="contact-menu-item" role="menuitem" href="mailto:dakotaradigan@gmail.com">
-            <span class="contact-icon" aria-hidden="true">
-              <!-- Mail icon -->
-              <svg viewBox="0 0 24 24" fill="none">
-                <path d="M4.5 7.5h15v10h-15v-10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-                <path d="m5.5 8.5 6.5 5 6.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </span>
-            <span class="contact-label">Email</span>
-          </a>
-        </div>
-      </div>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle theme">
-        <!-- Sun icon -->
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
-            stroke="currentColor"
-            stroke-width="1.8"
-          />
-          <path
-            d="M12 2v2.5M12 19.5V22M4.22 4.22l1.77 1.77M18.01 18.01l1.77 1.77M2 12h2.5M19.5 12H22M4.22 19.78l1.77-1.77M18.01 5.99l1.77-1.77"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-          />
-        </svg>
-      </button>
+      <a href="#skills">Skills</a>
+      <a href="#contact">Contact</a>
     </nav>
+    <button id="hamburger" class="hamburger" type="button" aria-label="Toggle navigation" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
   </header>
 
   <main class="layout">
-    <section id="home" class="intro-card hero">
-      <h1 id="hero-name" class="hero-name">Dakota Radigan, MBA</h1>
+    <section id="home" class="hero">
+      <div class="hero-line" aria-hidden="true"></div>
+      <div class="hero-kicker">SENIOR PRODUCT MANAGER</div>
+      <h1 id="hero-name" class="hero-name">Dakota Radigan</h1>
+      <div id="hero-credential" class="hero-credential">MBA</div>
       <p id="hero-tagline" class="hero-tagline">
-        Senior Product Manager with 5+ years shipping solutions
+        Shipping solutions at the intersection of product strategy, AI innovation, and financial technology
       </p>
 
-      <div id="contact" class="hero-contact">
+      <div id="hero-contact" class="hero-contact">
         <a id="hero-email" class="hero-contact-item" href="mailto:dakotaradigan@gmail.com">
           <span class="hero-contact-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
@@ -116,10 +71,8 @@
           </span>
           <span class="hero-contact-text">LinkedIn</span>
         </a>
-
         <a id="hero-github" class="hero-contact-item" href="https://github.com/dakotaradigan" target="_blank" rel="noopener">
           <span class="hero-contact-icon" aria-hidden="true">
-            <!-- GitHub icon -->
             <svg viewBox="0 0 24 24" fill="none">
               <path
                 d="M12 2.7c-5.1 0-9.2 4.2-9.2 9.4 0 4.1 2.6 7.6 6.2 8.9.5.1.7-.2.7-.5v-1.8c-2.5.6-3.1-1.1-3.1-1.1-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2-.2-4.2-1-4.2-4.6 0-1 .3-1.8.9-2.5-.1-.2-.4-1.1.1-2.3 0 0 .7-.2 2.4 1 .7-.2 1.4-.3 2.2-.3.7 0 1.5.1 2.2.3 1.7-1.2 2.4-1 2.4-1 .5 1.2.2 2.1.1 2.3.6.7.9 1.5.9 2.5 0 3.6-2.2 4.4-4.2 4.6.4.3.7.9.7 1.8v2.6c0 .3.2.6.7.5 3.6-1.2 6.2-4.8 6.2-8.9 0-5.2-4.1-9.4-9.2-9.4Z"
@@ -132,15 +85,20 @@
           <span class="hero-contact-text">GitHub</span>
         </a>
       </div>
+
+      <a href="#chat" class="hero-explore">
+        <span>EXPLORE</span>
+        <div class="hero-explore-line"></div>
+      </a>
     </section>
 
-    <section class="chat-card">
+    <section id="chat" class="chat-card">
       <div class="chat-header">
-        <span class="chat-header-icon" aria-hidden="true">✦</span>
+        <span class="chat-header-icon" aria-hidden="true">&#10022;</span>
         <span class="chat-header-title">Dakota's AI Resume</span>
         <span class="ai-disclaimer">AI-generated · may make mistakes</span>
       </div>
-      <div id="chat-log" class="chat-log"></div>
+      <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Chat messages"></div>
       <div id="suggestions" class="chat-suggestions">
         <div class="suggestions-banner">Not sure where to start? Try one of these:</div>
         <div class="chips">
@@ -150,26 +108,29 @@
         </div>
       </div>
       <form id="chat-form" class="chat-form">
-        <input id="chat-input" type="text" placeholder="Ask about skills, projects, or impact..." autocomplete="off" autofocus required />
+        <input id="chat-input" type="text" placeholder="Ask about skills, projects, or impact..." autocomplete="off" required />
         <button type="submit" class="send-button" aria-label="Send message">
-          <span class="send-icon" aria-hidden="true">↗</span>
+          <span class="send-icon" aria-hidden="true">&#8599;</span>
         </button>
       </form>
     </section>
 
+    <div class="trail-line" aria-hidden="true"></div>
+
     <section id="resume" class="resume">
       <section id="experience" class="resume-section">
-        <h2>Experience</h2>
-        <div id="experience-grid" class="resume-grid resume-grid--one"></div>
-      </section>
-
-      <section id="skills" class="resume-section">
-        <h2>Skills</h2>
-        <div id="skills-grid" class="skills-grid"></div>
+        <a href="#experience" class="section-header section-header--link">
+          <span class="section-label">Career</span>
+          <h2 class="section-title">Experience</h2>
+        </a>
+        <div id="experience-grid"></div>
       </section>
 
       <section id="education" class="resume-section">
-        <h2>Education &amp; Certifications</h2>
+        <a href="#education" class="section-header section-header--link">
+          <span class="section-label">Credentials</span>
+          <h2 class="section-title">Education &amp; Certifications</h2>
+        </a>
         <div class="resume-grid resume-grid--two">
           <div>
             <div class="section-kicker">Education</div>
@@ -181,30 +142,54 @@
           </div>
         </div>
       </section>
+
+      <section id="skills" class="resume-section">
+        <a href="#skills" class="section-header section-header--link">
+          <span class="section-label">Expertise</span>
+          <h2 class="section-title">Skills</h2>
+        </a>
+        <div id="skills-grid" class="skills-grid"></div>
+      </section>
     </section>
   </main>
 
-  <div id="scroll-hint" class="scroll-hint" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none">
-      <path
-        d="M6 9l6 6 6-6"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-    </svg>
-  </div>
-
-  <footer class="site-footer">
-    <p>© 2026 Dakota Radigan</p>
-    <div class="footer-links">
-      <a href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">LinkedIn</a>
-      <a href="https://github.com/dakotaradigan" target="_blank" rel="noopener">GitHub</a>
+  <footer id="contact" class="site-footer">
+    <div class="footer-content">
+      <span class="footer-kicker">GET IN TOUCH</span>
+      <h2 class="footer-heading">Let's Connect</h2>
+      <p class="footer-subtitle">Interested in discussing product strategy, AI innovation, or potential opportunities?</p>
+      <div class="footer-buttons">
+        <a class="footer-btn" href="mailto:dakotaradigan@gmail.com">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4.5 7.5h15v10h-15v-10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="m5.5 8.5 6.5 5 6.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Email
+        </a>
+        <a class="footer-btn" href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M8 11v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M8 8.2h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            <path d="M12 18v-4.1c0-1.6.9-2.6 2.4-2.6 1.4 0 2.2 1 2.2 2.6V18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 11v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          LinkedIn
+        </a>
+        <a class="footer-btn" href="https://github.com/dakotaradigan" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2.7c-5.1 0-9.2 4.2-9.2 9.4 0 4.1 2.6 7.6 6.2 8.9.5.1.7-.2.7-.5v-1.8c-2.5.6-3.1-1.1-3.1-1.1-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2-.2-4.2-1-4.2-4.6 0-1 .3-1.8.9-2.5-.1-.2-.4-1.1.1-2.3 0 0 .7-.2 2.4 1 .7-.2 1.4-.3 2.2-.3.7 0 1.5.1 2.2.3 1.7-1.2 2.4-1 2.4-1 .5 1.2.2 2.1.1 2.3.6.7.9 1.5.9 2.5 0 3.6-2.2 4.4-4.2 4.6.4.3.7.9.7 1.8v2.6c0 .3.2.6.7.5 3.6-1.2 6.2-4.8 6.2-8.9 0-5.2-4.1-9.4-9.2-9.4Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-separator" aria-hidden="true"></div>
+      <p class="footer-copyright">&copy; 2026 Dakota Radigan. All rights reserved.</p>
     </div>
   </footer>
 
   <script src="./app.js"></script>
 </body>
 </html>
-

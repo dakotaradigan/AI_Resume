@@ -28,7 +28,7 @@
         "Established product analytics to monitor KPIs (time-to-onboard, adoption), identifying friction and pain points to drive data-backed roadmap prioritization",
         "Appointed firm-wide 'AI Champion,' leading an 8-person task force to drive strategy. Increased Copilot adoption by 60% in 2 months and secured budget for dedicated engineering to scale custom OpenAI API solutions"
       ],
-      "technologies": ["Python", "SQL", "RAG", "OpenAI API", "GenAI", "Product Analytics"]
+      "technologies": ["Python", "SQL", "RAG", "OpenAI API", "GenAI", "Product Analytics", "Product Strategy"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
@@ -44,7 +44,7 @@
         "Chaired a cross-functional leadership council (Engineering, Ops, Sales) to break down silos and align priorities, reducing decision cycle times for critical execution items from weeks to days",
         "Prototyped a Python-based self-service tool for the C-suite, demonstrating the viability of on-going digital service concepts"
       ],
-      "technologies": ["SQL", "Python", "Cross-functional Leadership", "Enterprise Sales"]
+      "technologies": ["SQL", "Python", "Cross-functional Leadership", "Product Strategy"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
@@ -58,7 +58,7 @@
         "Wrote functional specifications for a digital onboarding portal",
         "Engineered SQL reporting and heatmaps to diagnose bottlenecks and drive targeted CRM optimizations across Sales, Client Service, and operations"
       ],
-      "technologies": ["SQL", "CRM Tools", "Platform Configuration", "Requirements Gathering"]
+      "technologies": ["SQL", "CRM Tools", "Platform Configuration", "Requirements Gathering", "Product Strategy"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",

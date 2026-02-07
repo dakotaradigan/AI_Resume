@@ -10,28 +10,24 @@ const certificationsGrid = document.getElementById("certifications-grid");
 
 const brandTitle = document.getElementById("brand-title");
 const heroName = document.getElementById("hero-name");
-const heroTitle = document.getElementById("hero-title");
+const heroCredential = document.getElementById("hero-credential");
 const heroTagline = document.getElementById("hero-tagline");
 const heroEmail = document.getElementById("hero-email");
 const heroLocation = document.getElementById("hero-location");
-const themeToggle = document.getElementById("theme-toggle");
-const contactToggle = document.getElementById("contact-toggle");
-const contactMenu = document.getElementById("contact-menu");
-const scrollHint = document.getElementById("scroll-hint");
 const suggestionsEl = document.getElementById("suggestions");
+
+const siteHeader = document.getElementById("site-header");
+const navLinks = document.getElementById("nav-links");
+const hamburger = document.getElementById("hamburger");
 
 // Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
 const HERO_TAGLINE =
-  "Senior Product Manager with 5+ years shipping solutions";
+  "Shipping solutions at the intersection of product strategy, AI innovation, and financial technology";
 
 const sessionId =
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-function formatTime(date) {
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
 
 /**
  * Simple markdown parser for bot responses.
@@ -194,7 +190,7 @@ async function submitFeedback(rating, comment, trigger) {
   }
 }
 
-function addMessage(text, role, timestamp = new Date()) {
+function addMessage(text, role) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
 
@@ -209,11 +205,7 @@ function addMessage(text, role, timestamp = new Date()) {
     body.textContent = text;
   }
 
-  const meta = document.createElement("div");
-  meta.className = "msg-meta";
-  meta.textContent = formatTime(timestamp);
-
-  div.append(body, meta);
+  div.append(body);
   chatLog.appendChild(div);
   requestScrollToBottom();
   return div;
@@ -255,7 +247,7 @@ function initChatAutoScroll() {
     { passive: true }
   );
 
-  // Covers both appends and “Thinking…” -> full reply replacements.
+  // Covers both appends and "Thinking…" -> full reply replacements.
   const mo = new MutationObserver(() => requestScrollToBottom());
   mo.observe(chatLog, { childList: true, subtree: true, characterData: true });
 }
@@ -283,29 +275,33 @@ function safeArray(v) {
 function renderExperience(items) {
   if (!experienceGrid) return;
   experienceGrid.innerHTML = "";
+  experienceGrid.className = "experience-timeline";
 
-  safeArray(items).forEach((exp) => {
-    const titleRow = el("div", { class: "resume-card-title-row" }, [
-      el("div", { class: "resume-card-kicker", text: exp.duration || "" }),
-      el("div", { class: "resume-card-meta", text: exp.location || "" }),
-    ]);
+  safeArray(items).forEach((exp, idx) => {
+    const role = el("div", { class: "timeline-role", text: exp.role || "" });
+    const company = el("div", { class: "timeline-company", text: exp.company || "" });
 
-    const role = el("div", { class: "resume-card-title", text: exp.role || "" });
-    const company = el("div", { class: "resume-card-subtitle", text: exp.company || "" });
+    // Build meta column (date + location, right-aligned)
+    const metaChildren = [];
+    if (exp.duration) metaChildren.push(el("div", { text: exp.duration }));
+    if (exp.location) metaChildren.push(el("div", { text: exp.location }));
+    const meta = metaChildren.length ? el("div", { class: "timeline-meta" }, metaChildren) : null;
+
+    const header = el("div", { class: "timeline-header" }, [role, meta]);
 
     const achievements = safeArray(exp.achievements);
-    const bullets = achievements.map((a, idx) =>
-      el("li", { class: idx >= 3 ? "is-extra" : "", text: a })
+    const bullets = achievements.map((a, i) =>
+      el("li", { class: i >= 3 ? "is-extra" : "", text: a })
     );
     const list = bullets.length
-      ? el("ul", { class: "resume-bullets is-collapsed" }, bullets)
+      ? el("ul", { class: "timeline-bullets is-collapsed" }, bullets)
       : null;
 
     const extrasCount = Math.max(0, achievements.length - 3);
     const toggle =
       extrasCount > 0
         ? el("button", {
-            class: "resume-card-toggle",
+            class: "timeline-toggle",
             type: "button",
             text: `Show more (${extrasCount})`,
           })
@@ -318,14 +314,23 @@ function renderExperience(items) {
       });
     }
 
-    const card = el("article", { class: "resume-card reveal" }, [
-      titleRow,
-      role,
+    // Technology tags
+    const technologies = safeArray(exp.technologies);
+    const tags = technologies.length
+      ? el("div", { class: "timeline-tags" },
+          technologies.map(t => el("span", { class: "timeline-tag", text: t }))
+        )
+      : null;
+
+    const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
+    const entry = el("article", { class: `timeline-entry reveal${delayClass}` }, [
+      header,
       company,
       list,
       toggle,
+      tags,
     ]);
-    experienceGrid.append(card);
+    experienceGrid.append(entry);
   });
 }
 
@@ -334,10 +339,11 @@ function renderSkills(skills) {
   skillsGrid.innerHTML = "";
 
   const entries = Object.entries(skills || {});
-  entries.forEach(([key, items]) => {
+  entries.forEach(([key, items], idx) => {
     const label = key.replace(/_/g, " ").toUpperCase();
     const chips = safeArray(items).map((s) => el("button", { class: "chip chip--static", type: "button", text: s }));
-    const block = el("section", { class: "skills-block" }, [
+    const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
+    const block = el("section", { class: `skills-block reveal${delayClass}` }, [
       el("div", { class: "skills-kicker", text: label }),
       el("div", { class: "skills-chips" }, chips),
     ]);
@@ -361,7 +367,7 @@ function renderEducation(items) {
 function renderCertifications(items) {
   if (!certificationsGrid) return;
   certificationsGrid.innerHTML = "";
-  safeArray(items).forEach((c) => {
+  safeArray(items).forEach((c, idx) => {
     const name = c.name || "";
     const showDate =
       /PCAP/i.test(name) || /Certified Associate Python Programmer/i.test(name);
@@ -375,8 +381,9 @@ function renderCertifications(items) {
       c.status && String(c.status).trim() && String(c.status).toLowerCase() !== "completed"
         ? el("div", { class: "resume-card-status", text: c.status })
         : null;
+    const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
     certificationsGrid.append(
-      el("article", { class: "resume-card reveal" }, [row, subtitle, status])
+      el("article", { class: `resume-card reveal${delayClass}` }, [row, subtitle, status])
     );
   });
 }
@@ -411,9 +418,54 @@ function initRevealOnScroll() {
   nodes.forEach((n) => io.observe(n));
 }
 
+function initNavbar() {
+  // Frosted glass on scroll
+  if (siteHeader) {
+    let wasScrolled = false;
+    window.addEventListener("scroll", () => {
+      const isScrolled = window.scrollY > 20;
+      if (isScrolled !== wasScrolled) {
+        wasScrolled = isScrolled;
+        siteHeader.classList.toggle("is-scrolled", isScrolled);
+      }
+    }, { passive: true });
+  }
+
+  // Hamburger toggle
+  if (hamburger && navLinks) {
+    hamburger.addEventListener("click", () => {
+      const isOpen = navLinks.classList.toggle("is-open");
+      hamburger.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    });
+
+    // Close on nav link click (mobile)
+    navLinks.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        navLinks.classList.remove("is-open");
+        hamburger.setAttribute("aria-expanded", "false");
+      });
+    });
+
+    // Close on outside click
+    document.addEventListener("click", (e) => {
+      if (!(e.target instanceof Node)) return;
+      if (navLinks.contains(e.target) || hamburger.contains(e.target)) return;
+      navLinks.classList.remove("is-open");
+      hamburger.setAttribute("aria-expanded", "false");
+    });
+
+    // Close on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && navLinks.classList.contains("is-open")) {
+        navLinks.classList.remove("is-open");
+        hamburger.setAttribute("aria-expanded", "false");
+        hamburger.focus();
+      }
+    });
+  }
+}
+
 async function loadAndRenderResume() {
-  // The backend serves the frontend; this endpoint is same-origin.
-  // If someone opens index.html directly without the backend, fail gracefully.
   try {
     const res = await fetch("/api/resume");
     if (!res.ok) throw new Error(`Resume fetch failed: ${res.status}`);
@@ -423,11 +475,10 @@ async function loadAndRenderResume() {
     const name = (personal.name || "").trim();
     const creds = (personal.credentials || "").trim();
     const displayName = [name, creds].filter(Boolean).join(", ");
-    const title = (personal.title || "").trim();
     const email = (personal.email || "").trim();
     if (brandTitle && displayName) brandTitle.textContent = displayName.toUpperCase();
-    if (heroName && displayName) heroName.textContent = displayName;
-    if (heroTitle && title) heroTitle.textContent = title;
+    if (heroName && name) heroName.textContent = name;
+    if (heroCredential && creds) heroCredential.textContent = creds;
     if (heroTagline) heroTagline.textContent = HERO_TAGLINE;
     if (heroEmail && email) {
       const t = heroEmail.querySelector(".hero-contact-text");
@@ -457,111 +508,6 @@ function setSending(isSending) {
   }
 }
 
-function getSystemTheme() {
-  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function getStoredTheme() {
-  try {
-    const v = localStorage.getItem("theme");
-    return v === "dark" || v === "light" ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-function setStoredTheme(theme) {
-  try {
-    localStorage.setItem("theme", theme);
-  } catch {
-    // ignore
-  }
-}
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  if (themeToggle) {
-    themeToggle.setAttribute(
-      "aria-label",
-      theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
-    );
-    themeToggle.setAttribute(
-      "title",
-      theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
-    );
-  }
-}
-
-function initTheme() {
-  const stored = getStoredTheme();
-  applyTheme(stored || getSystemTheme());
-
-  if (themeToggle) {
-    themeToggle.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || getSystemTheme();
-      const next = current === "dark" ? "light" : "dark";
-      setStoredTheme(next);
-      applyTheme(next);
-    });
-  }
-}
-
-function setContactMenuOpen(isOpen) {
-  if (!contactToggle || !contactMenu) return;
-  contactToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-  contactMenu.hidden = !isOpen;
-}
-
-function initContactMenu() {
-  if (!contactToggle || !contactMenu) return;
-  setContactMenuOpen(false);
-
-  contactToggle.addEventListener("click", (e) => {
-    e.preventDefault();
-    const isOpen = contactToggle.getAttribute("aria-expanded") === "true";
-    setContactMenuOpen(!isOpen);
-  });
-
-  document.addEventListener("click", (e) => {
-    const target = e.target;
-    if (!(target instanceof Node)) return;
-    if (contactMenu.contains(target) || contactToggle.contains(target)) return;
-    setContactMenuOpen(false);
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") setContactMenuOpen(false);
-  });
-}
-
-function initScrollHint() {
-  if (!scrollHint) return;
-
-  const hide = () => scrollHint.classList.add("is-hidden");
-
-  // If there isn't meaningful scroll room, don't show it.
-  const hasScrollRoom = () =>
-    document.documentElement.scrollHeight - window.innerHeight > 80;
-
-  const refresh = () => {
-    if (!hasScrollRoom()) hide();
-  };
-
-  refresh();
-
-  window.addEventListener(
-    "scroll",
-    () => {
-      if (window.scrollY > 20) hide();
-    },
-    { passive: true }
-  );
-
-  window.addEventListener("resize", refresh, { passive: true });
-}
-
 async function sendMessage(message) {
   suggestionsEl?.remove();
   addMessage(message, "user");
@@ -581,33 +527,19 @@ async function sendMessage(message) {
         const errorData = await res.json().catch(() => ({}));
         const body = thinkingEl.querySelector(".msg-body");
         if (body) {
-          body.innerHTML = `
-            <p style="margin-bottom: 12px;">${errorData.detail || "You've hit the free chat limit."}</p>
-            <form id="unlock-form" style="display: flex; gap: 8px; align-items: center;">
-              <input
-                type="text"
-                id="unlock-password"
-                placeholder="Enter password"
-                autocomplete="off"
-                style="flex: 1; padding: 8px 12px; border: 1px solid var(--muted); border-radius: 6px; font-family: inherit; background: var(--bg); color: var(--accent);"
-              />
-              <button
-                type="submit"
-                style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 500;"
-              >
-                Unlock
-              </button>
-            </form>
-            <p id="unlock-error" style="margin-top: 8px; color: #e57373; font-size: 14px; display: none;"></p>
-          `;
+          body.textContent = "";
 
-          // Handle unlock form submission
-          const unlockForm = body.querySelector("#unlock-form");
-          unlockForm?.addEventListener("submit", async (e) => {
+          const prompt = el("p", { class: "unlock-prompt", text: errorData.detail || "You've hit the free chat limit." });
+          const passwordInput = el("input", { type: "text", class: "unlock-input", placeholder: "Enter password", autocomplete: "off" });
+          const submitBtn = el("button", { type: "submit", class: "unlock-submit", text: "Unlock" });
+          const unlockForm = el("form", { class: "unlock-form" }, [passwordInput, submitBtn]);
+          const errorEl = el("p", { class: "unlock-error" });
+
+          body.append(prompt, unlockForm, errorEl);
+
+          unlockForm.addEventListener("submit", async (e) => {
             e.preventDefault();
-            const passwordInput = body.querySelector("#unlock-password");
-            const errorEl = body.querySelector("#unlock-error");
-            const password = passwordInput?.value.trim();
+            const password = passwordInput.value.trim();
 
             if (!password) {
               errorEl.textContent = "Please enter a password.";
@@ -625,10 +557,12 @@ async function sendMessage(message) {
               const unlockData = await unlockRes.json();
 
               if (unlockData.success) {
-                body.innerHTML = `<p style="color: var(--accent);">✓ ${unlockData.message}</p>`;
+                body.textContent = "";
+                const successMsg = el("p", { class: "unlock-success" });
+                successMsg.textContent = "\u2713 " + (unlockData.message || "Unlocked!");
+                body.append(successMsg);
                 addFeedbackUI(thinkingEl, "password_unlock");
                 requestScrollToBottom();
-                // Re-enable chat input
                 chatInput.disabled = false;
                 chatInput.focus();
               } else {
@@ -658,13 +592,8 @@ async function sendMessage(message) {
 
     const data = await res.json();
     const body = thinkingEl.querySelector(".msg-body");
-    const meta = thinkingEl.querySelector(".msg-meta");
     if (body) {
-      // Parse markdown for bot responses
       body.innerHTML = parseMarkdown(data.reply ?? "No response received.");
-    }
-    if (meta) {
-      meta.textContent = formatTime(new Date());
     }
 
     // Show feedback UI on first successful response
@@ -701,14 +630,13 @@ introMsg.classList.add("intro");
 // Robust chat stick-to-bottom behavior.
 initChatAutoScroll();
 
-// Enable theme toggle (sun icon in header).
-initTheme();
+// Navbar: frosted glass on scroll + hamburger.
+initNavbar();
 
-// Enable contact dropdown menu.
-initContactMenu();
-
-// Subtle hint that more content exists below (auto-hides on scroll).
-initScrollHint();
+// Explore link: focus chat input after scroll completes.
+document.querySelector(".hero-explore")?.addEventListener("click", () => {
+  setTimeout(() => chatInput?.focus(), 400);
+});
 
 // Suggestion chips - click to send, remove on use.
 suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
@@ -717,4 +645,3 @@ suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
 
 // Render resume details below chat (Experience / Skills / Education).
 loadAndRenderResume();
-
