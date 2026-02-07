@@ -22,7 +22,7 @@ const hamburger = document.getElementById("hamburger");
 
 // Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
 const HERO_TAGLINE =
-  "Shipping solutions at the intersection of product strategy, AI innovation, and financial technology";
+  "Turning product vision into reality with Python-driven AI solutions";
 
 const sessionId =
   typeof crypto !== "undefined" && crypto.randomUUID
