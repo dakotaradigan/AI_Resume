@@ -643,5 +643,35 @@ suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => sendMessage(chip.textContent.trim()));
 });
 
+// Feedback dialog
+const feedbackDialog = document.getElementById("feedback-dialog");
+const feedbackOpenBtn = document.getElementById("feedback-btn");
+const feedbackCancelBtn = document.getElementById("feedback-cancel");
+const feedbackForm = document.getElementById("feedback-form");
+const feedbackText = document.getElementById("feedback-text");
+
+if (feedbackDialog && feedbackOpenBtn) {
+  feedbackOpenBtn.addEventListener("click", () => {
+    feedbackDialog.showModal();
+    feedbackText.value = "";
+    feedbackText.focus();
+  });
+
+  feedbackCancelBtn?.addEventListener("click", () => feedbackDialog.close());
+
+  feedbackDialog.addEventListener("click", (e) => {
+    if (e.target === feedbackDialog) feedbackDialog.close();
+  });
+
+  feedbackForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const body = (feedbackText?.value || "").trim();
+    if (!body) return;
+    const mailto = `mailto:dakotaradigan@gmail.com?subject=${encodeURIComponent("Resume Site Feedback")}&body=${encodeURIComponent(body)}`;
+    window.open(mailto, "_blank");
+    feedbackDialog.close();
+  });
+}
+
 // Render resume details below chat (Experience / Skills / Education).
 loadAndRenderResume();
