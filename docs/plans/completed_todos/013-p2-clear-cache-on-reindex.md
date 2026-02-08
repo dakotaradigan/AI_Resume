@@ -1,6 +1,6 @@
 ---
 id: "013"
-status: pending
+status: completed
 priority: p2
 type: fix
 title: Clear LRU cache on RAG reindex

@@ -1,6 +1,6 @@
 ---
 id: "010"
-status: pending
+status: completed
 priority: p2
 type: fix
 title: Add security headers middleware

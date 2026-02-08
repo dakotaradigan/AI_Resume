@@ -1,6 +1,6 @@
 ---
 id: "026"
-status: pending
+status: completed
 priority: p2
 type: fix
 title: Add rate limiting to /api/unlock endpoint

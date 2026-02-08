@@ -541,6 +541,27 @@ def build_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Security headers: protect against clickjacking, MIME sniffing, and XSS
+    from starlette.middleware.base import BaseHTTPMiddleware
+
+    class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            response = await call_next(request)
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data:; "
+                "connect-src 'self'"
+            )
+            return response
+
+    app.add_middleware(SecurityHeadersMiddleware)
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -649,6 +670,9 @@ def build_app() -> FastAPI:
                         "last_result": result,
                     }
                 )
+                # Clear cached resume data so subsequent requests use fresh data
+                load_resume_context.cache_clear()
+                load_resume_json_public.cache_clear()
                 logger.info(f"RAG re-index completed: {result['message']}")
                 return result
             except Exception as exc:
@@ -828,12 +852,21 @@ def build_app() -> FastAPI:
         return ChatResponse(reply=reply_text, session_id=session_id)
 
     @app.post("/api/unlock")
-    async def unlock_chat(payload: UnlockRequest) -> UnlockResponse:
+    async def unlock_chat(payload: UnlockRequest, request: Request) -> UnlockResponse:
         """
         Unlock unlimited chat access with password.
         Password is found on Dakota's resume PDF.
         """
         store = get_session_store()
+
+        # Rate limit: prevent brute-force password attempts (5 per minute)
+        rate_limit_key = f"unlock:{_get_client_ip(request)}"
+        allowed = await store.check_rate_limit(rate_limit_key, max_requests=5, window=60.0)
+        if not allowed:
+            return UnlockResponse(
+                success=False,
+                message="Too many attempts. Please wait a moment and try again."
+            )
 
         # Check if password is configured
         if not settings.chat_password:
