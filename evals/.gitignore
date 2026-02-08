@@ -1,0 +1,9 @@
+# Dataset files (may contain PII or sensitive user data)
+datasets/*.json
+datasets/*.csv
+datasets/*.jsonl
+
+# Result files (reproducible from scripts, can be large)
+results/*.json
+results/*.csv
+results/*.jsonl

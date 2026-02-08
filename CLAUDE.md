@@ -339,6 +339,10 @@ full instructions. When asked to "kick off evals" or "set up evals", follow the
 kickoff protocol defined there. Always read `evals/CORE_MENTAL_MODEL.md` before
 starting eval work.
 
+Git policy: Judge prompts and eval scripts are code — include them in commits and
+PRs. Dataset and result files are gitignored (may contain PII). Never commit
+files in evals/datasets/ or evals/results/ without explicit user approval.
+
 ---
 
 ## Notes

@@ -114,6 +114,24 @@ decisions. Claude Code drives the structure and does the heavy lifting.
 - Never mark an eval as "done" without showing the user example pass/fail outputs
 - Never auto-generate sample data without telling the user it's synthetic
 
+## Git Policy
+
+**Commit (treat as code):**
+- `CLAUDE.md`, `CORE_MENTAL_MODEL.md`, `EVALS_FRAMEWORK.md`, `APP_EVAL_PLAN.md`
+- `judges/*.md` — judge prompts are eval logic, they belong in PRs
+- `scripts/*.py` — eval runner scripts
+- `.gitignore`
+
+**Gitignored (may contain PII or sensitive user data):**
+- `datasets/*.json`, `datasets/*.csv`, `datasets/*.jsonl`
+- `results/*.json`, `results/*.csv`, `results/*.jsonl`
+
+**Rules:**
+- Never commit dataset or result files without explicit user approval
+- When changing a judge prompt or eval script, mention it in the commit message — these changes affect product quality
+- If the user asks to commit eval work, only stage the code files (judges/, scripts/, APP_EVAL_PLAN.md), not data files
+- If datasets need to be shared, ask the user whether they've been sanitized of PII first
+
 ## Rules for Claude Code
 - Always read CORE_MENTAL_MODEL.md before starting any eval work
 - Never modify CORE_MENTAL_MODEL.md or EVALS_FRAMEWORK.md — they are templates
