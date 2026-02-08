@@ -343,6 +343,20 @@ Git policy: Judge prompts and eval scripts are code — include them in commits 
 PRs. Dataset and result files are gitignored (may contain PII). Never commit
 files in evals/datasets/ or evals/results/ without explicit user approval.
 
+### Pulling Production Data
+
+When asked to "pull production data", "get live logs", or "export analytics":
+
+```bash
+# Export queries
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://chat.dakotaradigan.io/admin/analytics/export?file=queries" > evals/datasets/production_queries.jsonl
+
+# Export feedback
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://chat.dakotaradigan.io/admin/analytics/export?file=feedback" > evals/datasets/production_feedback.jsonl
+```
+
+The `ADMIN_TOKEN` env var must be set in `.env`. These files land in `evals/datasets/` which is gitignored.
+
 ---
 
 ## Notes

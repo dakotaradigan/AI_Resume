@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from anthropic import AsyncAnthropic, AnthropicError, RateLimitError
 from fastapi import FastAPI, HTTPException, Request, Header
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
@@ -693,6 +694,22 @@ def build_app() -> FastAPI:
     async def reindex_status(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
         _require_admin(x_admin_token)
         return app.state.reindex_status
+
+    @app.get("/admin/analytics/export")
+    async def export_analytics(
+        x_admin_token: str | None = Header(default=None),
+        file: Literal["queries", "feedback"] = "queries",
+    ) -> PlainTextResponse:
+        """Export analytics data (JSONL). Use ?file=queries or ?file=feedback."""
+        _require_admin(x_admin_token)
+        from analytics.analytics import ANALYTICS_FILE, FEEDBACK_FILE
+
+        path = ANALYTICS_FILE if file == "queries" else FEEDBACK_FILE
+        if not path.exists():
+            return PlainTextResponse("", media_type="application/jsonl")
+        return PlainTextResponse(
+            path.read_text(encoding="utf-8"), media_type="application/jsonl"
+        )
 
     @app.get("/api/resume")
     async def get_resume() -> dict:
