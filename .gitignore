@@ -27,8 +27,8 @@ build/
 logs/
 
 # Analytics (privacy-sensitive data - local only)
-backend/analytics/queries.json
 backend/analytics/*.json
+backend/analytics/*.jsonl
 
 # Development notes (local only)
 in-flight-development.md

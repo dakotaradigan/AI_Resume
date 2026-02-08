@@ -1,8 +1,8 @@
 """
 Analytics logging for user queries.
 
-PRIVACY NOTE: This file creates queries.json which contains user questions.
-The queries.json file is gitignored to protect user privacy.
+PRIVACY NOTE: This file creates queries.jsonl which contains user questions.
+The queries.jsonl file is gitignored to protect user privacy.
 """
 
 import fcntl
@@ -13,8 +13,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-ANALYTICS_FILE = Path(__file__).parent / "queries.json"
-FEEDBACK_FILE = Path(__file__).parent / "feedback.json"
+ANALYTICS_FILE = Path(__file__).parent / "queries.jsonl"
+FEEDBACK_FILE = Path(__file__).parent / "feedback.jsonl"
 
 
 def log_query(session_id: str, query: str, response_preview: str = "") -> None:
