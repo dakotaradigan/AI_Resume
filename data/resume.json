@@ -23,9 +23,9 @@
       "achievements": [
         "Led technical investment integration with Wells Fargo, aligning internal/external engineering teams to deliver pilot 2 weeks early—securing $32M initial AUM and a $3B+ pipeline",
         "Launched a new investment product MVP ahead of schedule; validated market needs and iterated rapidly to capture $75M AUM within 6 months of release",
-        "Shipped a high-impact features reducing manual client touchpoints on ~75k accounts",
         "Built a RAG-based GenAI from PoC to internal production — projected to autonomously resolve ~2,500+ annual email inquiries and slash response times for clients from ~2 hours to minutes",
-        "Established product analytics to monitor KPIs (time-to-onboard, adoption), identifying friction and pain points to drive data-backed roadmap prioritization",
+        "Shipped a high-impact features reducing manual client touchpoints on ~75k accounts",
+        "Built a Tableau analytics dashboard for leadership to monitor feature utilization and identify friction points, driving data-backed roadmap prioritization and establishing metrics adopted across team OKRs",
         "Appointed firm-wide 'AI Champion,' leading an 8-person task force to drive strategy. Increased Copilot adoption by 60% in 2 months and secured budget for dedicated engineering to scale custom OpenAI API solutions"
       ],
       "technologies": ["Python", "SQL", "RAG", "OpenAI API", "GenAI", "Product Analytics", "Product Strategy"]
@@ -40,9 +40,8 @@
       "achievements": [
         "Awarded firm-wide 'Commitment to Excellence' for leading a scalability initiative that saved 2,500+ operational hours annually through workflow design and feature enhancements",
         "Partnered with Sales on $200M+ in enterprise deals, acting as the technical SME to translate complex client requirements into executable engineering specifications and ops workflows",
-        "Built a SQL-based analytics framework to identify product usage gaps, enabling a targeted outreach strategy that increased feature utilization by 20% and directly informed roadmap prioritization",
         "Chaired a cross-functional leadership council (Engineering, Ops, Sales) to break down silos and align priorities, reducing decision cycle times for critical execution items from weeks to days",
-        "Prototyped a Python-based self-service tool for the C-suite, demonstrating the viability of on-going digital service concepts"
+        "Prototyped a Python-based self-service tool for the C-suite, demonstrating the viability of ongoing digital service concepts"
       ],
       "technologies": ["SQL", "Python", "Cross-functional Leadership", "Product Strategy"]
     },
