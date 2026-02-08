@@ -1,0 +1,124 @@
+# AI Evals Framework
+
+## What This Is
+This is a portable evals kit. It provides a uniform structure for setting up,
+running, and maintaining AI evals across any product or application.
+
+## Key Files
+- `CORE_MENTAL_MODEL.md` — The distilled mental model. Read this first for context.
+- `EVALS_FRAMEWORK.md` — The full working template with `[TAILOR]` sections to fill in per app.
+- `APP_EVAL_PLAN.md` — Generated per app. The tailored eval plan (created during kickoff).
+
+## Directory Structure (created during kickoff)
+```
+evals/
+├── CLAUDE.md              ← You are here. Instructions for Claude Code.
+├── CORE_MENTAL_MODEL.md   ← Reference mental model (do not modify)
+├── EVALS_FRAMEWORK.md     ← Full template (do not modify — copy into APP_EVAL_PLAN.md)
+├── APP_EVAL_PLAN.md       ← [GENERATED] Tailored plan for this specific app
+├── datasets/              ← Sample interactions for error analysis
+│   └── README.md
+├── judges/                ← LLM-as-judge prompts
+│   └── README.md
+├── scripts/               ← Eval runner scripts (code-based evals, automation)
+│   └── README.md
+└── results/               ← Eval run outputs and historical scores
+    └── README.md
+```
+
+## Kickoff Protocol
+
+When the user says **"kick off evals"** or **"set up evals"**, follow this sequence:
+
+### Step 1: Understand the App
+Ask these questions (do not skip any):
+1. What does the AI feature do? (one sentence)
+2. Who are the users?
+3. What architecture does it use? (conversation, RAG, agents, code gen, other)
+4. What does "good" look like from the user's perspective?
+5. What's the worst thing the AI could do? (error tolerance stance)
+6. Do you have sample interactions or production data available?
+
+### Step 2: Create the Scaffolding
+- Create the directory structure above (datasets/, judges/, scripts/, results/)
+- Copy EVALS_FRAMEWORK.md into APP_EVAL_PLAN.md
+- Fill in all `[TAILOR]` sections based on Step 1 answers
+
+### Step 3: Phase 1 — Error Analysis
+- Guide the user through pulling ~100 sample interactions into datasets/
+- Help them label pass/fail with critiques
+- Group failures into <10 categories
+- Update APP_EVAL_PLAN.md with the failure mode table
+
+### Step 4: Phase 2 — Build Evals
+For each failure mode from Phase 1:
+- If objective → create a code-based eval script in scripts/
+- If subjective → create an LLM-as-judge prompt in judges/
+- Validate judges using TPR/TNR (not raw accuracy)
+
+### Step 5: Phase 3 — Operationalize
+- Set up the eval run pipeline (how/when evals run)
+- Define pass/fail thresholds for shipping
+- Document the weekly maintenance routine in APP_EVAL_PLAN.md
+
+## Collaboration Model — Keep the User in the Loop
+
+**This is a collaborative process, not an autonomous one.** The user owns the
+decisions. Claude Code drives the structure and does the heavy lifting.
+
+### Checkpoints (MUST pause and get user confirmation before proceeding)
+
+| After...                          | Ask the user...                                                              |
+|-----------------------------------|------------------------------------------------------------------------------|
+| Step 1 (Understand the App)       | "Here's what I captured about your app. Does this look right before I build the plan?" |
+| Filling in APP_EVAL_PLAN.md       | "Here's the tailored eval plan. Review the failure modes and criteria — anything missing or wrong?" |
+| Phase 1 (Error Analysis)          | "Here are the failure mode categories I found. Do these match what you're seeing? Any to add, merge, or remove?" |
+| Proposing eval types per failure  | "Here's which eval type I'd use for each failure mode and why. Does this split make sense?" |
+| Each LLM judge prompt draft       | "Here's the judge prompt for [criterion]. Walk through it — does the pass/fail definition match your intuition?" |
+| Judge validation results           | "Here are the TPR/TNR scores. Are these acceptable, or should we tighten the judge?" |
+| Phase 3 (Operationalize)          | "Here's the proposed pipeline — when evals run, what gates shipping, and the maintenance routine. Work for your team?" |
+
+### How to Collaborate at Each Phase
+
+**Phase 1 — Error Analysis (user is MOST involved here)**
+- The user provides or helps source the sample interactions
+- The user does the pass/fail labeling (or reviews Claude's draft labels)
+- Claude proposes failure categories; user validates, merges, or renames them
+- DO NOT finalize the failure mode table without user sign-off
+
+**Phase 2 — Build Evals (user reviews, Claude builds)**
+- Claude drafts eval scripts and judge prompts
+- Walk the user through each judge prompt in plain language: explain what it
+  checks, what would pass, what would fail, and give a concrete example of each
+- User confirms the pass/fail boundary matches their expectations
+- If the user disagrees with a judgment, adjust the prompt — do not argue
+
+**Phase 3 — Operationalize (user decides, Claude implements)**
+- Claude proposes pipeline placement, thresholds, and maintenance cadence
+- User decides what gates shipping and what's advisory-only
+- User decides who owns the weekly review
+
+### Conversation Style During Evals
+- Explain WHY at each step, not just what. ("We're doing this because...")
+- Use concrete examples from the user's app, not abstract descriptions
+- When showing eval results, always include 2-3 example inputs with their scores
+  so the user can gut-check whether the eval matches their intuition
+- If the user seems uncertain, offer two options with tradeoffs rather than
+  picking for them
+- Summarize decisions made so far before moving to the next phase
+
+### Red Lines — Never Do These Without Asking
+- Never skip Phase 1 (error analysis) and jump straight to building evals
+- Never finalize failure mode categories without user review
+- Never set shipping thresholds without user approval
+- Never mark an eval as "done" without showing the user example pass/fail outputs
+- Never auto-generate sample data without telling the user it's synthetic
+
+## Rules for Claude Code
+- Always read CORE_MENTAL_MODEL.md before starting any eval work
+- Never modify CORE_MENTAL_MODEL.md or EVALS_FRAMEWORK.md — they are templates
+- All app-specific work goes in APP_EVAL_PLAN.md and the subdirectories
+- Use binary pass/fail judgments, never Likert scales
+- When building LLM judges, always use the 4-part formula (role, context, goal, grounding)
+- When validating judges, report TPR and TNR, not just accuracy
+- Start from real user failures, not generic metrics

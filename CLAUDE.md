@@ -333,6 +333,14 @@ Content updates should take less than 5 minutes end-to-end.
 
 ---
 
+## Evals
+This project uses a standardized AI evals framework. See `evals/CLAUDE.md` for
+full instructions. When asked to "kick off evals" or "set up evals", follow the
+kickoff protocol defined there. Always read `evals/CORE_MENTAL_MODEL.md` before
+starting eval work.
+
+---
+
 ## Notes
 
 - **Portfolio Piece:** Prioritize showcasing technical skills alongside functionality
