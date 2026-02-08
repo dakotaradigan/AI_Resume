@@ -1237,6 +1237,95 @@ section[id],
   margin: 0;
 }
 
+/* ===== FEEDBACK DIALOG ===== */
+.feedback-dialog {
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 480px;
+  width: calc(100% - 32px);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+
+.feedback-dialog::backdrop {
+  background: hsla(220, 20%, 14%, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.feedback-dialog-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.feedback-dialog-desc {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+.feedback-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feedback-textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.feedback-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.feedback-dialog-btn {
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feedback-dialog-btn--cancel {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+}
+
+.feedback-dialog-btn--cancel:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.feedback-dialog-btn--send {
+  border: none;
+  background: var(--primary);
+  color: white;
+}
+
+.feedback-dialog-btn--send:hover {
+  background: var(--gold);
+}
+
 /* ===== MOBILE ===== */
 @media (max-width: 960px) {
   .hamburger {
