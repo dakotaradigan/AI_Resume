@@ -24,7 +24,7 @@
         "Led technical investment integration with Wells Fargo, aligning internal/external engineering teams to deliver pilot 2 weeks early—securing $32M initial AUM and a $3B+ pipeline",
         "Launched a new investment product MVP ahead of schedule; validated market needs and iterated rapidly to capture $75M AUM within 6 months of release",
         "Built a RAG-based GenAI from PoC to internal production — projected to autonomously resolve ~2,500+ annual email inquiries and slash response times for clients from ~2 hours to minutes",
-        "Shipped a high-impact features reducing manual client touchpoints on ~75k accounts",
+        "Shipped a high-impact feature reducing manual client touchpoints on ~75k accounts",
         "Built a Tableau analytics dashboard for leadership to monitor feature utilization and identify friction points, driving data-backed roadmap prioritization and establishing metrics adopted across team OKRs",
         "Appointed firm-wide 'AI Champion,' leading an 8-person task force to drive strategy. Increased Copilot adoption by 60% in 2 months and secured budget for dedicated engineering to scale custom OpenAI API solutions"
       ],
@@ -69,7 +69,7 @@
       "achievements": [
         "Led a team of 11 directly overseeing the strategic onboarding of $493M in assets (1,200 accounts), optimizing daily operations to improve onboarding times by 4 hours",
         "Direct dotted line into Engineering as a QA Lead, launching two internal workflow tools that digitized manual tasks and significantly improved process reliability",
-        "Built SQL-based rule systems and Excel models to validate complex logic prior to implementation, reducing errors and provided onboarding metrics"
+        "Built SQL-based rule systems and Excel models to validate complex logic prior to implementation, reducing errors and providing onboarding metrics"
       ],
       "technologies": ["SQL", "Excel", "Team Leadership", "QA", "Operations"]
     }
