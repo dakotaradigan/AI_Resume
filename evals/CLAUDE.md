@@ -5,23 +5,23 @@ This is a portable evals kit. It provides a uniform structure for setting up,
 running, and maintaining AI evals across any product or application.
 
 ## Key Files
-- `CORE_MENTAL_MODEL.md` — The distilled mental model. Read this first for context.
-- `EVALS_FRAMEWORK.md` — The full working template with `[TAILOR]` sections to fill in per app.
-- `APP_EVAL_PLAN.md` — Generated per app. The tailored eval plan (created during kickoff).
+- `APP_EVAL_PLAN.md` — The tailored eval plan for this app (the main working doc).
+- `docs/CORE_MENTAL_MODEL.md` — The distilled mental model. Read this first for context.
+- `docs/EVALS_FRAMEWORK.md` — The full working template with `[TAILOR]` sections to fill in per app.
+- `docs/JUDGE_SYSTEM_DESIGN.md` — Architecture decisions for the LLM judge pipeline.
 
-## Directory Structure (created during kickoff)
+## Directory Structure
 ```
 evals/
 ├── CLAUDE.md              ← You are here. Instructions for Claude Code.
-├── CORE_MENTAL_MODEL.md   ← Reference mental model (do not modify)
-├── EVALS_FRAMEWORK.md     ← Full template (do not modify — copy into APP_EVAL_PLAN.md)
-├── APP_EVAL_PLAN.md       ← [GENERATED] Tailored plan for this specific app
+├── APP_EVAL_PLAN.md       ← Tailored plan for this specific app
+├── docs/                  ← Reference docs and design decisions
+│   ├── CORE_MENTAL_MODEL.md   ← Reference mental model (do not modify)
+│   ├── EVALS_FRAMEWORK.md     ← Full template (do not modify)
+│   └── JUDGE_SYSTEM_DESIGN.md ← Judge pipeline architecture
 ├── datasets/              ← Sample interactions for error analysis
-│   └── README.md
-├── judges/                ← LLM-as-judge prompts
-│   └── README.md
-├── scripts/               ← Eval runner scripts (code-based evals, automation)
-│   └── README.md
+├── judges/                ← LLM-as-judge prompts (auto-discovered by run_judges.py)
+├── scripts/               ← Eval runner scripts
 └── results/               ← Eval run outputs and historical scores
     └── README.md
 ```
@@ -41,7 +41,7 @@ Ask these questions (do not skip any):
 
 ### Step 2: Create the Scaffolding
 - Create the directory structure above (datasets/, judges/, scripts/, results/)
-- Copy EVALS_FRAMEWORK.md into APP_EVAL_PLAN.md
+- Copy docs/EVALS_FRAMEWORK.md into APP_EVAL_PLAN.md
 - Fill in all `[TAILOR]` sections based on Step 1 answers
 
 ### Step 3: Phase 1 — Error Analysis
@@ -117,7 +117,7 @@ decisions. Claude Code drives the structure and does the heavy lifting.
 ## Git Policy
 
 **Commit (treat as code):**
-- `CLAUDE.md`, `CORE_MENTAL_MODEL.md`, `EVALS_FRAMEWORK.md`, `APP_EVAL_PLAN.md`
+- `CLAUDE.md`, `APP_EVAL_PLAN.md`, `docs/*.md`
 - `judges/*.md` — judge prompts are eval logic, they belong in PRs
 - `scripts/*.py` — eval runner scripts
 - `.gitignore`
@@ -132,9 +132,74 @@ decisions. Claude Code drives the structure and does the heavy lifting.
 - If the user asks to commit eval work, only stage the code files (judges/, scripts/, APP_EVAL_PLAN.md), not data files
 - If datasets need to be shared, ask the user whether they've been sanitized of PII first
 
+## Running Eval Scripts
+
+There are two workflows: **running judges** (quality check on any data) and
+**calibrating judges** (tuning judge accuracy using human labels).
+
+### Workflow 1: Running Judges (use on any data)
+
+Run LLM judges against bot responses to get automated pass/fail verdicts.
+Works on both synthetic eval runs and production data.
+
+```bash
+# Step 1: Get bot responses (pick one)
+
+# Option A: Run synthetic queries against the bot
+python evals/scripts/run_eval.py
+python evals/scripts/run_eval.py --base-url http://localhost:8000  # localhost
+
+# Option B: Pull production data (requires ADMIN_TOKEN)
+curl -H "X-Admin-Token: $ADMIN_TOKEN" \
+  "https://chat.dakotaradigan.io/admin/analytics/export?file=queries" \
+  > evals/datasets/production_queries.jsonl
+
+# Step 2: Run judges on the data
+python evals/scripts/run_judges.py                        # all judges, latest eval run
+python evals/scripts/run_judges.py --judge groundedness   # one judge only
+python evals/scripts/run_judges.py --eval-run eval_run_2026-02-08_120102.jsonl
+```
+
+Category filtering is automatic:
+- Synthetic data has categories → judges filter by `applies_to`
+- Production data has no categories → all judges run on everything
+
+### Workflow 2: Calibrating Judges (requires human labels)
+
+Tune judge prompts by comparing their verdicts to human-reviewed labels.
+Do this when building a new judge or after changing a judge prompt.
+
+```bash
+# Step 1: Generate Excel for human review
+python evals/scripts/build_review_xlsx.py
+
+# Step 2: Human review in Excel
+# Open evals/datasets/eval_review.xlsx
+# Column G: "pass" or "fail"
+# Column H: Short critique for failures only
+
+# Step 3: Parse human labels
+python evals/scripts/parse_review.py
+
+# Step 4: Run judges on the same data
+python evals/scripts/run_judges.py
+
+# Step 5: Compare judge verdicts to human labels
+python evals/scripts/validate_judges.py
+# Reports TPR/TNR per judge + disagreement details
+# Target: TNR > 80%, TPR > 85%
+```
+
+If a judge doesn't meet thresholds, iterate on its prompt in `judges/*.md`.
+
+### Dependencies
+```bash
+pip install requests openpyxl anthropic
+```
+
 ## Rules for Claude Code
-- Always read CORE_MENTAL_MODEL.md before starting any eval work
-- Never modify CORE_MENTAL_MODEL.md or EVALS_FRAMEWORK.md — they are templates
+- Always read docs/CORE_MENTAL_MODEL.md before starting any eval work
+- Never modify docs/CORE_MENTAL_MODEL.md or docs/EVALS_FRAMEWORK.md — they are templates
 - All app-specific work goes in APP_EVAL_PLAN.md and the subdirectories
 - Use binary pass/fail judgments, never Likert scales
 - When building LLM judges, always use the 4-part formula (role, context, goal, grounding)

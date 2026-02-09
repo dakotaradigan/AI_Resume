@@ -17,20 +17,20 @@ ANALYTICS_FILE = Path(__file__).parent / "queries.jsonl"
 FEEDBACK_FILE = Path(__file__).parent / "feedback.jsonl"
 
 
-def log_query(session_id: str, query: str, response_preview: str = "") -> None:
+def log_query(session_id: str, query: str, response: str = "") -> None:
     """
     Log a user query for analytics.
 
     Args:
         session_id: Session identifier (anonymized)
         query: User's question
-        response_preview: First 100 chars of response (optional)
+        response: Full bot response (used by evals judges)
     """
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "session_id": session_id,
         "query": query,
-        "response_preview": response_preview[:100] if response_preview else ""
+        "response": response,
     }
 
     try:
