@@ -81,6 +81,16 @@ The `applies_to` field in judge frontmatter is an optimization, not a requiremen
 4. **Keep the plan updated.** APP_EVAL_PLAN.md fell behind after Phase 1 completed.
    Stale docs create confusion about what's actually built vs. planned.
 
+5. **Separate working docs from reference docs.** The `evals/` top level had 6 .md
+   files — confusing to know which ones you actually work with. Moved reference
+   templates and design docs into `evals/docs/`, leaving only `CLAUDE.md` and
+   `APP_EVAL_PLAN.md` at the top level.
+
+6. **Two workflows, not one pipeline.** The CLAUDE.md originally listed sequential
+   steps 1-7 implying a rigid order. Restructured into two independent workflows:
+   "Running Judges" (any data) and "Calibrating Judges" (human labels). This
+   makes the system usable for both synthetic evals and production monitoring.
+
 ## Files
 
 - `evals/judges/groundedness.md` — fact-checking judge
@@ -88,4 +98,5 @@ The `applies_to` field in judge frontmatter is an optimization, not a requiremen
 - `evals/judges/redirect_behavior.md` — out-of-scope handling judge
 - `evals/scripts/run_judges.py` — judge runner (auto-discovers judges)
 - `evals/scripts/validate_judges.py` — compares judge verdicts to human labels
-- `evals/JUDGE_SYSTEM_DESIGN.md` — full architecture doc
+- `evals/docs/JUDGE_SYSTEM_DESIGN.md` — full architecture doc
+- `backend/analytics/analytics.py` — updated to store full response
