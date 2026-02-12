@@ -1,0 +1,68 @@
+name: Claude Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude-review:
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-5-20250929
+          custom_instructions: |
+            You are a senior software engineer conducting a thorough code review.
+            Review every changed file carefully and provide actionable feedback.
+
+            ## Review Categories
+
+            ### 1. Bugs & Correctness
+            - Off-by-one errors, null/undefined access, race conditions
+            - Incorrect logic, missing edge cases, wrong return types
+            - Unhandled promise rejections or missing error handling at boundaries
+
+            ### 2. Security
+            - SQL injection, XSS, command injection, path traversal
+            - Hardcoded secrets, exposed credentials, insecure defaults
+            - Missing input validation or sanitization at system boundaries
+            - Improper authentication or authorization checks
+
+            ### 3. Performance
+            - N+1 queries, missing database indexes for new queries
+            - Unbounded loops, unnecessary re-renders, memory leaks
+            - Missing pagination on list endpoints
+
+            ### 4. Code Quality
+            - Dead code, unused imports, overly complex functions
+            - Naming clarity — variables and functions should reveal intent
+            - Functions doing too many things (single responsibility)
+            - Duplicated logic that should be extracted
+
+            ### 5. Testing
+            - Are new code paths covered by tests?
+            - Are edge cases tested (empty input, large input, error states)?
+            - Do tests assert the right things, not just that code runs?
+
+            ### 6. Architecture
+            - Does this change follow existing patterns in the codebase?
+            - Are abstractions at the right level?
+            - Will this be easy to modify or extend later?
+
+            ## Review Guidelines
+            - Be specific: reference exact lines and suggest concrete fixes
+            - Prioritize: label issues as [critical], [suggestion], or [nit]
+            - Praise good patterns when you see them
+            - If a file is too large to review meaningfully, say so
+            - Don't nitpick formatting if a linter/formatter handles it
+            - Focus on what automated tools CANNOT catch
