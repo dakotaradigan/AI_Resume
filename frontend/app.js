@@ -160,7 +160,8 @@ function addFeedbackUI(messageEl, trigger) {
         commentBox.querySelector("input").focus();
       } else {
         await submitFeedback(rating, "", trigger);
-        feedback.innerHTML = "<span class='feedback-thanks'>Thanks for the feedback!</span>";
+        feedback.innerHTML = "<span class='feedback-thanks'>Thanks for the feedback. Feel free to keep the conversation going.</span>";
+        chatInput.focus();
       }
     });
   });
@@ -169,9 +170,12 @@ function addFeedbackUI(messageEl, trigger) {
   sendBtn.addEventListener("click", async () => {
     if (sendBtn.disabled) return;
     sendBtn.disabled = true;
+    sendBtn.textContent = "Sending...";
     const comment = commentBox.querySelector("input").value.trim();
     await submitFeedback("down", comment, trigger);
-    feedback.innerHTML = "<span class='feedback-thanks'>Thanks for the feedback!</span>";
+    commentBox.style.display = "none";
+    feedback.innerHTML = "<span class='feedback-thanks'>Thanks for the feedback. Feel free to keep the conversation going.</span>";
+    chatInput.focus();
   });
 
   messageEl.appendChild(feedback);
@@ -508,10 +512,26 @@ function setSending(isSending) {
   }
 }
 
+function getThinkingMarkup(label = "Thinking") {
+  return `
+    <span class="thinking-label">${label}</span>
+    <span class="thinking-dots" aria-hidden="true">
+      <span class="thinking-dot"></span>
+      <span class="thinking-dot"></span>
+      <span class="thinking-dot"></span>
+    </span>
+  `;
+}
+
 async function sendMessage(message) {
   suggestionsEl?.remove();
   addMessage(message, "user");
   const thinkingEl = addMessage("Thinking...", "bot");
+  const thinkingBody = thinkingEl.querySelector(".msg-body");
+  if (thinkingBody) {
+    thinkingEl.classList.add("is-thinking");
+    thinkingBody.innerHTML = getThinkingMarkup("Thinking");
+  }
   setSending(true);
 
   try {
@@ -527,15 +547,23 @@ async function sendMessage(message) {
         const errorData = await res.json().catch(() => ({}));
         const body = thinkingEl.querySelector(".msg-body");
         if (body) {
+          thinkingEl.classList.remove("is-thinking");
           body.textContent = "";
 
           const prompt = el("p", { class: "unlock-prompt", text: errorData.detail || "You've hit the free chat limit." });
-          const passwordInput = el("input", { type: "text", class: "unlock-input", placeholder: "Enter password", autocomplete: "off" });
+          const passwordInput = el("input", {
+            type: "text",
+            class: "unlock-input",
+            placeholder: "Enter password",
+            autocomplete: "off",
+            "aria-label": "Chat unlock password",
+          });
           const submitBtn = el("button", { type: "submit", class: "unlock-submit", text: "Unlock" });
           const unlockForm = el("form", { class: "unlock-form" }, [passwordInput, submitBtn]);
           const errorEl = el("p", { class: "unlock-error" });
 
           body.append(prompt, unlockForm, errorEl);
+          passwordInput.focus();
 
           unlockForm.addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -548,6 +576,7 @@ async function sendMessage(message) {
             }
 
             try {
+              submitBtn.disabled = true;
               const unlockRes = await fetch("/api/unlock", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -557,22 +586,52 @@ async function sendMessage(message) {
               const unlockData = await unlockRes.json();
 
               if (unlockData.success) {
-                body.textContent = "";
-                const successMsg = el("p", { class: "unlock-success" });
-                successMsg.textContent = "\u2713 " + (unlockData.message || "Unlocked!");
-                body.append(successMsg);
-                addFeedbackUI(thinkingEl, "password_unlock");
+                errorEl.style.display = "none";
+                thinkingEl.classList.add("is-thinking");
+                body.innerHTML = getThinkingMarkup("Unlocked. Resubmitting");
+                autoScrollEnabled = true;
                 requestScrollToBottom();
-                chatInput.disabled = false;
-                chatInput.focus();
+
+                // Auto-retry the blocked question after successful unlock.
+                setSending(true);
+                try {
+                  const retryRes = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message, session_id: sessionId }),
+                  });
+
+                  if (!retryRes.ok) {
+                    const retryError = await retryRes.json().catch(() => ({}));
+                    thinkingEl.classList.remove("is-thinking");
+                    body.textContent =
+                      retryError.detail ||
+                      "Unlocked, but failed to process your message. Please try again.";
+                    return;
+                  }
+
+                  const retryData = await retryRes.json();
+                  thinkingEl.classList.remove("is-thinking");
+                  body.innerHTML = parseMarkdown(retryData.reply ?? "No response received.");
+                  addFeedbackUI(thinkingEl, "password_unlock");
+                  autoScrollEnabled = true;
+                  requestScrollToBottom();
+                } finally {
+                  setSending(false);
+                  chatInput.focus();
+                }
               } else {
                 errorEl.textContent = unlockData.message || "Incorrect password.";
                 errorEl.style.display = "block";
+                passwordInput.focus();
               }
             } catch (unlockErr) {
               errorEl.textContent = "Failed to unlock. Please try again.";
               errorEl.style.display = "block";
               console.error(unlockErr);
+              passwordInput.focus();
+            } finally {
+              submitBtn.disabled = false;
             }
           });
         }
@@ -584,6 +643,7 @@ async function sendMessage(message) {
       const errorData = await res.json().catch(() => ({}));
       const body = thinkingEl.querySelector(".msg-body");
       if (body) {
+        thinkingEl.classList.remove("is-thinking");
         body.textContent = errorData.detail || "Sorry, something went wrong. Please try again.";
       }
       requestScrollToBottom();
@@ -593,6 +653,7 @@ async function sendMessage(message) {
     const data = await res.json();
     const body = thinkingEl.querySelector(".msg-body");
     if (body) {
+      thinkingEl.classList.remove("is-thinking");
       body.innerHTML = parseMarkdown(data.reply ?? "No response received.");
     }
 
@@ -606,6 +667,7 @@ async function sendMessage(message) {
   } catch (err) {
     const body = thinkingEl.querySelector(".msg-body");
     if (body) {
+      thinkingEl.classList.remove("is-thinking");
       body.textContent = "Sorry, something went wrong. Please try again.";
     }
     requestScrollToBottom();
