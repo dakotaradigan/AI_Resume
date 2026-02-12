@@ -758,12 +758,7 @@ def build_app() -> FastAPI:
         if _daily_conversation_count.get(today, 0) >= DAILY_CONVERSATION_LIMIT:
             raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
 
-        # 5. Chat limit protection: Free users limited to N exchanges (atomic check+increment)
-        allowed, reason = await store.check_and_increment_limit(session_id, settings.free_chat_limit)
-        if not allowed:
-            raise HTTPException(status_code=403, detail=reason)
-
-        # === Validation ===
+        # === Validation (before consuming chat quota) ===
 
         # Input bounds
         message = (payload.message or "").strip()
@@ -780,6 +775,11 @@ def build_app() -> FastAPI:
                 status_code=503,
                 detail="Anthropic API key not configured. Set ANTHROPIC_API_KEY.",
             )
+
+        # 5. Chat limit protection: Free users limited to N exchanges (atomic check+increment)
+        allowed, reason = await store.check_and_increment_limit(session_id, settings.free_chat_limit)
+        if not allowed:
+            raise HTTPException(status_code=403, detail=reason)
 
         try:
             system_prompt = load_system_prompt()
@@ -892,9 +892,10 @@ def build_app() -> FastAPI:
                 message="Chat password not configured."
             )
 
-        # Verify password (case-insensitive)
+        # Verify password (case-insensitive, constant-time comparison)
+        import hmac
         provided = payload.password.strip().lower()
-        if not provided or provided != settings.chat_password.lower():
+        if not provided or not hmac.compare_digest(provided, settings.chat_password.lower()):
             return UnlockResponse(
                 success=False,
                 message="Incorrect password. Please check Dakota's resume."

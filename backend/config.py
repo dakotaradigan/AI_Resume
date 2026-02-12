@@ -88,7 +88,7 @@ def get_settings() -> Settings:
             "ANTHROPIC_MODEL",
             "claude-opus-4-5-20251101",
         ),
-        anthropic_max_tokens=_to_int(os.getenv("ANTHROPIC_MAX_TOKENS"), 2048),
+        anthropic_max_tokens=_to_int(os.getenv("ANTHROPIC_MAX_TOKENS"), 1024),
         environment=os.getenv("ENVIRONMENT", "development"),
         debug=_to_bool(os.getenv("DEBUG"), default=False),
         data_dir=data_dir,
