@@ -538,7 +538,18 @@ section[id],
 .msg.bot.is-thinking {
   border-color: color-mix(in srgb, var(--gold) 35%, var(--border-strong));
   background: color-mix(in srgb, var(--card) 92%, var(--secondary));
+  position: relative;
+}
+
+.msg.bot.is-thinking::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 20px;
+  border: 2px solid hsla(38, 80%, 55%, 0.12);
+  opacity: 0;
   animation: thinkingPulse 1.8s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .msg.bot.is-thinking .msg-body {
@@ -562,6 +573,7 @@ section[id],
   width: 6px;
   height: 6px;
   border-radius: 999px;
+  will-change: transform, opacity;
   background: var(--gold-dark);
   opacity: 0.25;
   animation: thinkingDot 1.2s ease-in-out infinite;
@@ -576,12 +588,8 @@ section[id],
 }
 
 @keyframes thinkingPulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 hsla(38, 80%, 55%, 0);
-  }
-  50% {
-    box-shadow: 0 0 0 2px hsla(38, 80%, 55%, 0.12);
-  }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 @keyframes thinkingDot {
@@ -684,14 +692,16 @@ section[id],
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .msg.bot.is-thinking {
+  .msg.bot.is-thinking::after {
     animation: none;
+    opacity: 0;
   }
 
   .thinking-dot {
     animation: none;
     opacity: 0.55;
     transform: none;
+    will-change: auto;
   }
 }
 

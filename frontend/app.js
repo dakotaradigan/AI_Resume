@@ -523,9 +523,9 @@ function getThinkingMarkup(label = "Thinking") {
   `;
 }
 
-async function sendMessage(message) {
+async function sendMessage(message, { isRetry = false } = {}) {
   suggestionsEl?.remove();
-  addMessage(message, "user");
+  if (!isRetry) addMessage(message, "user");
   const thinkingEl = addMessage("Thinking...", "bot");
   const thinkingBody = thinkingEl.querySelector(".msg-body");
   if (thinkingBody) {
@@ -586,40 +586,9 @@ async function sendMessage(message) {
               const unlockData = await unlockRes.json();
 
               if (unlockData.success) {
-                errorEl.style.display = "none";
-                thinkingEl.classList.add("is-thinking");
-                body.innerHTML = getThinkingMarkup("Unlocked. Resubmitting");
-                autoScrollEnabled = true;
-                requestScrollToBottom();
-
-                // Auto-retry the blocked question after successful unlock.
-                setSending(true);
-                try {
-                  const retryRes = await fetch("/api/chat", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ message, session_id: sessionId }),
-                  });
-
-                  if (!retryRes.ok) {
-                    const retryError = await retryRes.json().catch(() => ({}));
-                    thinkingEl.classList.remove("is-thinking");
-                    body.textContent =
-                      retryError.detail ||
-                      "Unlocked, but failed to process your message. Please try again.";
-                    return;
-                  }
-
-                  const retryData = await retryRes.json();
-                  thinkingEl.classList.remove("is-thinking");
-                  body.innerHTML = parseMarkdown(retryData.reply ?? "No response received.");
-                  addFeedbackUI(thinkingEl, "password_unlock");
-                  autoScrollEnabled = true;
-                  requestScrollToBottom();
-                } finally {
-                  setSending(false);
-                  chatInput.focus();
-                }
+                thinkingEl.remove();
+                sendMessage(message, { isRetry: true });
+                return;
               } else {
                 errorEl.textContent = unlockData.message || "Incorrect password.";
                 errorEl.style.display = "block";
@@ -674,6 +643,7 @@ async function sendMessage(message) {
     console.error(err);
   } finally {
     setSending(false);
+    chatInput.focus();
   }
 }
 
