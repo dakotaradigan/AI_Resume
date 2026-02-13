@@ -1019,6 +1019,46 @@ section[id],
   margin-top: 12px;
 }
 
+.timeline-actions {
+  display: flex;
+  margin-top: 12px;
+}
+
+.timeline-ask-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid hsla(210, 24%, 24%, 0.10);
+  background: hsla(0, 0%, 100%, 0.04);
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  font-family: var(--font-body);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.timeline-ask-icon {
+  color: var(--gold-dark);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.timeline-ask-btn:hover {
+  border-color: hsla(210, 24%, 24%, 0.18);
+  background: hsla(0, 0%, 100%, 0.09);
+  color: var(--text);
+}
+
+.timeline-ask-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
 .timeline-tag {
   display: inline-block;
   padding: 4px 10px;
@@ -1030,6 +1070,24 @@ section[id],
   color: color-mix(in srgb, var(--primary) 78%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+}
+
+.timeline-tag--link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.timeline-tag--link:hover {
+  text-decoration: none;
+  border-color: hsla(210, 24%, 24%, 0.16);
+  background: hsla(0, 0%, 100%, 0.08);
+  transform: translateY(-1px);
+}
+
+.timeline-tag--link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 /* ===== SKILLS ===== */

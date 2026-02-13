@@ -277,7 +277,34 @@ function safeArray(v) {
   return Array.isArray(v) ? v : [];
 }
 
-function renderExperience(items) {
+function normalizeSkillName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9+.#/\s-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildSkillLookup(skills) {
+  const lookup = new Map();
+  Object.values(skills || {}).forEach((group) => {
+    safeArray(group).forEach((skill) => {
+      const key = normalizeSkillName(skill);
+      if (key && !lookup.has(key)) lookup.set(key, skill);
+    });
+  });
+  return lookup;
+}
+
+function buildRoleAskPrompt(exp) {
+  const role = String(exp?.role || "this role").trim();
+  const company = String(exp?.company || "").trim();
+  const roleLabel = company ? `${role} at ${company}` : role;
+  return `What impact did Dakota have as ${roleLabel}? Focus on core responsibilities, measurable outcomes, and why this experience is relevant for hiring decisions.`;
+}
+
+function renderExperience(items, skillLookup = new Map()) {
   if (!experienceGrid) return;
   experienceGrid.innerHTML = "";
   experienceGrid.className = "experience-timeline";
@@ -322,11 +349,45 @@ function renderExperience(items) {
 
     // Technology tags
     const technologies = safeArray(exp.technologies);
+    const alignedTech = [];
+    const seen = new Set();
+    technologies.forEach((tech) => {
+      const key = normalizeSkillName(tech);
+      const label = skillLookup.get(key) || tech;
+      const seenKey = normalizeSkillName(label);
+      if (!seenKey || seen.has(seenKey)) return;
+      seen.add(seenKey);
+      alignedTech.push(label);
+    });
     const tags = technologies.length
       ? el("div", { class: "timeline-tags" },
-          technologies.map(t => el("span", { class: "timeline-tag", text: t }))
+          alignedTech.map((label) =>
+            el("a", {
+              class: "timeline-tag timeline-tag--link",
+              href: "#skills",
+              text: label,
+              "aria-label": `Jump to skills section for ${label}`,
+            })
+          )
         )
       : null;
+
+    const askBtn = el("button", {
+      class: "timeline-ask-btn",
+      type: "button",
+      "aria-label": `Ask AI about ${exp.role || "this experience"}`,
+    }, [
+      el("span", { class: "timeline-ask-icon", "aria-hidden": "true", text: "✦" }),
+      el("span", { text: "Ask AI" }),
+    ]);
+    askBtn.addEventListener("click", async () => {
+      const chatSection = document.getElementById("chat");
+      chatSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (chatInput?.disabled) return;
+      const prompt = buildRoleAskPrompt(exp);
+      await sendMessage(prompt);
+    });
+    const actions = el("div", { class: "timeline-actions" }, [askBtn]);
 
     const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
     const entry = el("article", { class: `timeline-entry reveal${delayClass}` }, [
@@ -335,6 +396,7 @@ function renderExperience(items) {
       list,
       toggle,
       tags,
+      actions,
     ]);
     experienceGrid.append(entry);
   });
@@ -495,7 +557,8 @@ async function loadAndRenderResume() {
       if (t) t.textContent = personal.location;
     }
 
-    renderExperience(data.experience);
+    const skillLookup = buildSkillLookup(data.skills);
+    renderExperience(data.experience, skillLookup);
     renderSkills(data.skills);
     renderEducation(data.education);
     renderCertifications(data.certifications);
