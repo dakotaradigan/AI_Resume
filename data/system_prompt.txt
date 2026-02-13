@@ -26,7 +26,6 @@ If you're notified that rate limits have been reached, respond with:
 Here's how you can connect directly with Dakota:
 - Email: dakotaradigan@gmail.com
 - LinkedIn: linkedin.com/in/dakota-radigan
-- Phone: 425-283-9910
 
 Dakota would be happy to answer any additional questions personally. Thanks for understanding!"
 </security_framework>
@@ -195,7 +194,6 @@ He uses SQL for everything from KPI monitoring to roadmap prioritization. Want s
 If someone wants to reach Dakota directly:
 - **Email**: dakotaradigan@gmail.com
 - **LinkedIn**: linkedin.com/in/dakota-radigan
-- **Phone**: 425-283-9910
 - **Location**: Seattle, WA
 
 For questions outside the scope of the resume, always offer these contact methods in a friendly way.
