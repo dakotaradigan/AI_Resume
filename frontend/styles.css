@@ -12,6 +12,8 @@
   --hero-muted: hsla(0, 0%, 100%, 0.9);
   --hero-gold: hsl(0, 0%, 100%);
   --hero-shadow: 0 3px 18px hsla(207, 68%, 20%, 0.48), 0 0 1px hsla(0, 0%, 100%, 0.25);
+  --accent-warm: hsl(28, 92%, 62%);
+  --accent-warm-soft: hsla(28, 92%, 62%, 0.24);
 
   /* Fonts */
   --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
@@ -80,10 +82,17 @@ body::before {
   z-index: 0;
   background:
     radial-gradient(500px 360px at 102% 4%, hsla(0, 0%, 100%, 0.78), transparent 56%),
+    radial-gradient(420px 300px at 78% 6%, hsla(0, 0%, 100%, 0.58), transparent 54%),
     radial-gradient(380px 260px at 92% 14%, hsla(0, 0%, 100%, 0.62), transparent 58%),
+    radial-gradient(320px 220px at 68% 12%, hsla(0, 0%, 100%, 0.44), transparent 56%),
     radial-gradient(260px 180px at 86% 26%, hsla(207, 100%, 96%, 0.46), transparent 60%),
+    radial-gradient(240px 160px at 74% 20%, hsla(207, 100%, 97%, 0.36), transparent 58%),
     radial-gradient(220px 120px at 62% 44%, hsla(0, 0%, 100%, 0.34), transparent 66%),
-    radial-gradient(160px 100px at 54% 48%, hsla(206, 100%, 95%, 0.22), transparent 68%);
+    radial-gradient(160px 100px at 54% 48%, hsla(206, 100%, 95%, 0.22), transparent 68%),
+    radial-gradient(460px 320px at -2% 6%, hsla(0, 0%, 100%, 0.68), transparent 56%),
+    radial-gradient(380px 260px at 18% 10%, hsla(0, 0%, 100%, 0.48), transparent 54%),
+    radial-gradient(300px 200px at 8% 22%, hsla(207, 100%, 96%, 0.38), transparent 58%),
+    radial-gradient(260px 180px at 28% 16%, hsla(0, 0%, 100%, 0.36), transparent 56%);
   filter: blur(12px);
   opacity: 0.86;
   animation: cloudDrift 30s ease-in-out infinite alternate;
@@ -96,6 +105,7 @@ body::after {
   pointer-events: none;
   z-index: 1;
   background:
+    radial-gradient(420px 200px at 8% 4%, var(--accent-warm-soft), transparent 74%),
     radial-gradient(640px 280px at 88% 8%, hsla(0, 0%, 100%, 0.18), transparent 74%),
     radial-gradient(700px 320px at 102% 96%, hsla(205, 84%, 95%, 0.12), transparent 78%);
   opacity: 0.62;
@@ -258,7 +268,7 @@ section[id],
 .hero-line {
   width: 60px;
   height: 2px;
-  background: var(--hero-text);
+  background: var(--accent-warm);
   margin-bottom: 24px;
   transform-origin: center;
 }
@@ -450,7 +460,7 @@ section[id],
 .trail-line {
   width: 1px;
   height: 40px;
-  background: var(--gold);
+  background: var(--accent-warm);
   margin: -6px auto -16px;
   opacity: 0.4;
 }
@@ -491,7 +501,7 @@ section[id],
   border-radius: 999px;
   font-size: 13px;
   line-height: 1;
-  color: var(--gold-dark);
+  color: var(--accent-warm);
   background: hsla(0, 0%, 100%, 0.18);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -922,7 +932,7 @@ section[id],
   margin-bottom: 24px;
   background: linear-gradient(150deg, hsla(0, 0%, 100%, 0.78), hsla(207, 92%, 96%, 0.58));
   border: 1px solid hsla(210, 80%, 98%, 0.56);
-  border-left: 3px solid var(--gold);
+  border-left: none;
   border-radius: 14px;
   box-shadow: 0 14px 34px hsla(208, 44%, 28%, 0.10);
   backdrop-filter: blur(12px);
@@ -1043,7 +1053,7 @@ section[id],
 }
 
 .timeline-ask-icon {
-  color: var(--gold-dark);
+  color: var(--accent-warm);
   font-size: 12px;
   line-height: 1;
 }
