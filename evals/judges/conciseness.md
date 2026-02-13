@@ -37,5 +37,7 @@ Key principles:
 - A perfect response gives enough to satisfy curiosity and invites follow-up
 - Bullet points and structure are good — they help scanning
 
+If you cannot make a confident judgment — for example, the question type is ambiguous and could reasonably justify either a short or detailed response — return "unknown" and explain the ambiguity.
+
 Respond with ONLY this JSON (no other text):
-{"verdict": "pass" or "fail", "reason": "one sentence explanation"}
+{"verdict": "pass" or "fail" or "unknown", "reason": "one sentence explanation"}

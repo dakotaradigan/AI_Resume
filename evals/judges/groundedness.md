@@ -31,5 +31,7 @@ Important distinctions:
 - If the bot says "I don't have that information," that is grounded (honest)
 - Focus ONLY on verifiable factual claims, not opinion or tone
 
+If you cannot make a confident judgment — for example, the response is too short to contain verifiable claims, or the source data is incomplete — return "unknown" and explain what information is missing.
+
 Respond with ONLY this JSON (no other text):
-{"verdict": "pass" or "fail", "reason": "one sentence explanation"}
+{"verdict": "pass" or "fail" or "unknown", "reason": "one sentence explanation"}
