@@ -16,22 +16,38 @@ Resume Assistant is an interactive chatbot showcasing Dakota Radigan's professio
 
 ---
 
-## Recent Updates (January 2026)
+## Recent Updates (February 2026)
 
-### Chat Limit Protection
-- Implemented free tier with 2 exchange limit before password unlock
-- Password-based unlimited access for serious inquiries
-- Protects API costs while maintaining accessibility
+### Visual Redesign
+- Complete site redesign with blue sky glassmorphism aesthetic
+- Navbar, timeline layout, and reveal-on-scroll animations
+- Glassmorphism cards with backdrop-filter blur effects
+- Warm accent color highlights for visual hierarchy
 
-### Response Quality Improvements
-- Strengthened formatting rules to ensure tight bullet spacing
-- Added conciseness guidelines (2-4 sentences for simple queries, 1-2 paragraphs for complex)
-- Fixed markdown parser to prevent extra line breaks in lists
+### Frontend UX Polish
+- Animated thinking indicator during AI responses
+- Auto-retry after password unlock
+- Feedback modal in footer with mailto submission
+- Collapsible experience cards with achievement details
+- Markdown parser rewritten as line-by-line state machine
 
-### Production Features
-- Live deployment on Railway with custom domain
-- CORS security properly configured for production
-- Rate limiting and session management guardrails active
+### Evals Framework
+- LLM judge pipeline with auto-discovery (`evals/judges/*.md`)
+- 100 synthetic queries run, human-labeled (Phase 1 complete)
+- Three judges: groundedness, conciseness, redirect_behavior
+- Response conciseness improvements based on eval findings
+
+### Security & Privacy
+- Phone number removed from resume data and system prompt
+- Security headers added (CSP, X-Frame-Options, etc.)
+- Cache clear on reindex to prevent stale data
+- Unlock rate limiting to prevent brute-force attempts
+
+### Infrastructure
+- Spending cap protection with daily conversation limit
+- Admin analytics export endpoint for production data
+- Claude Code automated PR review workflow
+- Chat card width fix to match resume section
 
 ---
 
@@ -48,7 +64,7 @@ Resume Assistant is an interactive chatbot showcasing Dakota Radigan's professio
 
 **Frontend:**
 - **Framework:** Vanilla JavaScript (zero dependencies)
-- **Design:** Warm green/sage color scheme with dark mode support
+- **Design:** Blue sky glassmorphism aesthetic with dark mode support
 - **Accessibility:** WCAG AA compliant
 - **API Integration:** REST calls to `/api/chat`
 
@@ -117,11 +133,15 @@ This project was built in discrete phases. Each phase was completable in 1-2 foc
 3. Vector Search Implementation (RAG Layer)
 4. Frontend Development
 5. Deployment & Public Access
+6. UI Redesign (navbar, timeline layout, glassmorphism)
+7. Evals Framework (judge pipeline, synthetic dataset, scoring)
+8. Security Hardening (headers, privacy fixes, rate limiting)
 
 **Phase Skipped:**
 - Multimodal Support (text-only approach chosen for simplicity)
 
 **Optional Future Enhancement:**
+- SSE Streaming Responses (plan documented, not yet implemented)
 - WebSocket Real-Time Communication (REST API currently provides excellent UX)
 
 ### Code Quality Standards
@@ -278,10 +298,14 @@ Content updates should take less than 5 minutes end-to-end.
 ### UX Features
 - WCAG AA accessibility compliance
 - SVG icons for professional appearance
-- Reveal-on-scroll animations
-- Collapsible content sections
+- Reveal-on-scroll animations with staggered delays
+- Collapsible experience cards with toggle details
 - Intelligent auto-scroll behavior
 - Responsive design for all devices
+- Animated thinking indicator during AI responses
+- Auto-retry after password unlock
+- Feedback modal with mailto submission
+- Glassmorphism cards with backdrop-filter effects
 
 ---
 
@@ -319,24 +343,24 @@ Content updates should take less than 5 minutes end-to-end.
 
 **Completed:**
 - Backend: FastAPI + Claude + RAG pipeline operational
-- Frontend: Professional UI with warm green/sage branding
+- Frontend: Professional UI with blue sky glassmorphism design
 - Security: Prompt injection defenses, rate limiting, input validation
 - Scalability: Session management, message compaction, timeout protection
 - Deployment: Railway hosting with custom domain and SSL
 - Chat Protection: 2 exchange limit with password unlock for unlimited access
 
 **Future Enhancements (Optional):**
+- SSE streaming responses (plan documented)
 - WebSocket support for real-time communication
-- Analytics integration for visitor insights
+- Citation grounding UI (plan documented)
 - "How this was built" explainer section
-- Usage dashboard for monitoring
 
 ---
 
 ## Evals
 This project uses a standardized AI evals framework. See `evals/CLAUDE.md` for
 full instructions. When asked to "kick off evals" or "set up evals", follow the
-kickoff protocol defined there. Always read `evals/CORE_MENTAL_MODEL.md` before
+kickoff protocol defined there. Always read `evals/docs/CORE_MENTAL_MODEL.md` before
 starting eval work.
 
 Git policy: Judge prompts and eval scripts are code — include them in commits and
