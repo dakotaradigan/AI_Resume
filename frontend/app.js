@@ -31,38 +31,9 @@ const sessionId =
 
 /**
  * Simple markdown parser for bot responses.
- * Handles: **bold**, *italic*, ## headings, - lists
+ * Handles: **bold**, *italic*, headings, and bullet lists.
  */
 function parseMarkdown(text) {
-  // Normalize markdown list continuations so wrapped/indented lines stay inside
-  // the same bullet item (prevents awkward paragraph breaks).
-  const normalizeListContinuations = (input) => {
-    const lines = String(input || "").split("\n");
-    const out = [];
-
-    const isListStart = (line) =>
-      /^(\s*)(- |\* |\+ |\d+\.\s+)/.test(line);
-
-    for (const rawLine of lines) {
-      const line = rawLine ?? "";
-      const continuationMatch = line.match(/^(\s{2,}|\t+)(\S.*)$/);
-
-      if (
-        continuationMatch &&
-        out.length > 0 &&
-        isListStart(out[out.length - 1])
-      ) {
-        // Append wrapped line to previous list item.
-        out[out.length - 1] = `${out[out.length - 1].trimEnd()} ${continuationMatch[2].trim()}`;
-        continue;
-      }
-
-      out.push(line);
-    }
-
-    return out.join("\n");
-  };
-
   // Escape HTML to prevent XSS
   const escapeHtml = (str) =>
     str
@@ -72,52 +43,82 @@ function parseMarkdown(text) {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
-  let html = escapeHtml(normalizeListContinuations(text));
+  const applyInlineMarkdown = (input) => {
+    let out = escapeHtml(input);
+    // Convert **bold** to <strong>
+    out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    // Convert *italic* (but not ** which is bold)
+    out = out.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>");
+    return out;
+  };
 
-  // Convert **bold** to <strong>
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  const lines = String(text || "").replace(/\r\n?/g, "\n").split("\n");
+  const blocks = [];
+  let paragraphLines = [];
+  let listItems = [];
 
-  // Convert *italic* (but not ** which is bold)
-  html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, "<em>$1</em>");
+  const flushParagraph = () => {
+    if (!paragraphLines.length) return;
+    const body = paragraphLines.map(applyInlineMarkdown).join("<br>");
+    blocks.push(`<p>${body}</p>`);
+    paragraphLines = [];
+  };
 
-  // Convert headings (must be done before list processing)
-  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
-  html = html.replace(/^# (.+)$/gm, "<h1>$1</h1>");
+  const flushList = () => {
+    if (!listItems.length) return;
+    blocks.push(`<ul>${listItems.map((item) => `<li>${item}</li>`).join("")}</ul>`);
+    listItems = [];
+  };
 
-  // Convert - list items to <li>
-  html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
+  for (const rawLine of lines) {
+    const line = rawLine ?? "";
+    const trimmed = line.trim();
 
-  // Wrap consecutive <li> in <ul>
-  html = html.replace(/(<li>.*?<\/li>\n?)+/gs, (match) => `<ul>${match}</ul>`);
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
 
-  // Remove newlines from within <ul> blocks to prevent <br> tags between bullets
-  html = html.replace(/<ul>(.*?)<\/ul>/gs, (match, content) => {
-    return `<ul>${content.replace(/\n/g, '')}</ul>`;
-  });
+    const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      flushList();
+      const level = headingMatch[1].length;
+      blocks.push(`<h${level}>${applyInlineMarkdown(headingMatch[2])}</h${level}>`);
+      continue;
+    }
 
-  // Split into paragraphs by double newlines
-  const paragraphs = html.split(/\n\n+/);
+    const listMatch = line.match(/^\s*[-*+]\s+(.+)$/);
+    if (listMatch) {
+      flushParagraph();
+      listItems.push(applyInlineMarkdown(listMatch[1].trim()));
+      continue;
+    }
 
-  html = paragraphs
-    .map((para) => {
-      para = para.trim();
-      // Don't wrap headings or lists in <p>
-      if (
-        para.startsWith("<h") ||
-        para.startsWith("<ul>") ||
-        para.startsWith("<ol>")
-      ) {
-        return para;
-      }
-      // Convert single line breaks to <br> within paragraphs
-      para = para.replace(/\n/g, "<br>");
-      return para ? `<p>${para}</p>` : "";
-    })
-    .filter((p) => p)
-    .join("");
+    const continuationMatch = line.match(/^\s{2,}(\S.*)$/);
+    if (continuationMatch && listItems.length > 0) {
+      const lastIndex = listItems.length - 1;
+      listItems[lastIndex] = `${listItems[lastIndex]} ${applyInlineMarkdown(continuationMatch[1].trim())}`;
+      continue;
+    }
 
-  return html;
+    if (listItems.length > 0) {
+      // Non-list text after list starts a new paragraph block.
+      flushList();
+    }
+    paragraphLines.push(trimmed);
+  }
+
+  flushParagraph();
+  flushList();
+
+  if (!blocks.length) {
+    const fallback = applyInlineMarkdown(String(text || "").trim());
+    return fallback ? `<p>${fallback}</p>` : "";
+  }
+
+  return blocks.join("");
 }
 
 // --- Feedback UI ---
