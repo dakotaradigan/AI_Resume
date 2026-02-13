@@ -400,7 +400,7 @@ section[id],
 /* ===== CHAT CARD ===== */
 .chat-card {
   position: relative;
-  max-width: 672px;
+  max-width: 980px;
   margin: 0 auto;
   width: 100%;
   border: 1px solid var(--border-strong);
