@@ -284,7 +284,8 @@ function renderExperience(items) {
 
   safeArray(items).forEach((exp, idx) => {
     const role = el("div", { class: "timeline-role", text: exp.role || "" });
-    const company = el("div", { class: "timeline-company", text: exp.company || "" });
+    const companyText = exp.company || "";
+    const company = el("div", { class: "timeline-company", text: companyText });
 
     // Build meta column (date + location, right-aligned)
     const metaChildren = [];
