@@ -395,16 +395,16 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
         query_embedding = self.embed_text(query)
 
         # Search Qdrant
-        results = self.qdrant_client.search(
+        response = self.qdrant_client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=limit,
             score_threshold=score_threshold,
         )
 
         # Format results
         formatted_results = []
-        for result in results:
+        for result in response.points:
             formatted_results.append(
                 {
                     "text": result.payload["text"],
