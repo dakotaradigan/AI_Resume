@@ -195,75 +195,6 @@ async function submitFeedback(rating, comment, trigger) {
   }
 }
 
-// --- Sources / Citation UI ---
-
-const SECTION_MAP = {
-  experience: "experience",
-  project: "experience",
-  skills: "skills",
-  education: "education",
-  certifications: "education",
-  personal: null,
-};
-
-function addSourcesUI(messageEl, sources) {
-  if (!sources || sources.length === 0) return;
-
-  // Deduplicate by (sectionId, title)
-  const seen = new Set();
-  const chips = [];
-  for (const src of sources) {
-    const sectionId = SECTION_MAP[src.type] ?? null;
-    if (!sectionId) continue;
-    const key = `${sectionId}::${src.title}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    chips.push({ title: src.title, sectionId });
-  }
-
-  if (chips.length === 0) return;
-
-  const details = document.createElement("details");
-  details.className = "msg-sources";
-
-  const summary = document.createElement("summary");
-  summary.textContent = `Sources (${chips.length})`;
-  details.appendChild(summary);
-
-  const chipContainer = document.createElement("div");
-  chipContainer.className = "source-chips";
-
-  for (const chip of chips) {
-    const btn = document.createElement("button");
-    btn.className = "source-chip";
-    btn.textContent = chip.title;
-    btn.addEventListener("click", () => {
-      const target = document.getElementById(chip.sectionId);
-      if (!target) return;
-      target.scrollIntoView({ behavior: "smooth" });
-      target.classList.remove("section-highlighted");
-      void target.offsetWidth; // force reflow so re-adding triggers animation
-      target.classList.add("section-highlighted");
-      target.addEventListener("animationend", () => {
-        target.classList.remove("section-highlighted");
-      }, { once: true });
-      // Fallback for prefers-reduced-motion (animationend won't fire)
-      setTimeout(() => target.classList.remove("section-highlighted"), 2000);
-    });
-    chipContainer.appendChild(btn);
-  }
-
-  details.appendChild(chipContainer);
-
-  // Insert before feedback UI if present, otherwise append
-  const feedbackEl = messageEl.querySelector(".msg-feedback");
-  if (feedbackEl) {
-    messageEl.insertBefore(details, feedbackEl);
-  } else {
-    messageEl.appendChild(details);
-  }
-}
-
 function addMessage(text, role) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
@@ -759,9 +690,6 @@ async function sendMessage(message, { isRetry = false } = {}) {
       thinkingEl.classList.remove("is-thinking");
       body.innerHTML = parseMarkdown(data.reply ?? "No response received.");
     }
-
-    // Show sources from RAG retrieval
-    addSourcesUI(thinkingEl, data.sources);
 
     // Show feedback UI on first successful response
     if (!firstResponseFeedbackShown) {
