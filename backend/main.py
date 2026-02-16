@@ -240,6 +240,7 @@ class FeedbackRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     session_id: str
+    sources: list[dict] = []
 
 
 # === Scalability Helper Functions ===
@@ -383,7 +384,7 @@ def retrieve_rag_context(
     query: str,
     limit: int = 3,
     score_threshold: float = 0.5
-) -> tuple[str, bool]:
+) -> tuple[str, bool, list[dict]]:
     """
     Retrieve relevant resume context using RAG pipeline.
 
@@ -394,31 +395,34 @@ def retrieve_rag_context(
         score_threshold: Minimum similarity score (0-1)
 
     Returns:
-        (context, used_rag) where used_rag indicates whether retrieved chunks were used.
+        (context, used_rag, sources) where used_rag indicates whether retrieved
+        chunks were used, and sources is a list of {title, type} dicts for citation UI.
     """
     if rag_pipeline is None:
         logger.warning("RAG pipeline not initialized, falling back to static context")
-        return load_resume_context(), False
+        return load_resume_context(), False, []
 
     try:
         results = rag_pipeline.search(query, limit=limit, score_threshold=score_threshold)
 
         if not results:
             logger.info(f"No RAG results found for query (threshold={score_threshold}), using static context")
-            return load_resume_context(), False
+            return load_resume_context(), False, []
 
         # Format retrieved chunks into context string
         context_parts = []
+        sources = []
         for idx, result in enumerate(results, 1):
             context_parts.append(
                 f"[Context {idx}: {result['title']}]\n{result['text']}"
             )
+            sources.append({"title": result["title"], "type": result.get("type", "")})
 
-        return "\n\n".join(context_parts), True
+        return "\n\n".join(context_parts), True, sources
 
     except Exception as exc:
         logger.exception("RAG retrieval failed, falling back to static context")
-        return load_resume_context(), False
+        return load_resume_context(), False, []
 
 
 async def _compact_session_history(session_id: str, store: SessionStore) -> None:
@@ -788,7 +792,7 @@ def build_app() -> FastAPI:
             rag_pipeline = get_rag_pipeline()
             if settings.use_rag and rag_pipeline is not None:
                 # Run in thread pool to avoid blocking event loop during API calls
-                resume_context, used_rag = await asyncio.to_thread(
+                resume_context, used_rag, sources = await asyncio.to_thread(
                     retrieve_rag_context,
                     rag_pipeline,
                     message,
@@ -798,6 +802,7 @@ def build_app() -> FastAPI:
                 context_label = "RETRIEVED CONTEXT" if used_rag else "RESUME DATA"
             else:
                 resume_context = load_resume_context()
+                sources = []
                 context_label = "RESUME DATA"
 
         except RuntimeError as exc:
@@ -866,7 +871,7 @@ def build_app() -> FastAPI:
         # Increment daily conversation counter
         _daily_conversation_count[today] = _daily_conversation_count.get(today, 0) + 1
 
-        return ChatResponse(reply=reply_text, session_id=session_id)
+        return ChatResponse(reply=reply_text, session_id=session_id, sources=sources)
 
     @app.post("/api/unlock")
     async def unlock_chat(payload: UnlockRequest, request: Request) -> UnlockResponse:
