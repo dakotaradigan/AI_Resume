@@ -1269,6 +1269,75 @@ section[id],
   }
 }
 
+/* ===== SOURCES / CITATION UI ===== */
+.msg-sources {
+  margin-top: 10px;
+  font-size: 0.82rem;
+}
+
+.msg-sources summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 500;
+  user-select: none;
+  list-style: none;
+}
+
+.msg-sources summary::before {
+  content: "▸ ";
+}
+
+.msg-sources[open] summary::before {
+  content: "▾ ";
+}
+
+.source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--secondary);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-chip:hover {
+  border-color: var(--gold);
+  color: var(--gold-dark);
+  background: hsla(199, 72%, 47%, 0.08);
+}
+
+.section-highlighted {
+  animation: sectionHighlight 1.8s ease-out;
+}
+
+@keyframes sectionHighlight {
+  0% { box-shadow: 0 0 0 3px var(--ring); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-highlighted {
+    animation: none;
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+}
+
 /* ===== FEEDBACK UI ===== */
 .msg-feedback {
   display: flex;
