@@ -797,7 +797,7 @@ def build_app() -> FastAPI:
                     rag_pipeline,
                     message,
                     3,    # limit
-                    0.2   # score_threshold
+                    0.5   # score_threshold
                 )
                 context_label = "RETRIEVED CONTEXT" if used_rag else "RESUME DATA"
             else:
