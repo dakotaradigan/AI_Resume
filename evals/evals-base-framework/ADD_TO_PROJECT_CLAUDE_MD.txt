@@ -1,0 +1,14 @@
+# ── Copy the lines below into your project's root CLAUDE.md ──
+
+## Evals
+This project uses a standardized AI evals framework. See `evals/CLAUDE.md` for
+full instructions. When asked to "kick off evals" or "set up evals", follow the
+kickoff protocol defined there. Always read `evals/CORE_MENTAL_MODEL.md` before
+starting eval work.
+
+Key concepts: multiple graders per failure mode, multiple trials per task (pass@k),
+capability vs. regression eval suites, mandatory transcript reading, trial isolation.
+
+Git policy: Judge prompts and eval scripts are code — include them in commits and
+PRs. Dataset and result files are gitignored (may contain PII). Never commit
+files in evals/datasets/ or evals/results/ without explicit user approval.

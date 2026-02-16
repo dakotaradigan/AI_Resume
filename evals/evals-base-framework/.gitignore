@@ -1,0 +1,19 @@
+# Datasets — may contain real user interactions and PII
+datasets/*.json
+datasets/*.csv
+datasets/*.jsonl
+datasets/*.parquet
+!datasets/README.md
+
+# Results — generated outputs, reproducible from scripts
+results/*.json
+results/*.csv
+results/*.jsonl
+!results/README.md
+
+# Large files
+*.sqlite
+*.db
+
+# OS
+.DS_Store
