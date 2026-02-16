@@ -2,13 +2,19 @@
 title: "feat: Citation Grounding UI"
 type: feat
 date: 2026-02-12
+updated: 2026-02-15
+status: reverted — needs new approach
 ---
 
 # Citation Grounding UI
 
 ## Overview
 
-Add a collapsible "Sources (N)" section below each bot response that links to resume sections on the same page. Clicking a source chip scrolls to the section with a brief gold glow. Goal: build recruiter trust by showing every claim is grounded in real resume data.
+Add a collapsible "Sources (N)" section below each bot response that links to resume sections on the same page. Clicking a source chip scrolls to the section with a brief highlight. Goal: build recruiter trust by showing every claim is grounded in real resume data.
+
+## Current Status: REVERTED
+
+**PR #51** implemented the MVP below and was merged, but sources showed RAG retrieval chunks (generic titles like "Personal Information") rather than what the bot actually referenced. Reverted in **PR #54**. The qdrant-client fix (`search()` → `query_points()`) was preserved independently. See the brainstorm doc for full post-mortem and future approaches.
 
 ## Problem Statement
 
