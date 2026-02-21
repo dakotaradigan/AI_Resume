@@ -505,7 +505,7 @@ def _initialize_rag(settings) -> RAGPipeline | None:
 
 
 def build_app() -> FastAPI:
-    app = FastAPI(title="Resume Assistant")
+    app = FastAPI(title="Resume Assistant", docs_url=None, redoc_url=None, openapi_url=None)
     settings = get_settings()
     app.state.reindex_status = {
         "running": False,
@@ -920,17 +920,6 @@ def build_app() -> FastAPI:
             payload.trigger
         )
         return {"success": True}
-
-    # Expose API docs before static mount (otherwise "/" catches them)
-    from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
-
-    @app.get("/docs", include_in_schema=False)
-    async def swagger_ui():
-        return get_swagger_ui_html(openapi_url="/openapi.json", title=f"{app.title} - Docs")
-
-    @app.get("/openapi.json", include_in_schema=False)
-    async def openapi_json():
-        return app.openapi()
 
     # Serve the frontend files from ../frontend
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
