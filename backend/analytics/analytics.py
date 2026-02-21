@@ -8,13 +8,16 @@ The queries.jsonl file is gitignored to protect user privacy.
 import fcntl
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-ANALYTICS_FILE = Path(__file__).parent / "queries.jsonl"
-FEEDBACK_FILE = Path(__file__).parent / "feedback.jsonl"
+ANALYTICS_DIR = Path(os.getenv("ANALYTICS_DIR", str(Path(__file__).parent)))
+ANALYTICS_DIR.mkdir(parents=True, exist_ok=True)
+ANALYTICS_FILE = ANALYTICS_DIR / "queries.jsonl"
+FEEDBACK_FILE = ANALYTICS_DIR / "feedback.jsonl"
 
 
 def log_query(session_id: str, query: str, response: str = "") -> None:
