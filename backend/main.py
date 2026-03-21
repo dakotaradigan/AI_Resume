@@ -179,6 +179,15 @@ class SessionStore:
 # Global session store instance
 _session_store: SessionStore | None = None
 
+# Pre-cached responses for starter suggestion chips (populated lazily on first hit).
+# Key = lowercased/stripped question text, Value = cached reply string.
+_starter_cache: dict[str, str] = {}
+STARTER_QUESTIONS = frozenset({
+    "what's dakota's background?",
+    "tell me about dakota's ai projects",
+    "what can dakota do for my company?",
+})
+
 
 def get_session_store() -> SessionStore:
     """Get or create the global session store."""
@@ -607,7 +616,8 @@ def build_app() -> FastAPI:
         load_system_prompt.cache_clear()
         load_resume_context.cache_clear()
         load_resume_json_public.cache_clear()
-        logger.info("Cache cleared: system_prompt and resume_context")
+        _starter_cache.clear()
+        logger.info("Cache cleared: system_prompt, resume_context, and starter responses")
         return {
             "status": "success",
             "message": "Cache cleared. Fresh data will be loaded on next request.",
@@ -781,6 +791,19 @@ def build_app() -> FastAPI:
         if not allowed:
             raise HTTPException(status_code=403, detail=reason)
 
+        # === Starter question cache: instant responses for suggestion chips ===
+        # Only use cache when it's the first message in a session (no history yet).
+        cache_key = message.lower().strip().rstrip("?") + "?"
+        history = await store.get_history(session_id)
+        if not history and cache_key in _starter_cache:
+            reply_text = _starter_cache[cache_key]
+            await store.append_message(session_id, "user", message)
+            await store.append_message(session_id, "assistant", reply_text)
+            log_query(session_id, message, reply_text)
+            today = date.today().isoformat()
+            _daily_conversation_count[today] = _daily_conversation_count.get(today, 0) + 1
+            return ChatResponse(reply=reply_text, session_id=session_id)
+
         try:
             system_prompt = load_system_prompt()
 
@@ -817,7 +840,6 @@ def build_app() -> FastAPI:
         )
 
         try:
-            history = await store.get_history(session_id)
             messages = [
                 *history,
                 {"role": "user", "content": [{"type": "text", "text": message}]},
@@ -854,6 +876,10 @@ def build_app() -> FastAPI:
                 "I couldn't generate a response just now. "
                 "Please try asking in a different way."
             )
+
+        # Cache response for starter questions (populate lazily on first real answer)
+        if not history and cache_key in STARTER_QUESTIONS:
+            _starter_cache[cache_key] = reply_text
 
         # Append messages and compact history
         await store.append_message(session_id, "user", message)
