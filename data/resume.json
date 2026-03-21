@@ -9,7 +9,7 @@
     "linkedin": "https://linkedin.com/in/dakota-radigan",
     "github": "https://github.com/dakotaradigan",
     "portfolio": "",
-    "summary": "Senior Product Manager with 8 years at Parametric (Morgan Stanley), including 5+ years shipping data-driven investment solutions. Started in January 2018 in various operations roles before being promoted to Supervisor leading a team of 11, then progressing through Product Management to Vice President. Expert in validating client and operational pain points and translating them into functional specifications that drive measurable business impact. Combining deep investment operations knowledge with technical fluency (SQL, Python, AI) and a bias for action."
+    "summary": "Senior Product Manager with 8+ years in Finance and 5+ years shipping data-driven investment solutions. Expert in validating client and operational pain points and translating them into functional specifications that drive measurable business impact. Combining deep investment operations knowledge with technical fluency (Python and AI) and a bias for action."
   },
 
   "experience": [
@@ -21,14 +21,13 @@
       "type": "Full-time",
       "description": "Leading product strategy and technical partnerships for investment solutions at a leading direct indexing firm.",
       "achievements": [
-        "Led technical investment integration with Wells Fargo, aligning internal/external engineering teams to deliver pilot 2 weeks early—securing $32M initial AUM and a $3B+ pipeline",
-        "Launched a new investment product MVP ahead of schedule; validated market needs and iterated rapidly to capture $75M AUM within 6 months of release",
-        "Built a RAG-based GenAI from PoC to internal production — projected to autonomously resolve ~2,500+ annual email inquiries and slash response times for clients from ~2 hours to minutes",
-        "Shipped a high-impact feature reducing manual client touchpoints on ~75k accounts",
-        "Built a Tableau analytics dashboard for leadership to monitor feature utilization and identify friction points, driving data-backed roadmap prioritization and establishing metrics adopted across team OKRs",
-        "Appointed firm-wide 'AI Champion,' leading an 8-person task force to drive strategy. Increased Copilot adoption by 60% in 2 months and secured budget for dedicated engineering to scale custom OpenAI API solutions"
+        "Led investment integration with Wells Fargo, aligning internal/external stakeholders and technology teams to deliver pilot, securing $32M initial AUM and a $2B+ pipeline",
+        "Led the launch of a new investment solution that created new operating workflows across teams, unlocked targeted GTM campaigns, and supported ~$30M in AUM within 6 months",
+        "Led cross-functional working groups across Trading, Operations, Research, Technology, Client Service, Portfolio Management to design and launch mutual fund trading workflows, risk data integration, and custodian-specific controls for high-value opportunities, including UBS's ~$40B MF market and LPL platform integration",
+        "Architected a RAG-based GenAI assistant projected to autonomously resolve ~3,500+ annual email inquiries and slash response times for clients from hours to minutes",
+        "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
       ],
-      "technologies": ["Python", "SQL", "RAG", "OpenAI API", "GenAI", "Product Analytics", "Product Strategy"]
+      "technologies": ["Python", "SQL", "RAG", "GenAI", "Product Strategy", "Cross-functional Leadership"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
@@ -39,11 +38,11 @@
       "description": "Drove product innovation and cross-functional alignment for investment platform features.",
       "achievements": [
         "Awarded firm-wide 'Commitment to Excellence' for leading a scalability initiative that saved 2,500+ operational hours annually through workflow design and feature enhancements",
-        "Partnered with Sales on $200M+ in enterprise deals, acting as the technical SME to translate complex client requirements into executable engineering specifications and ops workflows",
-        "Chaired a cross-functional leadership council (Engineering, Ops, Sales) to break down silos and align priorities, reducing decision cycle times for critical execution items from weeks to days",
-        "Prototyped a Python-based self-service tool for the C-suite, demonstrating the viability of ongoing digital service concepts"
+        "Partnered with Sales on $200M+ in enterprise deals, acting as the technical SME to translate complex client requirements into executable specifications and ops workflows",
+        "Established product analytics to monitor feature adoption/use, identifying friction and pain points to drive data-backed roadmap prioritization",
+        "Chaired a cross-functional leadership council (Engineering, Ops, Client Service, Portfolio Management, Sales) to break down silos and align priorities, reducing decision cycle times for critical execution items from weeks to days"
       ],
-      "technologies": ["SQL", "Python", "Cross-functional Leadership", "Product Strategy"]
+      "technologies": ["SQL", "Product Analytics", "Cross-functional Leadership", "Product Strategy"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
@@ -53,11 +52,11 @@
       "type": "Full-time",
       "description": "Scaled direct indexing product suite and led platform configuration for new investment strategies.",
       "achievements": [
+        "Prototyped a Python-based self-service tool for the C-suite, demonstrating the viability of ongoing digital service concepts",
         "Scaled the direct indexing suite by launching 18 new benchmark strategies within 9 months, leading platform configuration to drive $100M+ in new AUM",
-        "Wrote functional specifications for a digital onboarding portal",
-        "Engineered SQL reporting and heatmaps to diagnose bottlenecks and drive targeted CRM optimizations across Sales, Client Service, and operations"
+        "Engineered SQL reporting and heatmaps to diagnose bottlenecks and drive targeted CRM optimizations across Sales, Client Service, and Operations"
       ],
-      "technologies": ["SQL", "CRM Tools", "Platform Configuration", "Requirements Gathering", "Product Strategy"]
+      "technologies": ["SQL", "Python", "CRM Tools", "Platform Configuration", "Product Strategy"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
@@ -68,8 +67,8 @@
       "description": "Led account onboarding team and collaborated with engineering to build internal tools.",
       "achievements": [
         "Led a team of 11 directly overseeing the strategic onboarding of $493M in assets (1,200 accounts), optimizing daily operations to improve onboarding times by 4 hours",
-        "Direct dotted line into Engineering as a QA Lead, launching two internal workflow tools that digitized manual tasks and significantly improved process reliability",
-        "Built SQL-based rule systems and Excel models to validate complex logic prior to implementation, reducing errors and providing onboarding metrics"
+        "Direct dotted line into Engineering as a QA, helping to design and test two internal workflow tools that digitized manual tasks and improved process reliability",
+        "Built SQL-based rule systems and Excel models to validate complex logic prior to implementation, reducing errors and provided onboarding metrics"
       ],
       "technologies": ["SQL", "Excel", "Team Leadership", "QA", "Operations"]
     }
@@ -85,7 +84,7 @@
         "Reimagined professional discovery: shifted from passive document to interactive conversation",
         "Implemented full RAG pipeline with semantic search, intelligent chunking, and context retrieval",
         "Built production-ready guardrails: rate limiting, session management, hallucination prevention (temperature=0.1)",
-        "Designed warm green/sage UI with dark mode, WCAG AA accessibility, and custom CSS design system",
+        "Designed blue sky glassmorphism UI with dark mode, WCAG AA accessibility, and custom CSS design system",
         "Created dual-purpose innovation: functional recruiter tool + technical showcase of AI/ML capabilities",
         "Engineered for scale: concurrent session support, pluggable state management, security layers"
       ],
@@ -194,6 +193,7 @@
   "skills": {
     "product_strategy": [
       "Product Launches",
+      "Product Design",
       "Roadmap Definition",
       "GTM Strategy",
       "OKR/KPI Development",
@@ -202,16 +202,10 @@
       "Investment Operations"
     ],
     "technical": [
-      "Generative AI (LLMs, RAG, Agents)",
+      "Generative AI (LLMs, RAG, Agent Management)",
       "Python (PCAP-Certified)",
       "SQL",
-      "API Integrations",
-      "Automation",
-      "CRM Tools",
-      "FastAPI",
-      "Vector Databases (Pinecone)",
-      "OpenAI API",
-      "WebSockets"
+      "CRM Tools"
     ],
     "leadership": [
       "Cross-Functional Team Leadership",
@@ -219,13 +213,6 @@
       "Executive Communication",
       "Strategic Partnerships/Relationships",
       "Client Service"
-    ],
-    "data_analytics": [
-      "SQL Reporting",
-      "Product Analytics",
-      "Data Visualization",
-      "KPI Monitoring",
-      "Usage Analysis"
     ]
   },
 
@@ -273,7 +260,14 @@
       "credential_url": ""
     },
     {
-      "name": "Using Python to Access Web Data & Databases",
+      "name": "Using Python with Databases",
+      "issuer": "Coursera",
+      "date": "",
+      "status": "Completed",
+      "credential_url": ""
+    },
+    {
+      "name": "Using Python to Access Web Data",
       "issuer": "Coursera",
       "date": "",
       "status": "Completed",
