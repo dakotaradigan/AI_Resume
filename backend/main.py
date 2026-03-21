@@ -535,10 +535,12 @@ def build_app() -> FastAPI:
     # Development: Allow all origins for local testing
     # Production: Restrict to specific domain (update when deploying)
     if settings.environment == "production":
-        # TODO: Update with your production domain before deploying
         allowed_origins = [
-            "https://assistant.dakotaradigan.com",
-            "https://dakotaradigan.com",
+            "https://chat.dakotaradigan.io",
+            "https://www.dakotaradigan.io",
+            "https://dakotaradigan.io",
+            "https://dakotaradigan.ai",
+            "https://www.dakotaradigan.ai",
         ]
         allow_credentials = True
     else:
