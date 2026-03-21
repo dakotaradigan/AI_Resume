@@ -486,6 +486,24 @@ function initRevealOnScroll() {
   nodes.forEach((n) => io.observe(n));
 }
 
+// Collapsible resume sections — attached after DOM is fully ready
+window.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".resume-section .section-header--link[role='button']").forEach((header) => {
+    header.style.cursor = "pointer";
+    header.addEventListener("click", (e) => {
+      e.preventDefault();
+      const section = header.closest(".resume-section");
+      const expanded = section.classList.toggle("is-expanded");
+      header.setAttribute("aria-expanded", String(expanded));
+      const toggle = header.querySelector(".section-toggle");
+      if (toggle) toggle.textContent = expanded ? "Hide details" : "Show details";
+    });
+    header.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); header.click(); }
+    });
+  });
+});
+
 function initNavbar() {
   // Frosted glass on scroll
   if (siteHeader) {
@@ -785,6 +803,8 @@ async function sendMessage(message, { isRetry = false } = {}) {
 
               if (unlockData.success) {
                 thinkingEl.remove();
+                autoScrollEnabled = true;
+                requestScrollToBottom();
                 setTimeout(() => sendMessage(message, { isRetry: true }), 0);
                 return;
               } else {
