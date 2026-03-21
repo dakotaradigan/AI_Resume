@@ -683,6 +683,56 @@ section[id],
   }
 }
 
+/* Status step animations (streaming pipeline steps) */
+/* Override is-thinking inline-flex when steps are active */
+.msg-body.has-steps {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 4px;
+}
+.status-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 400ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+.status-step.is-visible { opacity: 1; transform: translateY(0); }
+.step-icon { flex-shrink: 0; color: var(--gold-dark); font-size: 0.9rem; }
+.step-items {
+  margin: 2px 0 0 24px;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  list-style: disc;
+}
+.step-answer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-step { transition: none; opacity: 1; transform: none; }
+}
+
 .msg.intro {
   color: var(--muted);
 }
