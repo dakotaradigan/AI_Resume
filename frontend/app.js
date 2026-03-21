@@ -588,6 +588,125 @@ function getThinkingMarkup(label = "Thinking") {
   `;
 }
 
+/**
+ * Extract a short topic label from the user's query for dynamic step text.
+ */
+function extractQueryTopic(message) {
+  const lower = message.toLowerCase().replace(/[?!.]+$/g, "").trim();
+  // Strip common question prefixes to get the core topic
+  const prefixes = [
+    "tell me about", "what is", "what are", "what's", "what can",
+    "does dakota know", "does dakota have", "show me", "describe",
+    "how does", "how did", "can you tell me about", "explain",
+  ];
+  for (const p of prefixes) {
+    if (lower.startsWith(p)) return lower.slice(p.length).trim() || null;
+  }
+  // If short enough, use the whole query
+  return lower.length <= 40 ? lower : null;
+}
+
+/**
+ * Start showing status steps in the thinking bubble while the fetch is in progress.
+ * Returns a controller object so sendMessage can finalize/update steps when the response arrives.
+ */
+function startStatusSteps(container, message) {
+  container.innerHTML = "";
+  container.classList.add("has-steps");
+  const announcer = document.getElementById("step-announcer");
+  const stepEls = [];
+  const topic = extractQueryTopic(message);
+
+  function addStep(text) {
+    if (!container.isConnected) return null;
+    const step = document.createElement("div");
+    step.className = "status-step";
+    step.setAttribute("aria-hidden", "true");
+    const icon = document.createElement("span");
+    icon.className = "step-icon";
+    icon.textContent = "\u2713";
+    step.appendChild(icon);
+    const content = document.createElement("div");
+    content.className = "step-content";
+    const label = document.createElement("span");
+    label.className = "step-label";
+    label.textContent = text;
+    content.appendChild(label);
+    step.appendChild(content);
+    container.appendChild(step);
+    requestAnimationFrame(() => step.classList.add("is-visible"));
+    if (announcer) announcer.textContent = text;
+    stepEls.push(step);
+    return step;
+  }
+
+  // Step 1 — reference the user's topic if we can extract one
+  const step1Text = topic
+    ? `Searching for "${topic}"...`
+    : "Searching resume data...";
+  addStep(step1Text);
+
+  // Step 2 appears after 800ms — generic until response arrives with real data
+  const step2Timer = setTimeout(() => addStep("Matching relevant experience..."), 800);
+  // Step 3 appears after 1800ms
+  const step3Timer = setTimeout(() => addStep("Composing answer..."), 1800);
+
+  return {
+    /** Call when response arrives to update step 2 with real source data and finalize. */
+    finalize(data) {
+      clearTimeout(step2Timer);
+      clearTimeout(step3Timer);
+
+      // Ensure step 2 exists with real data
+      if (stepEls.length < 2) {
+        // Step 2 hasn't appeared yet — add it with real data
+        const text = (data.used_rag && data.sources?.length)
+          ? `Found ${data.sources.length} relevant section${data.sources.length > 1 ? "s" : ""}`
+          : data.used_rag ? "Using full resume context..." : "Found relevant sections";
+        const step2 = addStep(text);
+        if (step2 && data.used_rag && data.sources?.length) {
+          const contentDiv = step2.querySelector(".step-content");
+          if (contentDiv) {
+            const list = document.createElement("ul");
+            list.className = "step-items";
+            data.sources.forEach((title) => {
+              const li = document.createElement("li");
+              li.textContent = title;
+              list.appendChild(li);
+            });
+            contentDiv.appendChild(list);
+          }
+        }
+      } else if (data.used_rag && data.sources?.length) {
+        // Step 2 already visible — update its text and add source titles
+        const step2 = stepEls[1];
+        const label = step2.querySelector(".step-label");
+        if (label) label.textContent = `Found ${data.sources.length} relevant section${data.sources.length > 1 ? "s" : ""}`;
+        const contentDiv = step2.querySelector(".step-content");
+        if (contentDiv) {
+          const list = document.createElement("ul");
+          list.className = "step-items";
+          data.sources.forEach((title) => {
+            const li = document.createElement("li");
+            li.textContent = title;
+            list.appendChild(li);
+          });
+          contentDiv.appendChild(list);
+        }
+      }
+
+      // Ensure step 3 exists
+      if (stepEls.length < 3) addStep("Generating response...");
+    },
+
+    /** Cancel timers on error. */
+    cancel() {
+      clearTimeout(step2Timer);
+      clearTimeout(step3Timer);
+    },
+  };
+}
+
 async function sendMessage(message, { isRetry = false } = {}) {
   suggestionsEl?.remove();
   if (!isRetry) addMessage(message, "user");
@@ -599,6 +718,12 @@ async function sendMessage(message, { isRetry = false } = {}) {
   }
   setSending(true);
 
+  // Start status steps animation in parallel with the fetch
+  let stepCtrl = null;
+  if (thinkingBody) {
+    stepCtrl = startStatusSteps(thinkingBody, message);
+  }
+
   try {
     const fetchStart = Date.now();
     const res = await fetch("/api/chat", {
@@ -607,14 +732,14 @@ async function sendMessage(message, { isRetry = false } = {}) {
       body: JSON.stringify({ message, session_id: sessionId }),
     });
 
-    // Ensure "Thinking..." shows for at least 1.5s so cached responses feel natural
-    const elapsed = Date.now() - fetchStart;
-    const MIN_THINKING_MS = 1500;
-    if (elapsed < MIN_THINKING_MS) {
-      await new Promise((r) => setTimeout(r, MIN_THINKING_MS - elapsed));
-    }
-
     if (!res.ok) {
+      stepCtrl?.cancel();
+      // Ensure "Thinking..." shows for at least 1.5s on error paths
+      const elapsed = Date.now() - fetchStart;
+      const MIN_THINKING_MS = 1500;
+      if (elapsed < MIN_THINKING_MS) {
+        await new Promise((r) => setTimeout(r, MIN_THINKING_MS - elapsed));
+      }
       // Handle chat limit (403)
       if (res.status === 403) {
         const errorData = await res.json().catch(() => ({}));
@@ -660,7 +785,7 @@ async function sendMessage(message, { isRetry = false } = {}) {
 
               if (unlockData.success) {
                 thinkingEl.remove();
-                sendMessage(message, { isRetry: true });
+                setTimeout(() => sendMessage(message, { isRetry: true }), 0);
                 return;
               } else {
                 errorEl.textContent = unlockData.message || "Incorrect password.";
@@ -695,8 +820,21 @@ async function sendMessage(message, { isRetry = false } = {}) {
     const data = await res.json();
     const body = thinkingEl.querySelector(".msg-body");
     if (body) {
+      // Ensure steps have time to animate before showing the answer
+      const MIN_STEPS_MS = 2400;
+      const elapsed = Date.now() - fetchStart;
+      if (elapsed < MIN_STEPS_MS) {
+        await new Promise((r) => setTimeout(r, MIN_STEPS_MS - elapsed));
+      }
+      stepCtrl?.finalize(data);
+      // Brief pause after finalize so the updated step 2 is visible
+      await new Promise((r) => setTimeout(r, 400));
       thinkingEl.classList.remove("is-thinking");
-      body.innerHTML = parseMarkdown(data.reply ?? "No response received.");
+      // Append the answer below the steps
+      const answerDiv = document.createElement("div");
+      answerDiv.className = "step-answer";
+      answerDiv.innerHTML = parseMarkdown(data.reply ?? "No response received.");
+      body.appendChild(answerDiv);
     }
 
     // Show feedback UI on first successful response
@@ -707,6 +845,7 @@ async function sendMessage(message, { isRetry = false } = {}) {
 
     requestScrollToBottom();
   } catch (err) {
+    stepCtrl?.cancel();
     const body = thinkingEl.querySelector(".msg-body");
     if (body) {
       thinkingEl.classList.remove("is-thinking");
@@ -715,6 +854,7 @@ async function sendMessage(message, { isRetry = false } = {}) {
     requestScrollToBottom();
     console.error(err);
   } finally {
+    thinkingEl?.classList?.remove("is-thinking");
     setSending(false);
     chatInput.focus();
   }

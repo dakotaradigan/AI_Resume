@@ -65,5 +65,39 @@ class TestRAGPipelineQdrantIntegration(unittest.TestCase):
                 pass
 
 
+class TestRetrieveRagContext(unittest.TestCase):
+    """Unit tests for retrieve_rag_context (no Qdrant needed)."""
+
+    def test_returns_titles_on_success(self) -> None:
+        from main import retrieve_rag_context
+        from unittest.mock import MagicMock
+
+        mock_pipeline = MagicMock()
+        mock_pipeline.search.return_value = [
+            {"text": "chunk 1 text", "title": "Ben AI", "type": "project", "score": 0.9, "timeframe": ""},
+            {"text": "chunk 2 text", "title": "VP Senior PM", "type": "experience", "score": 0.8, "timeframe": ""},
+        ]
+        context, used_rag, titles = retrieve_rag_context(mock_pipeline, "AI experience")
+        self.assertTrue(used_rag)
+        self.assertEqual(titles, ["Ben AI", "VP Senior PM"])
+        self.assertIn("Ben AI", context)
+
+    def test_returns_empty_on_no_results(self) -> None:
+        from main import retrieve_rag_context
+        from unittest.mock import MagicMock
+
+        mock_pipeline = MagicMock()
+        mock_pipeline.search.return_value = []
+        context, used_rag, titles = retrieve_rag_context(mock_pipeline, "something obscure")
+        self.assertFalse(used_rag)
+        self.assertEqual(titles, [])
+
+    def test_returns_empty_on_none_pipeline(self) -> None:
+        from main import retrieve_rag_context
+        context, used_rag, titles = retrieve_rag_context(None, "any query")
+        self.assertFalse(used_rag)
+        self.assertEqual(titles, [])
+
+
 if __name__ == "__main__":
     unittest.main()
