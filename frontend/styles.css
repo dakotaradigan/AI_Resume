@@ -286,8 +286,24 @@ section[id],
   font-size: 18px;
   line-height: 1.5;
   color: var(--muted);
-  margin: 0 auto 24px;
+  margin: 0 auto 8px;
   max-width: 500px;
+}
+
+.hero-subtitle {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--accent-warm);
+  margin: 0 auto 24px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.hero-subtitle:hover {
+  color: var(--gold-dark);
 }
 
 .hero-contact {
