@@ -11,5 +11,5 @@ python-multipart==0.0.6
 
 # Vector Search (Phase 3 - RAG Pipeline)
 qdrant-client==1.12.0
-openai==1.54.0
+openai>=1.75.0
 tenacity==8.2.3  # Retry logic with exponential backoff
