@@ -600,11 +600,19 @@ async function sendMessage(message, { isRetry = false } = {}) {
   setSending(true);
 
   try {
+    const fetchStart = Date.now();
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message, session_id: sessionId }),
     });
+
+    // Ensure "Thinking..." shows for at least 1.5s so cached responses feel natural
+    const elapsed = Date.now() - fetchStart;
+    const MIN_THINKING_MS = 1500;
+    if (elapsed < MIN_THINKING_MS) {
+      await new Promise((r) => setTimeout(r, MIN_THINKING_MS - elapsed));
+    }
 
     if (!res.ok) {
       // Handle chat limit (403)
