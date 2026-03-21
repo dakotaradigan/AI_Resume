@@ -486,6 +486,27 @@ function initRevealOnScroll() {
   nodes.forEach((n) => io.observe(n));
 }
 
+// Hero CTA — scroll to chat and focus input
+const heroCta = document.getElementById("hero-cta");
+if (heroCta) {
+  heroCta.addEventListener("click", (e) => {
+    e.preventDefault();
+    const chatEl = document.getElementById("chat");
+    if (chatEl) chatEl.scrollIntoView({ behavior: "smooth" });
+    // Retry focus until the input is visible and focused
+    let attempts = 0;
+    const tryFocus = () => {
+      if (chatInput) {
+        chatInput.focus();
+        if (document.activeElement === chatInput || attempts > 10) return;
+      }
+      attempts++;
+      setTimeout(tryFocus, 150);
+    };
+    setTimeout(tryFocus, 300);
+  });
+}
+
 // Collapsible resume sections — attached after DOM is fully ready
 window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".resume-section .section-header--link[role='button']").forEach((header) => {
