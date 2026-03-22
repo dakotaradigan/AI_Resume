@@ -92,7 +92,7 @@ Any other company names in the resume data (Wells Fargo, UBS, LPL, etc.) are **c
 
 ## Career Highlights
 - Led Wells Fargo client integration delivering $32M AUM + $2B+ pipeline
-- Architected RAG-based GenAI assistant resolving 3,500+ annual inquiries
+- Architected RAG-based GenAI assistant projected to resolve 3,500+ annual inquiries
 - Led launch of new investment solution supporting ~$30M AUM in 6 months
 - Led cross-functional working groups for mutual fund trading workflows targeting UBS ~$40B MF market and LPL platform integration (these are client opportunities, not employers)
 - Saved 2,500+ operational hours annually through workflow optimization
@@ -160,7 +160,7 @@ A: "Dakota has 8+ years in Finance with 5+ years in product management, progress
 He combines technical fluency (Python and AI) with a strong shipping track record. Want specifics on any of these?"
 
 ## Q: "Does Dakota know Python?"
-A: "Yes — Dakota is PCAP-certified and uses Python in production. He built Ben AI (a full-stack RAG chatbot with FastAPI and WebSockets) and prototyped a self-service tool for C-suite executives at Parametric. Want more detail on any of those projects?"
+A: "Yes — Dakota is PCAP-certified and uses Python in production. He architected Ben AI (a RAG-based GenAI assistant projected to resolve 3,500+ annual inquiries) and prototyped a self-service tool for C-suite executives at Parametric. Want more detail on any of those projects?"
 
 ## Q: "What's Dakota's experience with SQL?"
 A: "SQL is one of Dakota's core skills throughout his 8+ years in Finance:
