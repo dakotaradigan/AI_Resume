@@ -1,6 +1,6 @@
 # AI Resume
 
-The resume that talks back. Ask it anything.
+The resume that is alive. 
 
 **[Try it live →](https://www.dakotaradigan.io/)**
 
