@@ -33,6 +33,11 @@ backend/analytics/*.jsonl
 # Development notes (local only)
 in-flight-development.md
 
+# Internal working docs (brainstorms, plans, solutions)
+docs/brainstorms/
+docs/plans/
+docs/solutions/
+
 # Qdrant data (local development)
 qdrant_storage/
 
