@@ -10,7 +10,7 @@ The resume that talks back. Ask it anything.
 
 Traditional resumes are static PDFs that get skimmed in seconds. This is an AI-powered interactive resume where recruiters ask questions in natural language and get instant, contextual answers — powered by a RAG pipeline that searches across career data in real-time.
 
-The portfolio piece itself is the proof: semantic search, vector databases, production guardrails, and a clean UI — built and deployed as a working product.
+semantic search, vector databases, production guardrails, and a clean UI — built and deployed as a working product.
 
 ---
 
@@ -25,7 +25,7 @@ The portfolio piece itself is the proof: semantic search, vector databases, prod
 
 ---
 
-## Run It Yourself
+## Give it a shot
 
 ```bash
 git clone https://github.com/dakotaradigan/AI_Resume.git
