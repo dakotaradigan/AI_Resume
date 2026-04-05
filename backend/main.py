@@ -18,6 +18,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
 
+try:
+    from redis import asyncio as redis_asyncio
+except ImportError:  # pragma: no cover - optional dependency until REDIS_URL is set
+    redis_asyncio = None
+
 from config import get_settings
 from rag import initialize_rag_pipeline, RAGPipeline
 from analytics.analytics import log_query, log_feedback
@@ -33,6 +38,11 @@ COMPACT_CHAR_LIMIT = 800
 # Daily conversation limit to control API costs
 DAILY_CONVERSATION_LIMIT = 200
 _daily_conversation_count: dict[str, int] = {}  # {"2026-02-03": 42}
+
+CHAT_LIMIT_MESSAGE = (
+    "You've reached the free chat limit. To continue, enter the password "
+    "found on Dakota's resume."
+)
 
 BUSY_MESSAGE = (
     "Lots of interest today! The AI assistant is taking a quick break. "
@@ -52,14 +62,40 @@ class SessionStore:
     Migration path: Replace internal dicts with Redis when scaling to multiple workers.
     """
 
-    def __init__(self):
+    def __init__(self, redis_client=None, session_ttl: int = 3600):
         self._messages: dict[str, list[dict]] = {}
         self._metadata: dict[str, dict] = {}
         self._rate_limits: dict[str, list[float]] = defaultdict(list)
         self._lock = asyncio.Lock()
+        self._redis = redis_client
+        self._session_ttl = session_ttl
+        self._redis_prefix = "resume-assistant"
+
+    def _history_key(self, session_id: str) -> str:
+        return f"{self._redis_prefix}:session:{session_id}:history"
+
+    def _meta_key(self, session_id: str) -> str:
+        return f"{self._redis_prefix}:session:{session_id}:meta"
+
+    def _daily_key(self, day_key: str) -> str:
+        return f"{self._redis_prefix}:daily:{day_key}"
+
+    def _rate_limit_key(self, key: str, window: float) -> str:
+        bucket = int(time.time() // window)
+        return f"{self._redis_prefix}:rate_limit:{key}:{bucket}"
 
     async def get_history(self, session_id: str) -> list[dict]:
         """Get session history, creating empty list if needed."""
+        if self._redis is not None:
+            entries = await self._redis.lrange(self._history_key(session_id), 0, -1)
+            history: list[dict] = []
+            for entry in entries:
+                try:
+                    history.append(json.loads(entry))
+                except json.JSONDecodeError:
+                    logger.warning("Skipping invalid Redis history entry for session %s", session_id)
+            return history
+
         async with self._lock:
             if session_id not in self._messages:
                 self._messages[session_id] = []
@@ -67,11 +103,32 @@ class SessionStore:
 
     async def set_history(self, session_id: str, history: list[dict]) -> None:
         """Replace session history (used after compaction)."""
+        if self._redis is not None:
+            history_key = self._history_key(session_id)
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.delete(history_key)
+                if history:
+                    pipe.rpush(history_key, *[json.dumps(item) for item in history])
+                pipe.expire(history_key, self._session_ttl)
+                await pipe.execute()
+            return
+
         async with self._lock:
             self._messages[session_id] = history
 
     async def append_message(self, session_id: str, role: str, text: str) -> None:
         """Append a message to session history."""
+        if self._redis is not None:
+            message = json.dumps({
+                "role": role,
+                "content": [{"type": "text", "text": text}]
+            })
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.rpush(self._history_key(session_id), message)
+                pipe.expire(self._history_key(session_id), self._session_ttl)
+                await pipe.execute()
+            return
+
         async with self._lock:
             if session_id not in self._messages:
                 self._messages[session_id] = []
@@ -82,6 +139,17 @@ class SessionStore:
 
     async def update_metadata(self, session_id: str) -> None:
         """Track session creation and last access time for cleanup."""
+        if self._redis is not None:
+            now = str(time.time())
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.hsetnx(self._meta_key(session_id), "created_at", now)
+                pipe.hsetnx(self._meta_key(session_id), "unlimited", "0")
+                pipe.hsetnx(self._meta_key(session_id), "user_message_count", "0")
+                pipe.hset(self._meta_key(session_id), mapping={"last_access": now})
+                pipe.expire(self._meta_key(session_id), self._session_ttl)
+                await pipe.execute()
+            return
+
         async with self._lock:
             now = time.time()
             if session_id not in self._metadata:
@@ -99,6 +167,13 @@ class SessionStore:
         Check if request is within rate limit.
         Returns True if allowed, False if limit exceeded.
         """
+        if self._redis is not None:
+            redis_key = self._rate_limit_key(key, window)
+            count = await self._redis.incr(redis_key)
+            if count == 1:
+                await self._redis.expire(redis_key, max(int(window) + 1, 1))
+            return count <= max_requests
+
         async with self._lock:
             now = time.time()
             timestamps = self._rate_limits[key]
@@ -119,6 +194,48 @@ class SessionStore:
         Atomically check chat limit and increment count if allowed.
         Returns (allowed, reason) - allowed=True if under limit.
         """
+        if self._redis is not None:
+            script = """
+            local key = KEYS[1]
+            local limit = tonumber(ARGV[1])
+            local now = ARGV[2]
+            local ttl = tonumber(ARGV[3])
+            local blocked_message = ARGV[4]
+
+            redis.call('HSETNX', key, 'created_at', now)
+            redis.call('HSETNX', key, 'unlimited', '0')
+            redis.call('HSETNX', key, 'user_message_count', '0')
+
+            if redis.call('HGET', key, 'unlimited') == '1' then
+                redis.call('HINCRBY', key, 'user_message_count', 1)
+                redis.call('HSET', key, 'last_access', now)
+                redis.call('EXPIRE', key, ttl)
+                return {1, ''}
+            end
+
+            local current_count = tonumber(redis.call('HGET', key, 'user_message_count') or '0')
+            if current_count >= limit then
+                redis.call('HSET', key, 'last_access', now)
+                redis.call('EXPIRE', key, ttl)
+                return {0, blocked_message}
+            end
+
+            redis.call('HINCRBY', key, 'user_message_count', 1)
+            redis.call('HSET', key, 'last_access', now)
+            redis.call('EXPIRE', key, ttl)
+            return {1, ''}
+            """
+            allowed, reason = await self._redis.eval(
+                script,
+                1,
+                self._meta_key(session_id),
+                limit,
+                str(time.time()),
+                self._session_ttl,
+                CHAT_LIMIT_MESSAGE,
+            )
+            return bool(int(allowed)), str(reason)
+
         async with self._lock:
             meta = self._metadata.get(session_id, {})
 
@@ -129,10 +246,7 @@ class SessionStore:
 
             current_count = meta.get("user_message_count", 0)
             if current_count >= limit:
-                return False, (
-                    "You've reached the free chat limit. To continue, enter the password "
-                    "found on Dakota's resume."
-                )
+                return False, CHAT_LIMIT_MESSAGE
 
             meta["user_message_count"] = current_count + 1
             self._metadata[session_id] = meta
@@ -140,6 +254,18 @@ class SessionStore:
 
     async def set_unlimited(self, session_id: str, value: bool) -> None:
         """Set unlimited access for a session."""
+        if self._redis is not None:
+            now = str(time.time())
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.hsetnx(self._meta_key(session_id), "created_at", now)
+                pipe.hset(self._meta_key(session_id), mapping={
+                    "unlimited": "1" if value else "0",
+                    "last_access": now,
+                })
+                pipe.expire(self._meta_key(session_id), self._session_ttl)
+                await pipe.execute()
+            return
+
         async with self._lock:
             if session_id in self._metadata:
                 self._metadata[session_id]["unlimited"] = value
@@ -149,6 +275,9 @@ class SessionStore:
         Remove sessions older than max_age_seconds.
         Returns count of cleaned sessions.
         """
+        if self._redis is not None:
+            return 0
+
         async with self._lock:
             now = time.time()
             expired = []
@@ -165,6 +294,9 @@ class SessionStore:
 
     async def cleanup_stale_rate_limits(self, window: float = 60.0) -> None:
         """Remove rate limit entries that haven't been used recently."""
+        if self._redis is not None:
+            return
+
         async with self._lock:
             now = time.time()
             stale_cutoff = now - (window * 2)
@@ -174,6 +306,30 @@ class SessionStore:
             ]
             for key in stale_keys:
                 self._rate_limits.pop(key, None)
+
+    async def get_daily_conversation_count(self, day_key: str) -> int:
+        if self._redis is not None:
+            value = await self._redis.get(self._daily_key(day_key))
+            return int(value or 0)
+        return _daily_conversation_count.get(day_key, 0)
+
+    async def increment_daily_conversation_count(self, day_key: str) -> int:
+        if self._redis is not None:
+            next_value = await self._redis.incr(self._daily_key(day_key))
+            if next_value == 1:
+                await self._redis.expire(self._daily_key(day_key), 3 * 24 * 60 * 60)
+            return int(next_value)
+        _daily_conversation_count[day_key] = _daily_conversation_count.get(day_key, 0) + 1
+        return _daily_conversation_count[day_key]
+
+    async def close(self) -> None:
+        if self._redis is None:
+            return
+        close = getattr(self._redis, "aclose", None)
+        if close is not None:
+            await close()
+            return
+        await self._redis.close()
 
 
 # Global session store instance
@@ -193,7 +349,23 @@ def get_session_store() -> SessionStore:
     """Get or create the global session store."""
     global _session_store
     if _session_store is None:
-        _session_store = SessionStore()
+        settings = get_settings()
+        redis_client = None
+        redis_url = settings.redis_url.strip()
+        if redis_url:
+            if redis_asyncio is None:
+                raise RuntimeError("REDIS_URL is set but the redis package is not installed.")
+            redis_client = redis_asyncio.from_url(
+                redis_url,
+                encoding="utf-8",
+                decode_responses=True,
+                health_check_interval=30,
+            )
+            logger.info("Using Redis-backed session store")
+        _session_store = SessionStore(
+            redis_client=redis_client,
+            session_ttl=settings.session_max_age_seconds,
+        )
     return _session_store
 
 
@@ -520,6 +692,11 @@ def _initialize_rag(settings) -> RAGPipeline | None:
 def build_app() -> FastAPI:
     app = FastAPI(title="Resume Assistant", docs_url=None, redoc_url=None, openapi_url=None)
     settings = get_settings()
+
+    @app.on_event("shutdown")
+    async def shutdown_event() -> None:
+        await get_session_store().close()
+
     app.state.reindex_status = {
         "running": False,
         "started_at": None,
@@ -767,11 +944,11 @@ def build_app() -> FastAPI:
                     "Rate limit exceeded. Please wait a moment before sending "
                     "another message. This helps ensure fair access for all visitors."
                 ),
-            )
+        )
 
         # 4. Daily conversation limit: Control API costs
         today = date.today().isoformat()
-        if _daily_conversation_count.get(today, 0) >= DAILY_CONVERSATION_LIMIT:
+        if await store.get_daily_conversation_count(today) >= DAILY_CONVERSATION_LIMIT:
             raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
 
         # === Validation (before consuming chat quota) ===
@@ -806,8 +983,7 @@ def build_app() -> FastAPI:
             await store.append_message(session_id, "user", message)
             await store.append_message(session_id, "assistant", reply_text)
             log_query(session_id, message, reply_text)
-            today = date.today().isoformat()
-            _daily_conversation_count[today] = _daily_conversation_count.get(today, 0) + 1
+            await store.increment_daily_conversation_count(today)
             return ChatResponse(reply=reply_text, session_id=session_id)
 
         try:
@@ -898,7 +1074,7 @@ def build_app() -> FastAPI:
         log_query(session_id, message, reply_text)
 
         # Increment daily conversation counter
-        _daily_conversation_count[today] = _daily_conversation_count.get(today, 0) + 1
+        await store.increment_daily_conversation_count(today)
 
         return ChatResponse(
             reply=reply_text, session_id=session_id,
