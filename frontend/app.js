@@ -24,10 +24,27 @@ const hamburger = document.getElementById("hamburger");
 const HERO_TAGLINE =
   "Turning product vision into reality with Python-driven AI solutions";
 
-const sessionId =
-  typeof crypto !== "undefined" && crypto.randomUUID
+const SESSION_STORAGE_KEY = "resume-assistant-session-id";
+
+function createSessionId() {
+  return typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getSessionId() {
+  try {
+    const existing = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (existing) return existing;
+    const created = createSessionId();
+    localStorage.setItem(SESSION_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return createSessionId();
+  }
+}
+
+const sessionId = getSessionId();
 
 /**
  * Simple markdown parser for bot responses.

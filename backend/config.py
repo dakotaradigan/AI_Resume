@@ -27,6 +27,7 @@ class Settings:
     api_timeout_seconds: float = 30.0  # Anthropic API timeout in seconds
     max_user_message_chars: int = 2000  # Prevent token exhaustion / abuse
     admin_token: str = ""  # Protect admin endpoints when set (recommended in prod)
+    redis_url: str = ""  # Shared session store for multi-instance deployments
 
     # Chat limit protection
     chat_password: str = ""  # Password to unlock unlimited chat access
@@ -100,6 +101,7 @@ def get_settings() -> Settings:
         api_timeout_seconds=_to_float(os.getenv("API_TIMEOUT_SECONDS"), 30.0),
         max_user_message_chars=_to_int(os.getenv("MAX_USER_MESSAGE_CHARS"), 2000),
         admin_token=os.getenv("ADMIN_TOKEN", ""),
+        redis_url=os.getenv("REDIS_URL", ""),
         # Chat limit protection
         chat_password=os.getenv("CHAT_PASSWORD", ""),
         free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),
@@ -109,4 +111,3 @@ def get_settings() -> Settings:
         qdrant_api_key=os.getenv("QDRANT_API_KEY", ""),
         use_rag=_to_bool(os.getenv("USE_RAG", "true"), default=True),
     )
-

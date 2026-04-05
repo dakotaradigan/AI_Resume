@@ -40,6 +40,8 @@ Open http://localhost:8000
 
 Set `USE_RAG=false` in `.env` to run without vector search (no OpenAI/Qdrant keys needed).
 
+Set `REDIS_URL` to use Railway Redis for shared sessions, rate limits, and daily counters across multiple app instances.
+
 ---
 
 ## Make It Yours

@@ -8,6 +8,7 @@ anthropic>=0.40.0
 
 # CORS & HTTP
 python-multipart==0.0.6
+redis>=5.0.1
 
 # Vector Search (Phase 3 - RAG Pipeline)
 qdrant-client==1.12.0
