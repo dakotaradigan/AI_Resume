@@ -286,6 +286,13 @@
       "date": "",
       "status": "Completed",
       "credential_url": ""
+    },
+    {
+      "name": "Grokking the Fundamentals of System Design",
+      "issuer": "Educative",
+      "date": "",
+      "status": "Completed",
+      "credential_url": ""
     }
   ]
 }
