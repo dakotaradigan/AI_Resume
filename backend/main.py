@@ -6,6 +6,7 @@ import logging
 import time
 from collections import defaultdict
 from datetime import date
+from ipaddress import ip_address
 from pathlib import Path
 from functools import lru_cache
 from typing import Any, Literal
@@ -383,17 +384,26 @@ def get_reindex_lock() -> asyncio.Lock:
 
 
 def _get_client_ip(request: Request) -> str:
-    """
-    Best-effort client IP extraction.
-    If behind a proxy, ensure it sets X-Forwarded-For (and that you trust it).
-    """
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
+    """Best-effort client IP extraction for rate limits."""
+    settings = get_settings()
+    xff = request.headers.get("x-forwarded-for", "")
+    if settings.trust_proxy_headers and xff:
         # Take the left-most IP (original client) per convention.
-        ip = xff.split(",")[0].strip()
-        if ip:
-            return ip
+        for forwarded_ip in xff.split(","):
+            forwarded_ip = forwarded_ip.strip()
+            if forwarded_ip:
+                return forwarded_ip
     return request.client.host if request.client else "unknown"
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Return True for local development hosts only."""
+    if host in {"localhost", "testserver"}:
+        return True
+    try:
+        return ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 class ChatRequest(BaseModel):
@@ -763,29 +773,59 @@ def build_app() -> FastAPI:
         """FastAPI dependency that returns the initialized RAG pipeline."""
         return getattr(app.state, "rag_pipeline", None)
 
-    def _require_admin(x_admin_token: str | None) -> None:
+    def _require_admin(x_admin_token: str | None, request: Request) -> None:
         if settings.admin_token:
             if x_admin_token != settings.admin_token:
                 raise HTTPException(status_code=401, detail="Unauthorized.")
             return
-        if settings.environment != "development":
+        client_host = request.client.host if request.client else ""
+        if settings.environment != "development" or not _is_loopback_host(client_host):
             raise HTTPException(
                 status_code=503,
                 detail="Admin endpoint disabled (ADMIN_TOKEN not configured).",
             )
 
     @app.get("/health/rag")
-    async def rag_health() -> dict[str, bool]:
+    async def rag_health() -> dict[str, Any]:
         """Check RAG pipeline status for monitoring."""
         rag_pipeline = get_rag_pipeline()
+        collection_exists: bool | None = None
+        points_count: int | None = None
+
+        if rag_pipeline is not None:
+            try:
+                collection_exists = await asyncio.to_thread(
+                    rag_pipeline.qdrant_client.collection_exists,
+                    collection_name=rag_pipeline.collection_name,
+                )
+                if collection_exists:
+                    count_result = await asyncio.to_thread(
+                        rag_pipeline.qdrant_client.count,
+                        collection_name=rag_pipeline.collection_name,
+                        exact=True,
+                    )
+                    points_count = int(getattr(count_result, "count", 0) or 0)
+                else:
+                    points_count = 0
+            except Exception:
+                logger.exception("Failed to check RAG collection health")
+
+        vector_db_live = bool(collection_exists and (points_count or 0) > 0)
         return {
             "rag_enabled": settings.use_rag,
             "rag_initialized": rag_pipeline is not None,
             "qdrant_configured": bool(settings.qdrant_url),
+            "mode": "rag" if settings.use_rag and rag_pipeline is not None else "static_fallback",
+            "collection_exists": collection_exists,
+            "points_count": points_count,
+            "vector_db_live": vector_db_live,
         }
 
     @app.post("/admin/cache/clear")
-    async def clear_cache(x_admin_token: str | None = Header(default=None)) -> dict[str, str]:
+    async def clear_cache(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, str]:
         """
         Clear all cached data (system prompt, resume context).
 
@@ -794,7 +834,7 @@ def build_app() -> FastAPI:
 
         Note: In production, this endpoint should be protected with authentication.
         """
-        _require_admin(x_admin_token)
+        _require_admin(x_admin_token, request)
 
         load_system_prompt.cache_clear()
         load_resume_context.cache_clear()
@@ -807,7 +847,10 @@ def build_app() -> FastAPI:
         }
 
     @app.post("/admin/rag/reindex")
-    async def reindex_rag(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
+    async def reindex_rag(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
         """
         Force re-index of RAG pipeline (deletes and recreates Qdrant collection).
 
@@ -825,7 +868,7 @@ def build_app() -> FastAPI:
         Returns:
             Operation details including old/new chunk counts and status
         """
-        _require_admin(x_admin_token)
+        _require_admin(x_admin_token, request)
 
         # Validate RAG is enabled
         rag_pipeline = get_rag_pipeline()
@@ -884,17 +927,21 @@ def build_app() -> FastAPI:
                 ) from exc
 
     @app.get("/admin/rag/reindex/status")
-    async def reindex_status(x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
-        _require_admin(x_admin_token)
+    async def reindex_status(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        _require_admin(x_admin_token, request)
         return app.state.reindex_status
 
     @app.get("/admin/analytics/export")
     async def export_analytics(
+        request: Request,
         x_admin_token: str | None = Header(default=None),
         file: Literal["queries", "feedback"] = "queries",
     ) -> PlainTextResponse:
         """Export analytics data (JSONL). Use ?file=queries or ?file=feedback."""
-        _require_admin(x_admin_token)
+        _require_admin(x_admin_token, request)
         from analytics.analytics import ANALYTICS_FILE, FEEDBACK_FILE
 
         path = ANALYTICS_FILE if file == "queries" else FEEDBACK_FILE
