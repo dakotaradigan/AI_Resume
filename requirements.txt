@@ -6,8 +6,7 @@ python-dotenv==1.0.0
 # AI & LLM
 anthropic>=0.40.0
 
-# CORS & HTTP
-python-multipart==0.0.6
+# Shared state
 redis>=5.0.1
 
 # Vector Search (Phase 3 - RAG Pipeline)
