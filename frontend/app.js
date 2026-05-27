@@ -294,6 +294,19 @@ function safeArray(v) {
   return Array.isArray(v) ? v : [];
 }
 
+function slugifyAnchor(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildResumeAnchor(prefix, value) {
+  const slug = slugifyAnchor(value);
+  return slug ? `${prefix}-${slug}` : "";
+}
+
 function normalizeSkillName(value) {
   return String(value || "")
     .toLowerCase()
@@ -440,12 +453,19 @@ function renderEducation(items) {
   if (!educationGrid) return;
   educationGrid.innerHTML = "";
   safeArray(items).forEach((ed) => {
+    const cardId = buildResumeAnchor("education", ed.school || ed.degree);
     const row = el("div", { class: "resume-card-title-row" }, [
       el("div", { class: "resume-card-title", text: ed.school || "" }),
       el("div", { class: "resume-card-meta", text: ed.graduation || "" }),
     ]);
     const subtitle = el("div", { class: "resume-card-subtitle", text: ed.degree || "" });
-    educationGrid.append(el("article", { class: "resume-card reveal" }, [row, subtitle]));
+    educationGrid.append(
+      el("article", {
+        id: cardId,
+        class: "resume-card reveal",
+        "data-citation-label": ed.school || ed.degree || "Education",
+      }, [row, subtitle])
+    );
   });
 }
 
@@ -454,6 +474,7 @@ function renderCertifications(items) {
   certificationsGrid.innerHTML = "";
   safeArray(items).forEach((c, idx) => {
     const name = c.name || "";
+    const cardId = buildResumeAnchor("certification", name);
     const showDate =
       /PCAP/i.test(name) || /Certified Associate Python Programmer/i.test(name);
     const rowChildren = [el("div", { class: "resume-card-title", text: name })];
@@ -468,9 +489,146 @@ function renderCertifications(items) {
         : null;
     const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
     certificationsGrid.append(
-      el("article", { class: `resume-card reveal${delayClass}` }, [row, subtitle, status])
+      el("article", {
+        id: cardId,
+        class: `resume-card reveal${delayClass}`,
+        "data-citation-label": name || "Certification",
+      }, [row, subtitle, status])
     );
   });
+}
+
+const CITATION_RULES = [
+  {
+    label: "Experience",
+    targetId: "experience-evidence",
+    scrollId: "experience",
+    sectionId: "experience",
+    patterns: [
+      /senior product manager/i,
+      /\bvp\b/i,
+      /parametric/i,
+      /morgan stanley/i,
+      /\b8\+?\s*years\b/i,
+      /operations/i,
+      /major financial institution/i,
+      /investment integration/i,
+    ],
+  },
+  {
+    label: "PCAP certification",
+    targetId: "certification-pcap-certified-associate-python-programmer",
+    sectionId: "education",
+    patterns: [
+      /\bpcap\b/i,
+      /certified associate python programmer/i,
+      /python institute/i,
+    ],
+  },
+  {
+    label: "AI Product Management",
+    targetId: "certification-ai-product-management",
+    sectionId: "education",
+    patterns: [
+      /ai product management/i,
+      /product faculty/i,
+      /ben ai/i,
+      /rag-based assistant/i,
+      /\brag\b/i,
+      /3,500\+?\s+annual/i,
+    ],
+  },
+  {
+    label: "Finance certification",
+    targetId: "certification-finance-certification",
+    sectionId: "education",
+    patterns: [/finance certification/i],
+  },
+  {
+    label: "Education",
+    targetId: "education-evidence",
+    sectionId: "education",
+    sourceTitles: ["Education"],
+    patterns: [/\bmba\b/i, /washington state university/i],
+  },
+  {
+    label: "Certifications",
+    targetId: "certifications-evidence",
+    sectionId: "education",
+    sourceTitles: ["Certifications"],
+  },
+  {
+    label: "Skills",
+    targetId: "skills",
+    sectionId: "skills",
+    sourceTitles: ["Skills and Expertise"],
+  },
+];
+
+function expandResumeSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  if (!section?.classList?.contains("resume-section")) return;
+  section.classList.add("is-expanded");
+  const header = section.querySelector(".section-header--link[role='button']");
+  header?.setAttribute("aria-expanded", "true");
+  const toggle = section.querySelector(".section-toggle");
+  if (toggle) toggle.textContent = "Hide details";
+}
+
+function highlightCitationTarget(targetId, sectionId, scrollId = targetId) {
+  if (sectionId) expandResumeSection(sectionId);
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const scrollTarget = document.getElementById(scrollId) || target;
+  target.classList.add("is-visible");
+  window.setTimeout(() => {
+    scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.classList.remove("is-cited");
+    void target.offsetWidth;
+    target.classList.add("is-cited");
+    window.setTimeout(() => target.classList.remove("is-cited"), 2400);
+  }, 120);
+}
+
+function buildAnswerCitations(data) {
+  const reply = String(data?.reply || "");
+  const sources = new Set(safeArray(data?.sources).map((s) => String(s || "")));
+  const citations = [];
+  const seenTargets = new Set();
+
+  CITATION_RULES.forEach((rule) => {
+    const sourceMatch = safeArray(rule.sourceTitles).some((title) => sources.has(title));
+    const textMatch = safeArray(rule.patterns).some((pattern) => pattern.test(reply));
+    if (!sourceMatch && !textMatch) return;
+    if (seenTargets.has(rule.targetId)) return;
+    seenTargets.add(rule.targetId);
+    citations.push(rule);
+  });
+
+  return citations.slice(0, 4);
+}
+
+function renderAnswerCitations(data) {
+  const citations = buildAnswerCitations(data);
+  if (!citations.length) return null;
+
+  const list = el("div", { class: "answer-citation-list" });
+  citations.forEach((citation) => {
+    const button = el("button", {
+      class: "answer-citation",
+      type: "button",
+      text: citation.label,
+    });
+    button.addEventListener("click", () => {
+      highlightCitationTarget(citation.targetId, citation.sectionId, citation.scrollId);
+    });
+    list.append(button);
+  });
+
+  return el("div", { class: "answer-citations" }, [
+    el("span", { class: "answer-citations-label", text: "Sources" }),
+    list,
+  ]);
 }
 
 function initRevealOnScroll() {
@@ -893,6 +1051,8 @@ async function sendMessage(message, { isRetry = false } = {}) {
       answerDiv.className = "step-answer";
       answerDiv.innerHTML = parseMarkdown(data.reply ?? "No response received.");
       body.appendChild(answerDiv);
+      const citations = renderAnswerCitations(data);
+      if (citations) body.appendChild(citations);
     }
 
     // Show feedback UI on first successful response
