@@ -784,6 +784,50 @@ section[id],
   text-decoration: underline;
 }
 
+.answer-citations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.answer-citations-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.answer-citation-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.answer-citation {
+  border: 1px solid rgba(213, 112, 36, 0.35);
+  border-radius: 999px;
+  background: rgba(213, 112, 36, 0.08);
+  color: var(--gold-dark);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 5px 9px;
+}
+
+.answer-citation:hover,
+.answer-citation:focus-visible {
+  background: rgba(213, 112, 36, 0.14);
+  border-color: rgba(213, 112, 36, 0.6);
+  outline: none;
+}
+
 .msg.bot .msg-body code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.92em;
@@ -1251,6 +1295,17 @@ section[id],
 .resume-card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
+}
+
+.resume-card.is-cited {
+  border-color: rgba(213, 112, 36, 0.75);
+  background: linear-gradient(0deg, rgba(213, 112, 36, 0.08), rgba(213, 112, 36, 0.08)), var(--card);
+  box-shadow: 0 0 0 4px rgba(213, 112, 36, 0.22), var(--shadow-md);
+}
+
+.citation-group.is-cited {
+  border-radius: 16px;
+  box-shadow: 0 0 0 4px rgba(213, 112, 36, 0.16);
 }
 
 .resume-card-title-row {
