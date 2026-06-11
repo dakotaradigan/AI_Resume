@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import os
 import sys
@@ -83,7 +84,39 @@ class TestSecurityHardening(unittest.TestCase):
                 forwarded_for="192.0.2.1, 192.0.2.2",
             )
 
-            self.assertEqual(main._get_client_ip(request), "192.0.2.1")
+            # Right-most entry is the one appended by the trusted proxy;
+            # left-most entries are client-supplied and spoofable.
+            self.assertEqual(main._get_client_ip(request), "192.0.2.2")
+
+    def test_client_ip_falls_back_when_forwarded_for_is_not_an_ip(self) -> None:
+        with configured_app(TRUST_PROXY_HEADERS="true") as (main, _):
+            request = make_request(
+                client_host="198.51.100.10",
+                forwarded_for="spoofed-garbage",
+            )
+
+            self.assertEqual(main._get_client_ip(request), "198.51.100.10")
+
+    def test_compacted_history_uses_supported_roles(self) -> None:
+        with configured_app() as (main, _):
+            store = main.SessionStore()
+
+            async def scenario() -> list[dict]:
+                for i in range(8):
+                    await store.append_message("sid", "user", f"question {i}")
+                    await store.append_message("sid", "assistant", f"answer {i}")
+                await main._compact_session_history("sid", store)
+                return await store.get_history("sid")
+
+            history = asyncio.run(scenario())
+
+        self.assertGreater(len(history), 0)
+        # The Anthropic Messages API rejects any role besides user/assistant.
+        self.assertTrue(
+            all(msg["role"] in ("user", "assistant") for msg in history),
+            f"Unsupported role in compacted history: {[m['role'] for m in history]}",
+        )
+        self.assertIn("Earlier conversation summary", history[0]["content"][0]["text"])
 
     def test_admin_export_rejects_query_token(self) -> None:
         with configured_app(

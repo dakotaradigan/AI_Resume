@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 import time
@@ -339,9 +340,10 @@ _session_store: SessionStore | None = None
 # Pre-cached responses for starter suggestion chips (populated lazily on first hit).
 # Key = lowercased/stripped question text, Value = cached reply string.
 _starter_cache: dict[str, str] = {}
+# Entries must end with "?" to match the cache-key normalization in /api/chat.
 STARTER_QUESTIONS = frozenset({
     "what's dakota's background?",
-    "tell me about dakota's ai projects",
+    "tell me about dakota's ai projects?",
     "what can dakota do for my company?",
 })
 
@@ -388,11 +390,18 @@ def _get_client_ip(request: Request) -> str:
     settings = get_settings()
     xff = request.headers.get("x-forwarded-for", "")
     if settings.trust_proxy_headers and xff:
-        # Take the left-most IP (original client) per convention.
-        for forwarded_ip in xff.split(","):
+        # Take the right-most IP: it was appended by the trusted proxy in front
+        # of us. Left-most entries are client-supplied and trivially spoofable,
+        # which would let an attacker rotate fake IPs past the rate limits.
+        for forwarded_ip in reversed(xff.split(",")):
             forwarded_ip = forwarded_ip.strip()
-            if forwarded_ip:
-                return forwarded_ip
+            if not forwarded_ip:
+                continue
+            try:
+                ip_address(forwarded_ip)
+            except ValueError:
+                break
+            return forwarded_ip
     return request.client.host if request.client else "unknown"
 
 
@@ -408,12 +417,12 @@ def _is_loopback_host(host: str) -> bool:
 
 class ChatRequest(BaseModel):
     message: str
-    session_id: str | None = None
+    session_id: str | None = Field(default=None, max_length=100)
 
 
 class UnlockRequest(BaseModel):
     password: str
-    session_id: str
+    session_id: str = Field(..., min_length=1, max_length=100)
 
 
 class UnlockResponse(BaseModel):
@@ -640,8 +649,10 @@ async def _compact_session_history(session_id: str, store: SessionStore) -> None
             summary_lines.append(f"{role.capitalize()}: {text}")
 
     summary_text = "\n".join(summary_lines)[:COMPACT_CHAR_LIMIT]
+    # Anthropic's Messages API only accepts "user"/"assistant" roles in `messages`,
+    # so the compacted summary must be a user turn.
     summary_message = {
-        "role": "system",
+        "role": "user",
         "content": [
             {
                 "type": "text",
@@ -775,7 +786,7 @@ def build_app() -> FastAPI:
 
     def _require_admin(x_admin_token: str | None, request: Request) -> None:
         if settings.admin_token:
-            if x_admin_token != settings.admin_token:
+            if not hmac.compare_digest(x_admin_token or "", settings.admin_token):
                 raise HTTPException(status_code=401, detail="Unauthorized.")
             return
         client_host = request.client.host if request.client else ""
@@ -910,6 +921,7 @@ def build_app() -> FastAPI:
                 # Clear cached resume data so subsequent requests use fresh data
                 load_resume_context.cache_clear()
                 load_resume_json_public.cache_clear()
+                _starter_cache.clear()
                 logger.info(f"RAG re-index completed: {result['message']}")
                 return result
             except Exception as exc:
@@ -1029,7 +1041,7 @@ def build_app() -> FastAPI:
             reply_text = _starter_cache[cache_key]
             await store.append_message(session_id, "user", message)
             await store.append_message(session_id, "assistant", reply_text)
-            log_query(session_id, message, reply_text)
+            await asyncio.to_thread(log_query, session_id, message, reply_text)
             await store.increment_daily_conversation_count(today)
             return ChatResponse(reply=reply_text, session_id=session_id)
 
@@ -1071,8 +1083,10 @@ def build_app() -> FastAPI:
         )
 
         try:
+            # Drop any history entries with roles the Messages API rejects
+            # (e.g. "system" summaries written by older compaction code).
             messages = [
-                *history,
+                *(msg for msg in history if msg.get("role") in ("user", "assistant")),
                 {"role": "user", "content": [{"type": "text", "text": message}]},
             ]
 
@@ -1118,7 +1132,7 @@ def build_app() -> FastAPI:
         await _compact_session_history(session_id, store)
 
         # Log query for analytics (privacy: .jsonl files are gitignored)
-        log_query(session_id, message, reply_text)
+        await asyncio.to_thread(log_query, session_id, message, reply_text)
 
         # Increment daily conversation counter
         await store.increment_daily_conversation_count(today)
@@ -1153,7 +1167,6 @@ def build_app() -> FastAPI:
             )
 
         # Verify password (case-insensitive, constant-time comparison)
-        import hmac
         provided = payload.password.strip().lower()
         if not provided or not hmac.compare_digest(provided, settings.chat_password.lower()):
             return UnlockResponse(
@@ -1170,8 +1183,19 @@ def build_app() -> FastAPI:
         )
 
     @app.post("/api/feedback")
-    async def submit_feedback(payload: FeedbackRequest):
+    async def submit_feedback(payload: FeedbackRequest, request: Request):
         """Log user feedback (thumbs up/down)."""
+        store = get_session_store()
+
+        # Rate limit: prevent unbounded writes to the feedback log
+        rate_limit_key = f"feedback:{_get_client_ip(request)}"
+        allowed = await store.check_rate_limit(rate_limit_key, max_requests=10, window=60.0)
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Too much feedback at once. Please wait a moment and try again.",
+            )
+
         await asyncio.to_thread(
             log_feedback,
             payload.session_id,

@@ -1,7 +1,9 @@
 # Core Backend Dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-dotenv==1.0.0
+# Keep FastAPI/Starlette current: old pins ship Starlette versions with known
+# CVEs (e.g. CVE-2024-47874 multipart DoS, fixed in Starlette 0.40).
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-dotenv>=1.0.0
 
 # AI & LLM
 anthropic>=0.40.0
