@@ -1292,9 +1292,33 @@ section[id],
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
+.resume-card--link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
 .resume-card:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
+}
+
+.resume-card--link:focus-visible {
+  outline: 3px solid rgba(213, 112, 36, 0.35);
+  outline-offset: 3px;
+}
+
+.resume-card-link-label {
+  display: inline-flex;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-warm);
+}
+
+.resume-card-link-label::after {
+  content: "↗";
+  margin-left: 5px;
 }
 
 .resume-card.is-cited {
