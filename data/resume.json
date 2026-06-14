@@ -243,56 +243,56 @@
       "issuer": "Python Institute",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://verify.openedg.org/?id=GGVU.CwgY.cZh8"
     },
     {
       "name": "AI Product Management",
       "issuer": "Product Faculty (OpenAI-led)",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://certificate.productfaculty.com/c/35d95bee48b145daafb2f6fe20f533f2"
     },
     {
       "name": "Finance Certification",
       "issuer": "Washington State University",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://mba.wsu.edu/mba/graduate-certificates/#Finance"
     },
     {
       "name": "Using Python with Databases",
       "issuer": "Coursera",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://www.coursera.org/account/accomplishments/verify/7KLYHG4TP22M?utm_source=link&utm_medium=certificate&utm_content=cert_image&utm_campaign=sharing_cta&utm_product=course"
     },
     {
       "name": "Using Python to Access Web Data",
       "issuer": "Coursera",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://www.coursera.org/account/accomplishments/verify/N716FKJIHGP9?utm_source=ios&utm_medium=certificate&utm_content=cert_image&utm_campaign=sharing_cta&utm_product=course"
     },
     {
       "name": "AI Fluency: Frameworks & Foundations",
       "issuer": "Anthropic",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://www.linkedin.com/in/dakota-radigan/"
     },
     {
       "name": "Introduction to Model Context Protocol",
       "issuer": "Anthropic",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://verify.skilljar.com/c/tqnbno7y4bfc"
     },
     {
       "name": "Grokking the Fundamentals of System Design",
       "issuer": "Educative",
       "date": "",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "https://www.linkedin.com/in/dakota-radigan/"
     }
   ]
 }

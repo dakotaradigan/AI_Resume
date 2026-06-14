@@ -307,6 +307,16 @@ function buildResumeAnchor(prefix, value) {
   return slug ? `${prefix}-${slug}` : "";
 }
 
+function safeExternalUrl(value) {
+  if (!value) return "";
+  try {
+    const url = new URL(String(value), window.location.origin);
+    return url.protocol === "https:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 function normalizeSkillName(value) {
   return String(value || "")
     .toLowerCase()
@@ -475,6 +485,7 @@ function renderCertifications(items) {
   safeArray(items).forEach((c, idx) => {
     const name = c.name || "";
     const cardId = buildResumeAnchor("certification", name);
+    const credentialUrl = safeExternalUrl(c.credential_url);
     const showDate =
       /PCAP/i.test(name) || /Certified Associate Python Programmer/i.test(name);
     const rowChildren = [el("div", { class: "resume-card-title", text: name })];
@@ -487,13 +498,24 @@ function renderCertifications(items) {
       c.status && String(c.status).trim() && String(c.status).toLowerCase() !== "completed"
         ? el("div", { class: "resume-card-status", text: c.status })
         : null;
+    const certificateLabel = credentialUrl
+      ? el("span", { class: "resume-card-link-label", text: "View certificate" })
+      : null;
     const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
+    const tagName = credentialUrl ? "a" : "article";
+    const attrs = {
+      id: cardId,
+      class: `resume-card${credentialUrl ? " resume-card--link" : ""} reveal${delayClass}`,
+      "data-citation-label": name || "Certification",
+    };
+    if (credentialUrl) {
+      attrs.href = credentialUrl;
+      attrs.target = "_blank";
+      attrs.rel = "noopener noreferrer";
+      attrs["aria-label"] = `View certificate for ${name}`;
+    }
     certificationsGrid.append(
-      el("article", {
-        id: cardId,
-        class: `resume-card reveal${delayClass}`,
-        "data-citation-label": name || "Certification",
-      }, [row, subtitle, status])
+      el(tagName, attrs, [row, subtitle, status, certificateLabel])
     );
   });
 }
