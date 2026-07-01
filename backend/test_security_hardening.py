@@ -9,8 +9,57 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
+from anthropic import AnthropicError, RateLimitError
 from fastapi.testclient import TestClient
 from starlette.requests import Request
+
+
+# A recognizable fake secret. If any /api/chat error path ever forwards exception
+# text (or the key itself) to the client, this string will show up in the response
+# body and the assertions below will fail.
+SENTINEL_KEY = "sk-ant-SENTINEL-DO-NOT-LEAK"
+
+
+class _FakeMessages:
+    """Stand-in for client.messages that raises a preset exception on create()."""
+
+    def __init__(self, exc: BaseException):
+        self._exc = exc
+
+    async def create(self, **_kwargs):
+        raise self._exc
+
+
+class _FakeAsyncAnthropic:
+    """Drop-in for AsyncAnthropic whose messages.create() always raises."""
+
+    def __init__(self, exc: BaseException):
+        self.messages = _FakeMessages(exc)
+
+
+def _fake_client_factory(exc: BaseException):
+    """Return a callable matching AsyncAnthropic(...) that yields a raising client."""
+
+    def _factory(**_kwargs):
+        return _FakeAsyncAnthropic(exc)
+
+    return _factory
+
+
+def _rate_limit_error() -> RateLimitError:
+    """Build a real RateLimitError whose message embeds the sentinel key.
+
+    Embedding the secret in the exception proves that even a key-bearing upstream
+    error does not reach the client, because only HTTPException.detail is serialized.
+    """
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(429, request=request)
+    return RateLimitError(
+        f"rate limit exceeded for key {SENTINEL_KEY}",
+        response=response,
+        body=None,
+    )
 
 
 @contextmanager
@@ -181,6 +230,53 @@ class TestSecurityHardening(unittest.TestCase):
         self.assertEqual(payload["points_count"], 7)
         self.assertTrue(payload["vector_db_live"])
         self.assertNotIn("qdrant.example", str(payload))
+
+
+class TestApiKeyNeverLeaks(unittest.TestCase):
+    """Prove no /api/chat error path can expose the Anthropic API key."""
+
+    def _chat_response(self, exc: BaseException):
+        """Send one chat request with the Anthropic client patched to raise `exc`."""
+        with configured_app(
+            ANTHROPIC_API_KEY=SENTINEL_KEY,
+            USE_RAG="false",
+        ) as (main, app):
+            main.AsyncAnthropic = _fake_client_factory(exc)
+            client = TestClient(app)
+            return main, client.post("/api/chat", json={"message": "Tell me about Dakota"})
+
+    def test_rate_limit_returns_busy_message_without_key(self) -> None:
+        main, response = self._chat_response(_rate_limit_error())
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"], main.BUSY_MESSAGE)
+        # The secret must not appear anywhere in what the client receives.
+        self.assertNotIn(SENTINEL_KEY, response.text)
+
+    def test_generic_anthropic_error_hides_key(self) -> None:
+        _, response = self._chat_response(
+            AnthropicError(f"upstream failure for {SENTINEL_KEY}")
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertNotIn(SENTINEL_KEY, response.text)
+        # A generic, non-revealing message is returned instead of the exception text.
+        self.assertIn("try again", response.json()["detail"].lower())
+
+    def test_unexpected_error_hides_key(self) -> None:
+        _, response = self._chat_response(
+            RuntimeError(f"boom while using {SENTINEL_KEY}")
+        )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertNotIn(SENTINEL_KEY, response.text)
+        self.assertIn("unexpected", response.json()["detail"].lower())
+
+    def test_app_never_runs_in_debug_mode(self) -> None:
+        # Starlette's debug traceback page renders frame-local variables (which would
+        # include the API key). The app must never be constructed in debug mode.
+        with configured_app(ANTHROPIC_API_KEY=SENTINEL_KEY) as (_, app):
+            self.assertFalse(app.debug)
 
 
 if __name__ == "__main__":

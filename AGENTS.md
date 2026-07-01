@@ -81,7 +81,6 @@ Optional infrastructure and controls:
 - `API_TIMEOUT_SECONDS`
 - `MAX_USER_MESSAGE_CHARS`
 - `ENVIRONMENT`
-- `DEBUG`
 - `DATA_DIR`
 
 Do not print, copy, or commit real values from `backend/.env`.
