@@ -34,7 +34,6 @@ def make_settings(
         anthropic_model="test-model",
         anthropic_max_tokens=256,
         environment=environment,
-        debug=False,
         data_dir=data_dir,
         rate_limit_requests_per_minute=100,
         session_max_age_seconds=3600,

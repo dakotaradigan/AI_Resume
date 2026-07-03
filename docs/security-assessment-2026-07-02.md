@@ -177,3 +177,43 @@ The live-model tests are skipped unless `RUN_LLM_SECURITY=1` is explicitly set.
 3. Keep a strong `ADMIN_TOKEN` configured in every deployed environment.
 4. Keep the model security suite as an opt-in release check for prompt, model,
    or resume-data changes.
+
+---
+
+## PR addendum (2026-07-03): API-key exposure audit
+
+This section is additive to the original assessment above; it does not change any of
+its findings. It records two controls added in the same PR, focused specifically on the
+question "could an Anthropic rate-limit (or other API) error surface the API key to a
+user, and can the model be tricked into echoing it back?"
+
+### A. The key is structurally outside every user-facing path
+
+- The `ANTHROPIC_API_KEY` is passed only as `api_key=` to `AsyncAnthropic(...)`
+  (`backend/main.py`), which the SDK uses as the `x-api-key` request header. It never
+  enters the `system` prompt or `messages`, so no prompt injection can make the model
+  echo a value it was never given. (This matches the original assessment's conclusion
+  that operational secrets are kept out of the model context.)
+- Every `/api/chat` failure branch returns a hardcoded/generic `HTTPException.detail`:
+  `RateLimitError → 503 BUSY_MESSAGE`, `AnthropicError → 502` generic, and the catch-all
+  `Exception → 500` generic. The underlying exception is only logged server-side; FastAPI
+  serializes just `detail` to the client.
+
+New deterministic regression tests in `backend/test_security_hardening.py`
+(`TestApiKeyNeverLeaks`) patch the Anthropic client to raise each failure mode with a
+sentinel key embedded in the exception message, and assert the sentinel never appears in
+the response body. These run for free on every test pass — unlike the opt-in live-model
+suite, which characterizes model behavior but not the error/rate-limit path.
+
+### B. Removed the unused `DEBUG` setting (defense-in-depth)
+
+`Settings.debug` was parsed from `DEBUG` but never wired into `FastAPI(...)`, while
+`.env.example` shipped `DEBUG=true`. Had that flag ever been connected to
+`FastAPI(debug=True)`, Starlette's interactive traceback page would render frame-local
+variables — including the API key at the client-construction frame. The field was removed
+from `backend/config.py`, `.env.example` was updated with a warning, and
+`test_app_never_runs_in_debug_mode` locks in that the app is never built in debug mode.
+
+### Combined test surface
+`cd backend && python -m unittest test_security test_security_hardening test_security_llm -v`
+— deterministic suites pass; the live-model module self-skips without `RUN_LLM_SECURITY=1`.
