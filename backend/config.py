@@ -18,7 +18,6 @@ class Settings:
     anthropic_model: str
     anthropic_max_tokens: int
     environment: str
-    debug: bool
     data_dir: Path
 
     # Scalability settings (configurable via environment variables)
@@ -92,7 +91,6 @@ def get_settings() -> Settings:
         ),
         anthropic_max_tokens=_to_int(os.getenv("ANTHROPIC_MAX_TOKENS"), 1024),
         environment=os.getenv("ENVIRONMENT", "development"),
-        debug=_to_bool(os.getenv("DEBUG"), default=False),
         data_dir=data_dir,
         # Scalability settings (use defaults if not set)
         rate_limit_requests_per_minute=_to_int(
