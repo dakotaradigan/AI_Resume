@@ -175,8 +175,8 @@ a:hover {
 
 /* ===== NAVBAR ===== */
 .site-header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   padding: 16px 32px;
   position: fixed;
@@ -189,6 +189,10 @@ a:hover {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--border);
   transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.brand {
+  justify-self: start;
 }
 
 .site-header.is-scrolled {
@@ -218,6 +222,7 @@ a:hover {
   display: flex;
   gap: 28px;
   align-items: center;
+  grid-column: 2;
 }
 
 .nav-links a {
@@ -297,6 +302,7 @@ a:hover {
   cursor: pointer;
   padding: 6px;
   border-radius: 980px;
+  justify-self: end;
 }
 
 .theme-toggle:focus-visible {
@@ -721,7 +727,7 @@ section[id],
 /* Suggestion chips */
 .chat-suggestions {
   position: absolute;
-  bottom: 60px;
+  bottom: 87px;
   left: 0;
   right: 0;
   padding: 16px 22px;
@@ -1069,7 +1075,7 @@ section[id],
 .chat-form {
   display: flex;
   gap: 10px;
-  padding: 14px 18px 18px;
+  padding: 20px 18px 22px;
   align-items: center;
   border-top: 1px solid var(--border);
   background: var(--card);
@@ -1943,6 +1949,10 @@ section[id],
 
 /* ===== MOBILE ===== */
 @media (max-width: 960px) {
+  .site-header {
+    display: flex;
+  }
+
   body::before {
     background: var(--hero-gradient);
   }
