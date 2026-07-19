@@ -1,20 +1,26 @@
 """
 Unit tests for the RAG pipeline.
 
-These tests are integration-style and require a reachable Qdrant endpoint.
-
-They do NOT require an OpenAI API key because embeddings are mocked.
+Unit tests are fully offline. The opt-in integration test requires Qdrant but
+does not require an OpenAI API key because embeddings are mocked.
 """
 
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
-from unittest.mock import patch
 
-from rag import RAGPipeline
+from rag import (
+    RAGPipeline,
+    build_corpus,
+    chunk_project_docs,
+    initialize_rag_pipeline,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,6 +30,146 @@ RESUME_PATH = BASE_DIR / "data" / "resume.json"
 def _zero_embedding(_: str) -> list[float]:
     # Must match the collection vector size (1536 for text-embedding-3-small).
     return [0.0] * 1536
+
+
+def _offline_pipeline(payloads: list[dict] | None = None) -> RAGPipeline:
+    pipeline = object.__new__(RAGPipeline)
+    pipeline.collection_name = "resume"
+    pipeline.qdrant_client = MagicMock()
+    pipeline._build_keyword_index(payloads or [])
+    pipeline.embed_text = MagicMock(return_value=_zero_embedding(""))
+    return pipeline
+
+
+class TestProjectDocumentChunking(unittest.TestCase):
+    def test_chunks_h2_sections_and_merges_short_sections(self) -> None:
+        markdown = """# Example Project
+
+## Overview
+This opening section is intentionally longer than three hundred characters. """ + (
+            "Architecture details and product context. " * 8
+        ) + """
+
+## Tiny Note
+Short supporting detail.
+
+## Results
+This results section is also intentionally longer than three hundred characters. """ + (
+            "Measured impact and implementation evidence. " * 8
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            projects_dir = Path(temp_dir)
+            (projects_dir / "example.md").write_text(markdown, encoding="utf-8")
+
+            chunks = chunk_project_docs(projects_dir)
+
+        self.assertEqual(len(chunks), 2)
+        self.assertEqual(chunks[0].title, "Example Project — Overview")
+        self.assertEqual(chunks[0].chunk_type, "project_doc")
+        self.assertIn("## Tiny Note", chunks[0].text)
+        self.assertEqual(chunks[1].title, "Example Project — Results")
+
+    def test_build_corpus_gracefully_handles_missing_projects_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            resume_path = Path(temp_dir) / "resume.json"
+            resume_path.write_text("{}", encoding="utf-8")
+
+            chunks = build_corpus(resume_path, Path(temp_dir) / "missing")
+
+        self.assertEqual(chunks, [])
+
+
+class TestHybridRetrieval(unittest.TestCase):
+    def test_bm25_ranks_exact_term_match_first(self) -> None:
+        pipeline = _offline_pipeline(
+            [
+                {"title": "General", "type": "project", "text": "AI assistant platform"},
+                {
+                    "title": "Pinecone Project",
+                    "type": "project_doc",
+                    "text": "Pinecone vector database benchmark retrieval",
+                },
+                {"title": "Other", "type": "skills", "text": "Python FastAPI"},
+            ]
+        )
+
+        ranking = pipeline._bm25_rank("Which project used Pinecone?")
+
+        self.assertEqual(ranking[0][0], 1)
+        self.assertGreater(ranking[0][1], 0)
+
+    def test_rrf_fusion_is_deterministic(self) -> None:
+        payloads = [
+            {"title": "Vector Only", "type": "project", "text": "semantic search"},
+            {"title": "Keyword Only", "type": "project", "text": "qdrant retrieval"},
+            {"title": "Both", "type": "project", "text": "qdrant architecture"},
+        ]
+        pipeline = _offline_pipeline(payloads)
+        pipeline.qdrant_client.query_points.return_value = SimpleNamespace(
+            points=[
+                SimpleNamespace(payload=payloads[0], score=0.9),
+                SimpleNamespace(payload=payloads[2], score=0.8),
+            ]
+        )
+
+        first = pipeline.search("qdrant", limit=3, score_threshold=0.30)
+        second = pipeline.search("qdrant", limit=3, score_threshold=0.30)
+
+        self.assertEqual(first, second)
+        self.assertEqual(first[0]["title"], "Both")
+        self.assertEqual(first[0]["score"], 0.8)
+        self.assertEqual(first[0]["keyword_rank"], 2)
+        self.assertEqual(first[1]["score"], 0.0)
+
+    def test_returns_empty_when_vector_and_bm25_have_no_signal(self) -> None:
+        pipeline = _offline_pipeline(
+            [{"title": "Python", "type": "skills", "text": "Python FastAPI"}]
+        )
+        pipeline.qdrant_client.query_points.return_value = SimpleNamespace(points=[])
+
+        self.assertEqual(pipeline.search("watercolor"), [])
+
+    def test_cold_start_scroll_rebuild_paginates(self) -> None:
+        payloads = [
+            {"title": "One", "type": "project", "text": "first page"},
+            {"title": "Two", "type": "project", "text": "second page"},
+        ]
+        pipeline = _offline_pipeline()
+        pipeline.qdrant_client.scroll.side_effect = [
+            ([SimpleNamespace(payload=payloads[0])], 42),
+            ([SimpleNamespace(payload=payloads[1])], None),
+        ]
+
+        pipeline._rebuild_keyword_index_from_qdrant()
+
+        self.assertEqual(pipeline._keyword_documents, payloads)
+        self.assertEqual(
+            [call.kwargs["offset"] for call in pipeline.qdrant_client.scroll.call_args_list],
+            [None, 42],
+        )
+        pipeline.embed_text.assert_not_called()
+
+    @patch("rag.RAGPipeline")
+    def test_initialize_rebuilds_keywords_without_reindexing(
+        self, pipeline_class: MagicMock
+    ) -> None:
+        pipeline = _offline_pipeline()
+        pipeline.qdrant_client.get_collection.return_value = SimpleNamespace(points_count=2)
+        pipeline._rebuild_keyword_index_from_qdrant = MagicMock()
+        pipeline.index_chunks = MagicMock()
+        pipeline_class.return_value = pipeline
+
+        result = initialize_rag_pipeline(
+            openai_api_key="test",
+            resume_path=RESUME_PATH,
+            qdrant_url="https://qdrant.invalid",
+            projects_dir=BASE_DIR / "data" / "projects",
+        )
+
+        self.assertIs(result, pipeline)
+        pipeline._rebuild_keyword_index_from_qdrant.assert_called_once_with()
+        pipeline.index_chunks.assert_not_called()
 
 
 @unittest.skipUnless(

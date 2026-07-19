@@ -113,6 +113,17 @@ Eval the **retriever** and **generator** separately:
    - Recall@k: what % of relevant docs appear in top k results?
    - Are irrelevant chunks diluting context?
 
+   Current retrieval configuration: dense-vector search and in-process BM25
+   fused with reciprocal rank fusion (RRF). Retrieval uses `limit=4` and a
+   vector score threshold of `0.30`; BM25 uses `k1=1.5` and `b=0.75`.
+
+   **Approved baseline (2026-07-19):** Dakota reviewed and approved all 35
+   cases in `retrieval_golden_v1.jsonl` before the run. Against the 25-chunk
+   corpus, hit-rate@4 was **0.886**, recall@4 was **0.886**, and MRR was
+   **0.838**, clearing the 0.85 hit-rate gate. All project, personal, and
+   skills/credentials cases hit; the four misses were experience-role
+   disambiguation cases (`retrieval_007`, `010`, `012`, and `014`).
+
 2. **Generator evals** (after retriever is solid):
    - Given correct context, does Claude produce a faithful answer?
    - Is the response grounded in retrieved facts only?

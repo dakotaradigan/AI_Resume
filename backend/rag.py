@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
+import math
+import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,9 @@ from tenacity import (
 )
 
 logger = logging.getLogger(__name__)
+
+_TOKEN_RE = re.compile(r"[a-z0-9+#.]+")
+_RRF_K = 60
 
 
 @dataclass
@@ -68,6 +73,10 @@ class RAGPipeline:
         self._openai_client: OpenAI | None = None
         self.embedding_model = embedding_model
         self.collection_name = collection_name
+        self._keyword_documents: list[dict[str, Any]] = []
+        self._term_frequencies: list[Counter[str]] = []
+        self._document_frequencies: Counter[str] = Counter()
+        self._average_document_length = 0.0
 
         qdrant_url = (qdrant_url or "").strip()
         if not qdrant_url:
@@ -109,7 +118,8 @@ class RAGPipeline:
                 # Unexpected error - re-raise
                 raise
 
-    def chunk_resume_data(self, resume_path: Path) -> list[DocumentChunk]:
+    @staticmethod
+    def chunk_resume_data(resume_path: Path) -> list[DocumentChunk]:
         """
         Chunk resume JSON into semantic units.
 
@@ -355,33 +365,115 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
                 f"(processing {len(valid_chunks)} valid chunks)"
             )
 
+        payloads: list[dict[str, Any]] = []
         for idx, chunk in enumerate(valid_chunks):
             # Generate embedding
             embedding = self.embed_text(chunk.text)
 
             # Create point with metadata
+            payload = {
+                "text": chunk.text,
+                "type": chunk.chunk_type,
+                "title": chunk.title,
+                "timeframe": chunk.timeframe or "",
+                "tags": chunk.tags or [],
+            }
             point = PointStruct(
                 id=idx,
                 vector=embedding,
-                payload={
-                    "text": chunk.text,
-                    "type": chunk.chunk_type,
-                    "title": chunk.title,
-                    "timeframe": chunk.timeframe or "",
-                    "tags": chunk.tags or [],
-                },
+                payload=payload,
             )
             points.append(point)
+            payloads.append(payload)
 
         # Batch upload to Qdrant
         self.qdrant_client.upsert(collection_name=self.collection_name, points=points)
+        self._build_keyword_index(payloads)
         logger.info(f"Indexed {len(points)} chunks into Qdrant")
 
+    @staticmethod
+    def _tokenize(text: str) -> list[str]:
+        return _TOKEN_RE.findall(text.lower())
+
+    def _build_keyword_index(self, payloads: list[dict[str, Any]]) -> None:
+        """Build the in-process BM25 index from Qdrant-compatible payloads."""
+        term_frequencies: list[Counter[str]] = []
+        document_frequencies: Counter[str] = Counter()
+
+        total_tokens = 0
+        for payload in payloads:
+            tokens = self._tokenize(str(payload.get("text", "")))
+            frequencies = Counter(tokens)
+            term_frequencies.append(frequencies)
+            document_frequencies.update(frequencies.keys())
+            total_tokens += len(tokens)
+
+        average_document_length = total_tokens / len(payloads) if payloads else 0.0
+        self._keyword_documents = payloads
+        self._term_frequencies = term_frequencies
+        self._document_frequencies = document_frequencies
+        self._average_document_length = average_document_length
+
+    def _rebuild_keyword_index_from_qdrant(self) -> None:
+        """Restore the BM25 index from all stored payloads without re-embedding."""
+        payloads: list[dict[str, Any]] = []
+        offset: Any = None
+
+        while True:
+            records, next_offset = self.qdrant_client.scroll(
+                collection_name=self.collection_name,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for record in records:
+                if record.payload:
+                    payloads.append(dict(record.payload))
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        self._build_keyword_index(payloads)
+        logger.info(f"Rebuilt keyword index from {len(payloads)} stored chunks")
+
+    def _bm25_rank(self, query: str) -> list[tuple[int, float]]:
+        """Return positive-score document indexes ranked by BM25."""
+        query_tokens = self._tokenize(query)
+        document_count = len(self._keyword_documents)
+        if not query_tokens or not document_count or self._average_document_length == 0:
+            return []
+
+        scores = [0.0] * document_count
+        for term in query_tokens:
+            document_frequency = self._document_frequencies.get(term, 0)
+            if document_frequency == 0:
+                continue
+            inverse_document_frequency = math.log(
+                1 + (document_count - document_frequency + 0.5) / (document_frequency + 0.5)
+            )
+            for index, frequencies in enumerate(self._term_frequencies):
+                term_frequency = frequencies.get(term, 0)
+                if term_frequency == 0:
+                    continue
+                document_length = sum(frequencies.values())
+                length_normalization = 1 - 0.75 + (
+                    0.75 * document_length / self._average_document_length
+                )
+                scores[index] += inverse_document_frequency * (
+                    term_frequency * (1.5 + 1)
+                ) / (term_frequency + 1.5 * length_normalization)
+
+        return sorted(
+            ((index, score) for index, score in enumerate(scores) if score > 0),
+            key=lambda item: (-item[1], item[0]),
+        )
+
     def search(
-        self, query: str, limit: int = 3, score_threshold: float = 0.7
+        self, query: str, limit: int = 4, score_threshold: float = 0.30
     ) -> list[dict[str, Any]]:
         """
-        Search for relevant chunks using semantic similarity.
+        Search for relevant chunks using vector similarity and BM25 with RRF.
 
         Args:
             query: User's question
@@ -402,22 +494,60 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
             score_threshold=score_threshold,
         )
 
-        # Format results
+        vector_results: dict[tuple[str, str, str], dict[str, Any]] = {}
+        fused_scores: dict[tuple[str, str, str], float] = {}
+
+        for rank, result in enumerate(response.points, 1):
+            payload = dict(result.payload or {})
+            key = self._payload_key(payload)
+            vector_results[key] = payload | {"score": float(result.score)}
+            fused_scores[key] = fused_scores.get(key, 0.0) + 1 / (_RRF_K + rank)
+
+        keyword_ranking = self._bm25_rank(query)
+        keyword_ranks: dict[tuple[str, str, str], int] = {}
+        keyword_results: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for rank, (index, _) in enumerate(keyword_ranking, 1):
+            payload = self._keyword_documents[index]
+            key = self._payload_key(payload)
+            keyword_ranks[key] = rank
+            keyword_results[key] = payload
+            fused_scores[key] = fused_scores.get(key, 0.0) + 1 / (_RRF_K + rank)
+
+        if not response.points and not keyword_ranking:
+            return []
+
+        ranked_keys = sorted(
+            fused_scores,
+            key=lambda key: (
+                -fused_scores[key],
+                keyword_ranks.get(key, math.inf),
+                key,
+            ),
+        )[:limit]
+
         formatted_results = []
-        for result in response.points:
+        for key in ranked_keys:
+            payload = vector_results.get(key) or keyword_results[key]
             formatted_results.append(
                 {
-                    "text": result.payload["text"],
-                    "title": result.payload["title"],
-                    "type": result.payload["type"],
-                    "score": result.score,
-                    "timeframe": result.payload.get("timeframe", ""),
+                    **payload,
+                    "score": float(vector_results.get(key, {}).get("score", 0.0)),
+                    "keyword_rank": keyword_ranks.get(key),
                 }
             )
-
         return formatted_results
 
-    def reindex(self, resume_path: Path) -> dict[str, Any]:
+    @staticmethod
+    def _payload_key(payload: dict[str, Any]) -> tuple[str, str, str]:
+        return (
+            str(payload.get("title", "")),
+            str(payload.get("type", "")),
+            str(payload.get("text", "")),
+        )
+
+    def reindex(
+        self, resume_path: Path, projects_dir: Path | None = None
+    ) -> dict[str, Any]:
         """
         Force re-indexing of resume data.
 
@@ -427,6 +557,7 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
 
         Args:
             resume_path: Path to resume.json
+            projects_dir: Optional directory containing project markdown files
 
         Returns:
             Dictionary with operation details:
@@ -467,7 +598,7 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
         self._initialize_collection()
 
         # Chunk and index fresh data
-        chunks = self.chunk_resume_data(resume_path)
+        chunks = build_corpus(resume_path, projects_dir)
         self.index_chunks(chunks)
 
         new_points_count = len(chunks)
@@ -483,11 +614,57 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
         }
 
 
+def chunk_project_docs(projects_dir: Path) -> list[DocumentChunk]:
+    """Chunk project markdown files by H2 section."""
+    chunks: list[DocumentChunk] = []
+
+    for project_path in sorted(projects_dir.glob("*.md")):
+        markdown = project_path.read_text(encoding="utf-8")
+        title_match = re.search(r"^#\s+(.+?)\s*$", markdown, re.MULTILINE)
+        if title_match is None:
+            logger.warning(f"Skipping project doc without H1 title: {project_path}")
+            continue
+        document_title = title_match.group(1).strip()
+
+        sections = re.split(r"^##\s+(.+?)\s*$", markdown, flags=re.MULTILINE)
+        for index in range(1, len(sections), 2):
+            section_heading = sections[index].strip()
+            section_body = sections[index + 1].strip()
+            section_text = f"## {section_heading}\n\n{section_body}".strip()
+
+            if len(section_body) < 300 and chunks and chunks[-1].title.startswith(
+                f"{document_title} — "
+            ):
+                chunks[-1].text = f"{chunks[-1].text}\n\n{section_text}"
+                continue
+
+            chunks.append(
+                DocumentChunk(
+                    text=f"# {document_title}\n\n{section_text}",
+                    chunk_type="project_doc",
+                    title=f"{document_title} — {section_heading}",
+                )
+            )
+
+    logger.info(f"Created {len(chunks)} project document chunks")
+    return chunks
+
+
+def build_corpus(resume_path: Path, projects_dir: Path | None) -> list[DocumentChunk]:
+    """Build the complete resume and project-document corpus."""
+    chunks = RAGPipeline.chunk_resume_data(resume_path)
+    if projects_dir is not None and projects_dir.is_dir():
+        chunks.extend(chunk_project_docs(projects_dir))
+    logger.info(f"Built corpus with {len(chunks)} chunks")
+    return chunks
+
+
 def initialize_rag_pipeline(
     openai_api_key: str,
     resume_path: Path,
     qdrant_url: str,
     qdrant_api_key: str = "",
+    projects_dir: Path | None = None,
 ) -> RAGPipeline:
     """
     Initialize and index the RAG pipeline.
@@ -512,10 +689,6 @@ def initialize_rag_pipeline(
     try:
         collection_info = pipeline.qdrant_client.get_collection(pipeline.collection_name)
         points_count = collection_info.points_count
-
-        if points_count > 0:
-            logger.info(f"Collection already indexed with {points_count} points, skipping re-indexing")
-            return pipeline
     except Exception as exc:
         # Collection doesn't exist yet, will be created during indexing
         exc_str = str(exc).lower()
@@ -523,10 +696,17 @@ def initialize_rag_pipeline(
             logger.info("Collection doesn't exist, will create and index...")
         else:
             logger.warning(f"Could not check collection status: {exc}. Will attempt to index...")
+    else:
+        if points_count > 0:
+            logger.info(
+                f"Collection already indexed with {points_count} points, skipping re-indexing"
+            )
+            pipeline._rebuild_keyword_index_from_qdrant()
+            return pipeline
 
     # Collection is empty or doesn't exist - index it
     logger.info("Indexing resume data...")
-    chunks = pipeline.chunk_resume_data(resume_path)
+    chunks = build_corpus(resume_path, projects_dir)
     pipeline.index_chunks(chunks)
     logger.info(f"✅ Indexed {len(chunks)} chunks successfully")
 

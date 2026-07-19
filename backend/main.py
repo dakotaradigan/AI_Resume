@@ -740,8 +740,8 @@ def load_resume_json_public() -> dict:
 def retrieve_rag_context(
     rag_pipeline: RAGPipeline | None,
     query: str,
-    limit: int = 3,
-    score_threshold: float = 0.5
+    limit: int = 4,
+    score_threshold: float = 0.30,
 ) -> tuple[str, bool, list[dict[str, Any]]]:
     """
     Retrieve relevant resume context using RAG pipeline.
@@ -973,7 +973,7 @@ def _build_chat_context(
     system_prompt = load_system_prompt()
     if settings.use_rag and rag_pipeline is not None:
         resume_context, used_rag, sources = retrieve_rag_context(
-            rag_pipeline, message, 3, 0.35
+            rag_pipeline, message, 4, 0.30
         )
         context_label = "RETRIEVED CONTEXT" if used_rag else "RESUME DATA"
     else:
@@ -1154,6 +1154,7 @@ def _initialize_rag(settings) -> RAGPipeline | None:
             resume_path=resume_path,
             qdrant_url=settings.qdrant_url,
             qdrant_api_key=settings.qdrant_api_key,
+            projects_dir=settings.data_dir / "projects",
         )
         logger.info("✅ RAG pipeline initialized successfully")
         return pipeline
@@ -1424,7 +1425,11 @@ def build_app() -> FastAPI:
                     }
                 )
                 # Run blocking operation in thread pool (prevents freezing other requests)
-                result = await asyncio.to_thread(rag_pipeline.reindex, resume_path)
+                result = await asyncio.to_thread(
+                    rag_pipeline.reindex,
+                    resume_path,
+                    settings.data_dir / "projects",
+                )
                 app.state.reindex_status.update(
                     {
                         "running": False,
