@@ -35,7 +35,7 @@ How the app fits together. Line numbers are navigation hints from a specific com
 ## Global rules for the implementer
 
 1. **Branch**: all work on `claude/site-improvements-production-bugeke`. One PR per phase, phases in order. Never push to main. No `Co-Authored-By` AI lines (AGENTS.md).
-2. **Frontend stays dependency-free**: no npm, no framework, no bundler, no CDN scripts. Backend: NO new dependencies except `ruff` (dev/CI only) and the official `mcp` SDK in Phase E.
+2. **Frontend stays dependency-free**: no npm, no framework, no bundler, no CDN scripts. Backend: NO new dependencies except `ruff` (dev/CI only), the official `mcp` SDK in Phase E, and `reportlab` for the E4 PDF (pure-Python — no system packages, works in python:3.12-slim).
 3. **Preserve the XSS pipeline**: bot output renders ONLY through `parseMarkdown` (app.js:53), which HTML-escapes before tag insertion. User text renders ONLY via `textContent`. Never introduce another `innerHTML` path for model or user text.
 4. **No dead code**: every phase's Definition of Done includes greps that must return empty. When replacing code, delete the old code in the same commit. No commented-out code, no unused config knobs, no "just in case" abstractions.
 5. **Never commit** `evals/datasets/` or `evals/results/` contents (PII policy), `.env`, or analytics JSONL files.
@@ -388,12 +388,22 @@ Meta starter chip in chat: "How was this site built?" (answered via RAG over `re
 - **No inline JS anywhere on how-it-works** — theme/nav code lives in the shared external files; the DoD grep for inline `<script>`/`onclick` must be empty.
 - **Real numbers only**: if Phase C's eval numbers changed after the page was drafted, update the page in the same PR — a hiring manager checking your claims against the repo is the target audience.
 
+## E4. Password-gated PDF resume download (added 2026-07-19 by Dakota's request)
+
+- **`GET /api/resume.pdf`**: renders a polished PDF from `data/resume.json` at request time using `reportlab` (approved dependency; pin in `requirements.txt`). Cached via `lru_cache` on the rendered bytes, cleared in `/admin/cache/clear` — never a static file that drifts.
+- **Gating**: the download requires the SAME unlock as unlimited chat — resolve the visitor via `_resolve_visitor_id`, and if the visitor is not unlocked (`set_unlimited` state), return 403 with the same JSON body shape as the chat free-limit response so the frontend reuses the existing password/unlock flow unchanged. `/api/unlock` already mints the cookie; no new auth surface. Rate-limit `pdf:{ip}` at 5/600s via `check_rate_limit`.
+- **Content policy**: phone number EXCLUDED (reuse the `/api/resume` scrubber; the password gate is not a reason to widen PII exposure — the PDF will be forwarded). Email, LinkedIn, location included. No analytics logging of downloads beyond a structured log line.
+- **Layout (fixed)**: single accent color matching the site palette, Name + contact header, Summary, Experience (role, dates, ≤4 bullets each), Projects, Skills, Certifications. Two pages max; `Content-Disposition: attachment; filename="Dakota-Radigan-Resume.pdf"`.
+- **Frontend**: "Download resume (PDF)" button in the resume section header + footer buttons row (existing `.footer-btn` styles; no new frameworks). On 403 → scroll to and render the existing unlock form with a note that the chat password also unlocks the download; retry after unlock succeeds.
+- **Tests** (`backend/test_resume_pdf.py`): 403 when locked (body shape matches chat's 403); 200 + bytes start with `%PDF` when unlocked; extracted text contains name and NO phone digits; rate limit 429; cache invalidated by `/admin/cache/clear`.
+
 ## E3. Definition of Done — Phase E
 
 - [ ] `claude mcp add --transport http resume <domain>/mcp` (or MCP inspector) → `get_resume` works; phone number absent from MCP output and `/llms.txt` (grep the responses).
 - [ ] How-it-works renders in light + dark, 375px clean; zero inline `<script>`/`onclick` (grep the HTML); numbers match latest committed eval results.
 - [ ] `curl localhost:8000/llms.txt` reflects a `resume.json` edit after cache clear (no drift).
 - [ ] Meta starter chip answers with project-doc sources; suite green.
+- [ ] PDF: locked visitor gets the unlock flow, unlocked visitor gets a clean 2-page-max PDF; phone absent; `%PDF` magic verified in tests.
 
 ---
 

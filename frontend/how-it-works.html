@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f9f8f6" />
+  <meta name="description" content="How Dakota Radigan's AI resume works: real SSE streaming, model routing, hybrid retrieval, measured evals, and security hardening." />
+  <title>How This Site Works | Dakota Radigan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="./theme-init.js"></script>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./how-it-works.css" />
+</head>
+<body>
+  <header id="site-header" class="site-header">
+    <div class="brand">
+      <div class="brand-title"><a class="brand-link" href="./index.html">DAKOTA RADIGAN, MBA</a></div>
+    </div>
+    <nav class="nav-links hiw-nav">
+      <a href="./index.html">Home</a>
+      <a href="./index.html#chat">Chat</a>
+      <a href="./index.html#contact">Contact</a>
+    </nav>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Dark theme">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </header>
+
+  <main class="layout hiw-layout">
+    <section class="hiw-hero">
+      <div class="section-label">UNDER THE HOOD</div>
+      <h1 class="hiw-title">How this site works</h1>
+      <p class="hiw-subtitle">A production AI application, built and measured like one — every claim below is backed by code and committed eval results in the repo.</p>
+    </section>
+
+    <section class="hiw-tldr" aria-label="Summary">
+      <div class="resume-card hiw-card">
+        <h2 class="hiw-card-title">Real streaming</h2>
+        <p>Hand-rolled server-sent events — session, status, token deltas, done — no fake typing animations.</p>
+      </div>
+      <div class="resume-card hiw-card">
+        <h2 class="hiw-card-title">Hybrid retrieval</h2>
+        <p>Dense vectors + BM25 fused with reciprocal rank fusion over a 25-chunk corpus of resume and project docs.</p>
+      </div>
+      <div class="resume-card hiw-card">
+        <h2 class="hiw-card-title">Measured</h2>
+        <p>Owner-approved golden set: hit-rate@4 0.886, MRR 0.838. Three LLM judges score production answers.</p>
+      </div>
+      <div class="resume-card hiw-card">
+        <h2 class="hiw-card-title">Hardened</h2>
+        <p>Strict CSP, server-minted HttpOnly identity, prompt-injection firewall, atomic budgets, hashed analytics.</p>
+      </div>
+    </section>
+
+    <section class="hiw-section">
+      <div class="section-header"><h2 class="section-title">Architecture</h2></div>
+      <p>One FastAPI service serves the static frontend and the API. Guardrails (rate limits, quotas, validation) run before any model call; retrieval and model routing run concurrently; the answer streams back over SSE.</p>
+      <svg class="hiw-diagram" viewBox="0 0 360 560" role="img" aria-labelledby="diag-title diag-desc">
+        <title id="diag-title">Architecture diagram</title>
+        <desc id="diag-desc">Browser connects to a FastAPI gateway running guardrails and a model router, which branches to hybrid retrieval (Qdrant plus BM25) and Claude, streaming the answer back to the browser as server-sent events.</desc>
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 z" class="hiw-arrowhead"/>
+          </marker>
+        </defs>
+        <rect x="90" y="16" width="180" height="56" rx="10" class="hiw-box"/>
+        <text x="180" y="40" text-anchor="middle" class="hiw-label">Browser</text>
+        <text x="180" y="58" text-anchor="middle" class="hiw-sublabel">vanilla JS · no framework</text>
+
+        <line x1="180" y1="72" x2="180" y2="112" class="hiw-line" marker-end="url(#arrow)"/>
+
+        <rect x="60" y="114" width="240" height="72" rx="10" class="hiw-box"/>
+        <text x="180" y="142" text-anchor="middle" class="hiw-label">FastAPI gateway</text>
+        <text x="180" y="160" text-anchor="middle" class="hiw-sublabel">guardrails · quotas · model router</text>
+        <text x="180" y="176" text-anchor="middle" class="hiw-sublabel">Haiku classifier picks the model</text>
+
+        <line x1="120" y1="186" x2="95" y2="240" class="hiw-line" marker-end="url(#arrow)"/>
+        <line x1="240" y1="186" x2="265" y2="240" class="hiw-line" marker-end="url(#arrow)"/>
+
+        <rect x="20" y="242" width="155" height="88" rx="10" class="hiw-box"/>
+        <text x="97" y="270" text-anchor="middle" class="hiw-label">Hybrid retrieval</text>
+        <text x="97" y="288" text-anchor="middle" class="hiw-sublabel">Qdrant vectors + BM25</text>
+        <text x="97" y="304" text-anchor="middle" class="hiw-sublabel">RRF fusion · top 4</text>
+        <text x="97" y="320" text-anchor="middle" class="hiw-sublabel">resume + project docs</text>
+
+        <rect x="195" y="242" width="145" height="88" rx="10" class="hiw-box"/>
+        <text x="267" y="270" text-anchor="middle" class="hiw-label">Claude</text>
+        <text x="267" y="288" text-anchor="middle" class="hiw-sublabel">Opus — complex</text>
+        <text x="267" y="304" text-anchor="middle" class="hiw-sublabel">Sonnet — simple</text>
+        <text x="267" y="320" text-anchor="middle" class="hiw-sublabel">fallback on failure</text>
+
+        <line x1="97" y1="330" x2="97" y2="380" class="hiw-line" marker-end="url(#arrow)"/>
+        <line x1="267" y1="330" x2="267" y2="380" class="hiw-line" marker-end="url(#arrow)"/>
+
+        <rect x="60" y="382" width="240" height="64" rx="10" class="hiw-box"/>
+        <text x="180" y="408" text-anchor="middle" class="hiw-label">Answer assembly</text>
+        <text x="180" y="426" text-anchor="middle" class="hiw-sublabel">grounded reply · sources · follow-ups</text>
+
+        <path d="M 180 446 C 180 480, 180 490, 180 520" class="hiw-line hiw-line-sse" marker-end="url(#arrow)"/>
+        <text x="196" y="490" class="hiw-sublabel hiw-sse-label">SSE stream back</text>
+
+        <rect x="120" y="522" width="120" height="30" rx="10" class="hiw-box"/>
+        <text x="180" y="541" text-anchor="middle" class="hiw-sublabel">tokens render live</text>
+      </svg>
+    </section>
+
+    <section class="hiw-section">
+      <div class="section-header"><h2 class="section-title">Streaming &amp; model routing</h2></div>
+      <p>Every chat is a real server-sent-event stream: the browser shows retrieval status, then tokens as Claude produces them. What you see in the status steps is what actually happened — a cached answer says "answered from cache," it doesn't fake a search.</p>
+      <p>A small Haiku classifier (4 output tokens, 2-second timeout) routes each question: simple factual lookups go to Sonnet, synthesis and comparisons go to Opus, and any router failure fails safe to the most capable model. Routing runs concurrently with retrieval, so it adds no time to first token.</p>
+      <pre class="hiw-pre">event: status   {"stage": "rag_search", "state": "done", "sources": [...]}
+event: status   {"stage": "routing", "state": "done", "model": "sonnet"}
+event: delta    {"text": "Dakota is PCAP-certified and uses Python in"}
+event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
+    </section>
+
+    <section class="hiw-section">
+      <div class="section-header"><h2 class="section-title">Retrieval</h2></div>
+      <p>Questions search a 25-chunk corpus built from the structured resume and full project write-ups. Retrieval is hybrid: OpenAI <code>text-embedding-3-small</code> vectors in Qdrant plus an in-process BM25 keyword index, fused with reciprocal rank fusion. Vector search catches paraphrases; BM25 catches exact terms like certification names that embeddings blur.</p>
+      <p>If retrieval is unavailable, the site degrades gracefully to full-resume context — it never fails a visitor because a vector database was down.</p>
+    </section>
+
+    <section class="hiw-section">
+      <div class="section-header"><h2 class="section-title">Evals</h2></div>
+      <p>Retrieval quality is measured against a 35-query golden dataset, reviewed and approved by Dakota before any number was recorded. Baseline (2026-07-19): <strong>hit-rate@4 0.886 · recall@4 0.886 · MRR 0.838</strong>, clearing the 0.85 quality gate.</p>
+      <p>Answer quality is scored by three LLM judges — groundedness, conciseness, and redirect handling — plus thumbs feedback from real visitors. Prompt changes are re-evaluated before they ship.</p>
+    </section>
+
+    <section class="hiw-section">
+      <div class="section-header"><h2 class="section-title">Security</h2></div>
+      <p>The content-security policy allows scripts from this origin only — no inline scripts, no CDNs. Quotas and unlocks are keyed to a server-minted HttpOnly cookie, not anything a client can forge. Pasted job descriptions are sanitized and firewalled as untrusted data, model spend is capped by atomic reserve-and-release budgets, and analytics store only HMAC-hashed identifiers.</p>
+    </section>
+
+    <section class="hiw-section">
+      <div class="section-header"><h2 class="section-title">Connect your own AI</h2></div>
+      <p>The resume is machine-readable too: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth, and an MCP endpoint exposes one data-only tool, <code>get_resume</code>. Point your Claude at it:</p>
+      <pre class="hiw-pre">claude mcp add --transport http resume https://www.dakotaradigan.io/mcp</pre>
+    </section>
+
+    <section class="hiw-section">
+      <aside class="hiw-aside">
+        <h2 class="hiw-aside-title">Why no LangChain?</h2>
+        <p>The direct SDK calls here are about thirty lines, including retries and timeouts. Frameworks earn their keep when you're swapping providers or composing many chains — neither applies to this site. The effort went into measured retrieval, validated evals, and security hardening instead. Every abstraction here is one I can defend line by line.</p>
+      </aside>
+    </section>
+
+    <section class="hiw-section hiw-cta">
+      <a class="footer-btn" href="./index.html#chat">Ask the assistant about any of this</a>
+    </section>
+  </main>
+
+  <script src="./how-it-works.js"></script>
+</body>
+</html>

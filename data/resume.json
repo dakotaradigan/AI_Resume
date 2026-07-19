@@ -78,15 +78,16 @@
     {
       "name": "Resume Assistant: AI-Powered Professional Portfolio",
       "tagline": "Interactive chatbot reimagining how recruiters discover talent through conversational AI",
-      "tech_stack": ["Claude Opus 4.5", "RAG Pipeline", "Qdrant Vector DB", "FastAPI", "REST API", "Python", "OpenAI Embeddings", "JavaScript", "Custom CSS", "Semantic Search"],
+      "tech_stack": ["Claude (Opus 4.8 + Sonnet 5, Haiku router)", "SSE Streaming", "Hybrid RAG (Vector + BM25)", "Qdrant Vector DB", "FastAPI", "Python", "OpenAI Embeddings", "MCP", "JavaScript", "Custom CSS"],
       "description": "Built an AI-powered chatbot that transforms the traditional resume into an interactive conversation. Recruiters can ask natural language questions ('What's your AI experience?') and receive contextual answers powered by RAG architecture. The portfolio piece itself demonstrates the technical capabilities it showcases—proving AI/ML expertise through a working AI product.",
       "highlights": [
         "Reimagined professional discovery: shifted from passive document to interactive conversation",
-        "Implemented full RAG pipeline with semantic search, intelligent chunking, and context retrieval",
-        "Built production-ready guardrails: rate limiting, session management, hallucination prevention (temperature=0.1)",
-        "Designed blue sky glassmorphism UI with dark mode, WCAG AA accessibility, and custom CSS design system",
-        "Created dual-purpose innovation: functional recruiter tool + technical showcase of AI/ML capabilities",
-        "Engineered for scale: concurrent session support, pluggable state management, security layers"
+        "Real token streaming over SSE with a live status timeline, plus a model router: a Haiku classifier sends simple lookups to Sonnet 5 and synthesis to Opus 4.8 with fail-safe fallback",
+        "Hybrid retrieval: dense vectors (Qdrant + OpenAI embeddings) fused with in-process BM25 via reciprocal rank fusion; measured against an owner-approved golden dataset (hit-rate@4 0.886, MRR 0.838)",
+        "Recruiter tools: paste-a-job-description fit analysis with honest gaps, screening-brief generator, and a password-gated PDF resume download",
+        "Production hardening: server-minted HttpOnly visitor identity for quotas, atomic daily budgets, prompt-injection firewall, strict CSP, HMAC-anonymized analytics, CI test gate, Docker deploy",
+        "Open interfaces: /llms.txt rendered live from resume data and an MCP endpoint exposing a data-only get_resume tool",
+        "Warm editorial UI with dark mode and a custom CSS design system (no frameworks, no build step)"
       ],
       "problem_solved": "Traditional resumes are static, one-size-fits-all documents that force recruiters to linearly parse dense text, often missing relevant details. For candidates with diverse technical backgrounds, the best-fit information gets overlooked in seconds-long skims.",
       "impact": "Transforms resume experience from passive reading to interactive discovery. Demonstrates forward-thinking product development and provides working proof of AI/ML engineering expertise. Creates memorable differentiation and interview conversation starters.",
@@ -99,13 +100,13 @@
       "architecture_details": {
         "frontend": "JavaScript with custom CSS design system, markdown rendering, theme toggle, responsive layout",
         "backend": "FastAPI with session management, rate limiting, input validation, timeout protection",
-        "ai_orchestration": "Claude Opus 4.5, RAG Pipeline (Qdrant + OpenAI embeddings), semantic search with score threshold",
+        "ai_orchestration": "Claude Opus 4.8 (complex) + Sonnet 5 (simple) picked by a Haiku classifier; hybrid RAG (Qdrant vectors + BM25, RRF fusion); direct SDK calls, no framework",
         "data_layer": "Vector Store (Qdrant) with semantic chunking + metadata tagging for intelligent retrieval",
         "core_capabilities": [
-          "Semantic Search - retrieves relevant resume context based on natural language queries",
-          "Session Management - UUID-based tracking with auto-compaction and cleanup",
-          "Hallucination Prevention - temperature=0.1 ensures factual accuracy, no fabricated credentials",
-          "Security Guardrails - prompt injection protection, rate limiting (20 req/min), input validation",
+          "Hybrid Search - vector + keyword retrieval over resume and project docs, evaluated against a golden dataset",
+          "Real Streaming - SSE token stream with honest pipeline status (searching, routing, generating)",
+          "Grounding - answers restricted to retrieved resume data with an instruction firewall; no fabricated credentials",
+          "Security Guardrails - prompt injection protection, rate limiting, visitor-cookie quotas, input validation",
           "Interactive Discovery - conversational interface replacing static document parsing",
           "Production Engineering - scalable architecture with pluggable state, environment-aware config"
         ]

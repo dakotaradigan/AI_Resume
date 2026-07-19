@@ -18,10 +18,13 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 
 **Claude** · **FastAPI** · **Qdrant** · **OpenAI Embeddings** · **Vanilla JS** · **Railway**
 
-- RAG pipeline with semantic chunking and score-threshold retrieval
-- Agentic transparency layer showing pipeline activity in real-time
-- Response caching, rate limiting, session management, prompt injection defense
-- Zero-dependency frontend with custom markdown parser
+- Real SSE token streaming with a live pipeline status timeline
+- Model router: a Haiku classifier sends simple lookups to Sonnet 5, synthesis to Opus 4.8, with fail-safe fallback
+- Hybrid retrieval: dense vectors + in-process BM25 fused with reciprocal rank fusion, measured against an owner-approved golden dataset
+- Recruiter tools: job-description fit analysis, screening briefs, password-gated PDF download
+- Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with a data-only `get_resume` tool
+- Hardened: strict CSP, server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
+- Zero-dependency frontend (custom markdown parser, dark mode), CI test gate, Docker deploy
 
 ---
 

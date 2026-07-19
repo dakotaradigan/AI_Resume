@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hmac
+import io
 import json
 import logging
 import re
@@ -20,6 +22,7 @@ from fastapi import FastAPI, HTTPException, Request, Header, Response
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from starlette.routing import Route as StarletteRoute
 from starlette.staticfiles import StaticFiles
 
 try:
@@ -91,6 +94,11 @@ JD_LIMIT_MESSAGE = (
     "You've used today's free fit analyses. Enter the password from Dakota's "
     "resume for unlimited access, or email dakotaradigan@gmail.com — he'd "
     "love to hear about the role."
+)
+
+PDF_LOCKED_MESSAGE = (
+    "The PDF download is unlocked with the password found on Dakota's "
+    "resume — the same one that unlocks unlimited chat."
 )
 
 # History sentinel marking a completed fit analysis; brief mode requires it.
@@ -488,6 +496,7 @@ STARTER_QUESTIONS = frozenset({
     "what's dakota's background?",
     "tell me about dakota's ai projects?",
     "what can dakota do for my company?",
+    "how was this site built?",
 })
 
 
@@ -735,6 +744,214 @@ def load_resume_json_public() -> dict:
     personal.pop("phone", None)
     data["personal"] = personal
     return data
+
+
+SITE_URL = "https://www.dakotaradigan.io"
+
+
+@lru_cache(maxsize=1)
+def render_llms_text() -> str:
+    """Markdown digest of the resume for LLM crawlers (llms.txt convention).
+
+    Rendered from the same phone-scrubbed payload as /api/resume so it can
+    never drift from the source of truth.
+    """
+    data = load_resume_json_public()
+    personal = data.get("personal", {})
+    lines: list[str] = [
+        f"# {personal.get('name', 'Dakota Radigan')} — {personal.get('title', '')}".rstrip(" —"),
+        "",
+        f"> {personal.get('summary', '').strip()}",
+        "",
+        f"- Site (chat with an AI assistant about this resume): {SITE_URL}",
+        f"- Resume as JSON: {SITE_URL}/api/resume",
+        f"- MCP endpoint (streamable HTTP, one tool: get_resume): {SITE_URL}/mcp",
+        f"- Email: {personal.get('email', '')}",
+        f"- LinkedIn: {personal.get('linkedin', '')}",
+        f"- Location: {personal.get('location', '')}",
+        "",
+        "## Experience",
+    ]
+    for job in data.get("experience", []):
+        lines.append(
+            f"### {job.get('role', '')} — {job.get('company', '')} ({job.get('duration', '')})"
+        )
+        if job.get("description"):
+            lines.append(job["description"].strip())
+        for achievement in (job.get("achievements") or [])[:3]:
+            lines.append(f"- {achievement}")
+        lines.append("")
+    lines.append("## Projects")
+    for project in data.get("projects", []):
+        lines.append(f"### {project.get('name', '')} — {project.get('tagline', '')}")
+        if project.get("impact"):
+            lines.append(f"- Impact: {project['impact']}")
+        if project.get("tech_stack"):
+            lines.append(f"- Stack: {', '.join(project['tech_stack'])}")
+        lines.append("")
+    lines.append("## Skills")
+    for category, items in (data.get("skills") or {}).items():
+        label = category.replace("_", " ").title()
+        lines.append(f"- {label}: {', '.join(items)}")
+    lines.append("")
+    lines.append("## Certifications")
+    for cert in data.get("certifications", []):
+        entry = f"- {cert.get('name', '')} — {cert.get('issuer', '')}"
+        if cert.get("date"):
+            entry += f" ({cert['date']})"
+        lines.append(entry)
+    lines.append("")
+    return "\n".join(lines)
+
+
+# PDF palette: print-friendly values of the site's light-theme tokens.
+_PDF_TEXT = "#232830"
+_PDF_MUTED = "#6b7280"
+_PDF_ACCENT = "#b3641a"
+
+
+@lru_cache(maxsize=1)
+def render_resume_pdf() -> bytes:
+    """Polished PDF rendered from the phone-scrubbed resume payload.
+
+    Import is local so the app still boots if reportlab is absent in a
+    stripped-down dev env; the route turns that into a 500 with a clear log.
+    """
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        HRFlowable,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+    )
+
+    data = load_resume_json_public()
+    personal = data.get("personal", {})
+
+    def esc(value: Any) -> str:
+        return (
+            str(value)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+
+    name_style = ParagraphStyle(
+        "name", fontName="Helvetica-Bold", fontSize=21, leading=25,
+        textColor=colors.HexColor(_PDF_TEXT), alignment=TA_LEFT,
+    )
+    contact_style = ParagraphStyle(
+        "contact", fontName="Helvetica", fontSize=9, leading=12,
+        textColor=colors.HexColor(_PDF_MUTED),
+    )
+    section_style = ParagraphStyle(
+        "section", fontName="Helvetica-Bold", fontSize=10.5, leading=13,
+        textColor=colors.HexColor(_PDF_ACCENT), spaceBefore=10, spaceAfter=2,
+    )
+    role_style = ParagraphStyle(
+        "role", fontName="Helvetica-Bold", fontSize=10, leading=13,
+        textColor=colors.HexColor(_PDF_TEXT), spaceBefore=5,
+    )
+    body_style = ParagraphStyle(
+        "body", fontName="Helvetica", fontSize=9, leading=12,
+        textColor=colors.HexColor(_PDF_TEXT),
+    )
+    bullet_style = ParagraphStyle(
+        "bullet", parent=body_style, leftIndent=10, bulletIndent=2, spaceAfter=1,
+    )
+
+    story: list[Any] = [
+        Paragraph(esc(personal.get("name", "")), name_style),
+        Paragraph(esc(personal.get("title", "")), body_style),
+        Spacer(1, 4),
+        Paragraph(
+            " · ".join(
+                esc(part) for part in (
+                    personal.get("location"), personal.get("email"),
+                    personal.get("linkedin"), SITE_URL,
+                ) if part
+            ),
+            contact_style,
+        ),
+        Spacer(1, 6),
+    ]
+
+    def section(title: str) -> None:
+        story.append(Paragraph(title.upper(), section_style))
+        story.append(
+            HRFlowable(width="100%", thickness=0.7, color=colors.HexColor(_PDF_ACCENT))
+        )
+        story.append(Spacer(1, 3))
+
+    if personal.get("summary"):
+        section("Summary")
+        story.append(Paragraph(esc(personal["summary"]), body_style))
+
+    section("Experience")
+    for job in data.get("experience", []):
+        story.append(
+            Paragraph(
+                f"{esc(job.get('role', ''))} — {esc(job.get('company', ''))}"
+                f" <font color='{_PDF_MUTED}' size='8.5'>({esc(job.get('duration', ''))})</font>",
+                role_style,
+            )
+        )
+        for achievement in (job.get("achievements") or [])[:4]:
+            story.append(Paragraph(esc(achievement), bullet_style, bulletText="•"))
+
+    section("Projects")
+    for project in data.get("projects", []):
+        story.append(
+            Paragraph(
+                f"{esc(project.get('name', ''))} — {esc(project.get('tagline', ''))}",
+                role_style,
+            )
+        )
+        detail = project.get("impact") or project.get("description") or ""
+        if detail:
+            story.append(Paragraph(esc(detail), bullet_style, bulletText="•"))
+
+    section("Skills")
+    for category, items in (data.get("skills") or {}).items():
+        label = category.replace("_", " ").title()
+        story.append(
+            Paragraph(f"<b>{esc(label)}:</b> {esc(', '.join(items))}", body_style)
+        )
+
+    if data.get("education"):
+        section("Education")
+        for entry in data["education"]:
+            story.append(
+                Paragraph(
+                    f"{esc(entry.get('degree', ''))} — {esc(entry.get('school', ''))}"
+                    f" <font color='{_PDF_MUTED}' size='8.5'>({esc(entry.get('graduation', ''))})</font>",
+                    body_style,
+                )
+            )
+
+    section("Certifications")
+    for cert in data.get("certifications", []):
+        line = f"{esc(cert.get('name', ''))} — {esc(cert.get('issuer', ''))}"
+        if cert.get("date"):
+            line += f" ({esc(cert['date'])})"
+        story.append(Paragraph(line, bullet_style, bulletText="•"))
+
+    buffer = io.BytesIO()
+    SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=0.75 * inch,
+        rightMargin=0.75 * inch,
+        topMargin=0.6 * inch,
+        bottomMargin=0.6 * inch,
+        title=f"{personal.get('name', 'Resume')} — Resume",
+        author=personal.get("name", ""),
+    ).build(story)
+    return buffer.getvalue()
 
 
 def retrieve_rag_context(
@@ -1186,15 +1403,65 @@ def _warn_on_suspicious_model_ids(settings: Settings) -> None:
             )
 
 
+def _build_mcp_server():
+    """MCP server with exactly ONE tool: get_resume (data-only).
+
+    An LLM-invoking tool (ask_resume) was reviewed and rejected: it would be
+    an unauthenticated LLM proxy able to starve the global daily budget. The
+    connected client's own model does the reasoning over the raw resume.
+    """
+    from mcp.server.fastmcp import FastMCP
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    server = FastMCP(
+        "dakota-resume",
+        instructions=(
+            "Dakota Radigan's resume. Call get_resume for the full structured "
+            "resume JSON (experience, projects, skills, education, certifications)."
+        ),
+        stateless_http=True,
+    )
+    # The sub-app is mounted at /mcp by the parent app; serve at its root.
+    server.settings.streamable_http_path = "/"
+    # The SDK's DNS-rebinding protection rejects any Host not on its
+    # allowlist (default: localhost only) with 421 — including the real
+    # domain. This server is public, unauthenticated, and data-only, so
+    # rebinding protection defends nothing; disable it rather than chase
+    # the domain list.
+    server.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+
+    @server.tool()
+    def get_resume() -> dict:
+        """Dakota Radigan's full resume as structured JSON (phone number excluded)."""
+        return load_resume_json_public()
+
+    return server
+
+
 def build_app() -> FastAPI:
     _configure_logging()
-    app = FastAPI(title="Resume Assistant", docs_url=None, redoc_url=None, openapi_url=None)
+    mcp_server = _build_mcp_server()
+    mcp_asgi_app = mcp_server.streamable_http_app()
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # The MCP session manager requires a running lifespan; the session
+        # store close was previously an on_event("shutdown") handler.
+        async with mcp_server.session_manager.run():
+            yield
+        await get_session_store().close()
+
+    app = FastAPI(
+        title="Resume Assistant",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        lifespan=lifespan,
+    )
     settings = get_settings()
     _warn_on_suspicious_model_ids(settings)
-
-    @app.on_event("shutdown")
-    async def shutdown_event() -> None:
-        await get_session_store().close()
 
     app.state.reindex_status = {
         "running": False,
@@ -1365,6 +1632,8 @@ def build_app() -> FastAPI:
         load_jd_match_prompt.cache_clear()
         load_resume_context.cache_clear()
         load_resume_json_public.cache_clear()
+        render_llms_text.cache_clear()
+        render_resume_pdf.cache_clear()
         _starter_cache.clear()
         logger.info("Cache cleared: prompts, resume_context, and starter responses")
         return {
@@ -1440,6 +1709,8 @@ def build_app() -> FastAPI:
                 # Clear cached resume data so subsequent requests use fresh data
                 load_resume_context.cache_clear()
                 load_resume_json_public.cache_clear()
+                render_llms_text.cache_clear()
+                render_resume_pdf.cache_clear()
                 _starter_cache.clear()
                 logger.info(f"RAG re-index completed: {result['message']}")
                 return result
@@ -1492,6 +1763,56 @@ def build_app() -> FastAPI:
         except RuntimeError as exc:
             logger.exception("Failed to load resume JSON for frontend")
             raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.get("/llms.txt")
+    async def llms_txt() -> PlainTextResponse:
+        """Machine-readable resume digest (llms.txt convention), rendered
+        live from resume.json so it can never drift."""
+        try:
+            return PlainTextResponse(render_llms_text(), media_type="text/plain; charset=utf-8")
+        except RuntimeError as exc:
+            logger.exception("Failed to render llms.txt")
+            raise HTTPException(status_code=500, detail="Unable to render llms.txt") from exc
+
+    @app.get("/api/resume.pdf")
+    async def resume_pdf(request: Request) -> Response:
+        """Password-gated PDF download. The chat password (printed on
+        Dakota's resume) unlocks the visitor identity via /api/unlock;
+        unlocked visitors download a PDF rendered live from resume.json.
+        Locked visitors get 403 and the frontend shows the unlock form
+        (which mints the visitor cookie itself)."""
+        store = get_session_store()
+        visitor_id, _ = _resolve_visitor_id(request)
+
+        # Keyed by IP, not visitor: locked visitors may have no cookie yet,
+        # and a fresh-minted id every request would never accumulate.
+        if not await store.check_rate_limit(f"pdf:{_get_client_ip(request)}", max_requests=5, window=600.0):
+            raise HTTPException(
+                status_code=429,
+                detail="Too many download attempts. Please wait a few minutes.",
+            )
+
+        await store.update_metadata(visitor_id)
+        unlocked = await store.get_remaining_quota(visitor_id, settings.free_chat_limit) is None
+        if not unlocked:
+            raise HTTPException(status_code=403, detail=PDF_LOCKED_MESSAGE)
+
+        try:
+            pdf_bytes = await asyncio.to_thread(render_resume_pdf)
+        except Exception as exc:
+            logger.exception("Failed to render resume PDF")
+            raise HTTPException(status_code=500, detail="Unable to render the PDF right now.") from exc
+        logger.info("Resume PDF downloaded by visitor %s", anonymize_session_id(visitor_id, settings.session_hash_secret))
+        final = Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'attachment; filename="Dakota-Radigan-Resume.pdf"',
+                "Cache-Control": "no-store",
+            },
+        )
+        _set_visitor_cookie(final, visitor_id, settings)
+        return final
 
     @app.post("/api/chat")
     async def chat(payload: ChatRequest, request: Request, response: Response) -> ChatResponse:
@@ -1958,6 +2279,15 @@ def build_app() -> FastAPI:
             payload.trigger
         )
         return {"success": True}
+
+    # MCP endpoint (streamable HTTP), registered before the "/" static
+    # catch-all. The SDK's Starlette sub-app holds a single ASGI route;
+    # re-root it at /mcp directly — a Mount would 405 bare `POST /mcp`
+    # (empty-remainder mounts can only slash-redirect GETs). Data-only —
+    # see _build_mcp_server.
+    app.router.routes.append(
+        StarletteRoute("/mcp", endpoint=mcp_asgi_app.routes[0].endpoint, name="mcp")
+    )
 
     # Serve the frontend files from ../frontend
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
