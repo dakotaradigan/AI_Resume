@@ -1260,7 +1260,8 @@ async function sendMessage(message, { isRetry = false } = {}) {
   function sourceItemsFrom(sources) {
     return safeArray(sources).map((s) => {
       const title = String((s && s.title) ?? s ?? "");
-      return typeof s?.score === "number" ? `${title} · ${s.score.toFixed(2)}` : title;
+      // Hybrid results may be lexical-only, so raw vector scores are not confidence values.
+      return title;
     });
   }
 
