@@ -126,21 +126,16 @@ class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):
             self.build_client(make_settings()) as client,
             patch.object(main, "log_query"),
         ):
-            settings_jd_limit = 2  # default from make_settings-produced Settings
+            # Default budget: ONE free analysis per visitor per day.
             self.assertEqual(
                 client.post("/api/jd-match", json={"jd_text": jd, "session_id": "a"}).status_code,
                 200,
             )
-            self.assertEqual(
-                client.post("/api/jd-match", json={"jd_text": jd, "session_id": "b"}).status_code,
-                200,
-            )
-            # Third analysis on a fresh session id, same visitor: blocked.
-            self.assertEqual(
-                client.post("/api/jd-match", json={"jd_text": jd, "session_id": "c"}).status_code,
-                403,
-            )
-            self.assertGreaterEqual(settings_jd_limit, 2)
+            # Second analysis on a fresh session id, same visitor: blocked —
+            # the budget follows the cookie, not the session id.
+            second = client.post("/api/jd-match", json={"jd_text": jd, "session_id": "b"})
+            self.assertEqual(second.status_code, 403)
+            self.assertEqual(second.json()["detail"], main.JD_LIMIT_MESSAGE)
 
 
 class TestDailyBudgetReserveRelease(VisitorQuotaTestCase):

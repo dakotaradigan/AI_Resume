@@ -51,7 +51,7 @@ How the app fits together. Line numbers are navigation hints from a specific com
 | `ANTHROPIC_MODEL_SIMPLE` | `anthropic_model_simple` | `claude-sonnet-5` (verify per rule 9) | A |
 | `ANTHROPIC_ROUTER_MODEL` | `anthropic_router_model` | `claude-haiku-4-5-20251001` (verify) | A |
 | `MAX_JD_CHARS` | `max_jd_chars` | `15000` | B |
-| `JD_DAILY_LIMIT` | `jd_daily_limit` | `2` (per visitor per day) | B |
+| `JD_DAILY_LIMIT` | `jd_daily_limit` | `1` (per visitor per day; lowered from 2 on 2026-07-19 — one free try, password unlocks more) | B |
 | `VISITOR_COOKIE_NAME` | `visitor_cookie_name` | `resume_assistant_visitor_id` | D |
 | `VISITOR_TTL_SECONDS` | `visitor_ttl_seconds` | `2592000` | D |
 | `SESSION_HASH_SECRET` | `session_hash_secret` | `""` → if empty, mint a random per-process secret at startup and log a warning (correlation across restarts lost; require real value in production docs) | D |
@@ -211,7 +211,7 @@ Event ordering; `done.reply` == concatenated deltas minus FOLLOWUPS line; `follo
 
 ## B1. Quota model (PM must-fix — the happy path must never dead-end)
 
-- JD analyses use a **separate budget**: `jd_daily_limit` (default 2) per quota key per day, checked via a new `SessionStore` method `check_and_increment_scoped_limit(key: str, scope: str, limit: int)` (Redis: atomic Lua INCR+compare on `quota:{scope}:{key}:{day}`; in-memory: lock-guarded). Chat quota is untouched by JD usage.
+- JD analyses use a **separate budget**: `jd_daily_limit` (default 1; was 2 until 2026-07-19) per quota key per day, checked via a new `SessionStore` method `check_and_increment_scoped_limit(key: str, scope: str, limit: int)` (Redis: atomic Lua INCR+compare on `quota:{scope}:{key}:{day}`; in-memory: lock-guarded). Chat quota is untouched by JD usage.
 - The **screening brief is free** with a completed analysis (no quota unit; still covered by the `jd:` IP rate limit below).
 - Abuse bounds: per-IP limit `jd:{ip}` 3 per 600s via existing `check_rate_limit`, plus the global daily cap. JD always uses the complex model.
 - **Quota-wall conversion (PM)**: when any quota is exhausted, the frontend wall keeps the password field but the PRIMARY CTA becomes "Email Dakota" — `mailto:` prefilled from existing footer contact data, subject "Reaching out from your resume site" — plus a LinkedIn link. A wall on a hire-me site must convert, not just block.

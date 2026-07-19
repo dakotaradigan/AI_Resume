@@ -43,7 +43,7 @@ class Settings:
 
     # JD fit analysis ("Paste a job description")
     max_jd_chars: int = 15000  # Job descriptions are much longer than chat messages
-    jd_daily_limit: int = 2  # Analyses per visitor per day (separate from chat quota)
+    jd_daily_limit: int = 1  # Free analyses per visitor per day; password unlocks more
 
     # Server-owned visitor identity (quota/unlock key; session_id is history-only)
     visitor_cookie_name: str = "resume_assistant_visitor_id"
@@ -132,7 +132,7 @@ def get_settings() -> Settings:
         free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),
         daily_conversation_limit=_to_int(os.getenv("DAILY_CONVERSATION_LIMIT"), 200),
         max_jd_chars=_to_int(os.getenv("MAX_JD_CHARS"), 15000),
-        jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 2),
+        jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 1),
         visitor_cookie_name=os.getenv("VISITOR_COOKIE_NAME", "resume_assistant_visitor_id"),
         visitor_ttl_seconds=_to_int(os.getenv("VISITOR_TTL_SECONDS"), 2592000),
         # Unset in production breaks analytics-id correlation across restarts;
