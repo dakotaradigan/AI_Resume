@@ -1712,6 +1712,15 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
         detail = errorData.detail;
       }
       steps.flush();
+      // Free-limit wall: show the actual password form right here instead
+      // of a dead-end message, and retry this analysis once unlocked.
+      if (result.res && result.res.status === 403) {
+        const host = el("div", { class: "jd-unlock" }, [el("div", { class: "msg-body" })]);
+        streamHost.append(host);
+        renderUnlockForm(host, detail, null, () => sendJDMatch(jdText, { mode }));
+        if (jdAnnouncer) jdAnnouncer.textContent = "Password required for another analysis.";
+        return;
+      }
       streamHost.append(
         el("p", { class: "jd-error", text: detail || "Something went wrong. Please try again." })
       );

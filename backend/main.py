@@ -90,7 +90,7 @@ BUSY_MESSAGE = (
 GENERIC_CHAT_ERROR = "Unable to process chat right now. Please try again soon."
 
 JD_LIMIT_MESSAGE = (
-    "You've used today's free fit analyses. Enter the password from Dakota's "
+    "You've used today's free fit analysis. Enter the password from Dakota's "
     "resume for unlimited access, or email dakotaradigan@gmail.com — he'd "
     "love to hear about the role."
 )
