@@ -174,9 +174,12 @@ class TestDailyBudgetReserveRelease(VisitorQuotaTestCase):
         FakeAnthropic.messages_api = FakeStreamingMessages(
             ["never"], error_kind="anthropic", error_at=0
         )
+        import dataclasses
+
         with (
-            self.build_client(make_settings()) as client,
-            patch.object(main, "DAILY_CONVERSATION_LIMIT", 1),
+            self.build_client(
+                dataclasses.replace(make_settings(), daily_conversation_limit=1)
+            ) as client,
             patch.object(main, "log_query"),
         ):
             failed = self.chat(client, "s1")
@@ -188,9 +191,12 @@ class TestDailyBudgetReserveRelease(VisitorQuotaTestCase):
             self.assertIn("event: done", ok.text)
 
     def test_guardrail_rejections_do_not_consume_budget(self) -> None:
+        import dataclasses
+
         with (
-            self.build_client(make_settings()) as client,
-            patch.object(main, "DAILY_CONVERSATION_LIMIT", 1),
+            self.build_client(
+                dataclasses.replace(make_settings(), daily_conversation_limit=1)
+            ) as client,
             patch.object(main, "log_query"),
         ):
             too_long = self.chat(client, "s1", message="x" * 5000)

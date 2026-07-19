@@ -52,11 +52,11 @@
       </div>
       <div class="resume-card hiw-card">
         <h2 class="hiw-card-title">Measured</h2>
-        <p>Owner-approved golden set: hit-rate@4 0.886, MRR 0.838. Three LLM judges score production answers.</p>
+        <p>Retrieval and answer quality are scored against curated eval sets — quality here is a number, not a vibe.</p>
       </div>
       <div class="resume-card hiw-card">
         <h2 class="hiw-card-title">Hardened</h2>
-        <p>Strict CSP, server-minted HttpOnly identity, prompt-injection firewall, atomic budgets, hashed analytics.</p>
+        <p>Production-grade guardrails on identity, input handling, and model spend.</p>
       </div>
     </section>
 
@@ -129,14 +129,8 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
     </section>
 
     <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">Evals</h2></div>
-      <p>Retrieval quality is measured against a 35-query golden dataset, reviewed and approved by Dakota before any number was recorded. Baseline (2026-07-19): <strong>hit-rate@4 0.886 · recall@4 0.886 · MRR 0.838</strong>, clearing the 0.85 quality gate.</p>
-      <p>Answer quality is scored by three LLM judges — groundedness, conciseness, and redirect handling — plus thumbs feedback from real visitors. Prompt changes are re-evaluated before they ship.</p>
-    </section>
-
-    <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">Security</h2></div>
-      <p>The content-security policy allows scripts from this origin only — no inline scripts, no CDNs. Quotas and unlocks are keyed to a server-minted HttpOnly cookie, not anything a client can forge. Pasted job descriptions are sanitized and firewalled as untrusted data, model spend is capped by atomic reserve-and-release budgets, and analytics store only HMAC-hashed identifiers.</p>
+      <div class="section-header"><h2 class="section-title">Measured &amp; hardened</h2></div>
+      <p>Retrieval and answer quality are evaluated against curated datasets and scored by LLM judges before changes ship — happy to walk through the eval methodology in an interview. The service runs standard production protections around identity, untrusted input, and model spend, with graceful degradation when any dependency is down.</p>
     </section>
 
     <section class="hiw-section" id="connect-mcp">
