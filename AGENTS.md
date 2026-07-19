@@ -65,6 +65,10 @@ Required for chat:
 - `ANTHROPIC_MODEL`
 - `ANTHROPIC_MAX_TOKENS`
 
+Model routing (optional, defaults provided):
+- `ANTHROPIC_MODEL_SIMPLE` — answers simple factual queries
+- `ANTHROPIC_ROUTER_MODEL` — small classifier that picks the tier
+
 Optional RAG:
 - `USE_RAG=true`
 - `OPENAI_API_KEY`
@@ -80,8 +84,15 @@ Optional infrastructure and controls:
 - `SESSION_MAX_AGE_SECONDS`
 - `API_TIMEOUT_SECONDS`
 - `MAX_USER_MESSAGE_CHARS`
+- `MAX_JD_CHARS` / `JD_DAILY_LIMIT` (JD fit analysis)
+- `VISITOR_COOKIE_NAME` / `VISITOR_TTL_SECONDS` (server-minted quota identity)
+- `SESSION_HASH_SECRET` (stable HMAC key for anonymized analytics ids; set in production)
 - `ENVIRONMENT`
 - `DATA_DIR`
+
+Without `REDIS_URL`, sessions/quotas are in-memory per process and reset on
+restart — that is the supported dev mode. See `docs/redis-integration.md` for
+how the Redis backend hooks in.
 
 Do not print, copy, or commit real values from `backend/.env`.
 

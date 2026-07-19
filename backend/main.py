@@ -16,7 +16,7 @@ from typing import Any, AsyncIterator, Literal
 from uuid import uuid4
 
 from anthropic import AsyncAnthropic, AnthropicError, RateLimitError
-from fastapi import FastAPI, HTTPException, Request, Header
+from fastapi import FastAPI, HTTPException, Request, Header, Response
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -29,9 +29,40 @@ except ImportError:  # pragma: no cover - optional dependency until REDIS_URL is
 
 from config import get_settings, Settings
 from rag import initialize_rag_pipeline, RAGPipeline
-from analytics.analytics import log_query, log_feedback
+from analytics.analytics import anonymize_session_id, log_query, log_feedback
 
 logger = logging.getLogger("resume-assistant")
+
+
+class _JsonLogFormatter(logging.Formatter):
+    """Single-line JSON records so deployed logs are machine-greppable."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry: dict[str, Any] = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            entry["exc"] = self.formatException(record.exc_info)
+        return json.dumps(entry)
+
+
+def _configure_logging() -> None:
+    """Attach a JSON handler when nothing else configured the root logger.
+
+    Under uvicorn the root logger has no handlers, so app logs would fall back
+    to lastResort plain text; tests and embedders that configure logging first
+    are left untouched.
+    """
+    root = logging.getLogger()
+    if root.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(_JsonLogFormatter())
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
 
 # Keep context small: compact early and keep fewer turns to reduce memory and token use.
 MAX_SESSION_MESSAGES = 24
@@ -393,20 +424,48 @@ class SessionStore:
             for key in stale_keys:
                 self._rate_limits.pop(key, None)
 
-    async def get_daily_conversation_count(self, day_key: str) -> int:
+    async def reserve_daily_conversation(self, day_key: str, limit: int) -> bool:
+        """Atomically reserve one unit of the global daily budget BEFORE the
+        model call. Returns False once the cap is reached. Callers must
+        release_daily_conversation() if generation fails or is cancelled."""
         if self._redis is not None:
-            value = await self._redis.get(self._daily_key(day_key))
-            return int(value or 0)
-        return _daily_conversation_count.get(day_key, 0)
+            script = """
+            local key = KEYS[1]
+            local limit = tonumber(ARGV[1])
+            local current = tonumber(redis.call('GET', key) or '0')
+            if current >= limit then
+                return 0
+            end
+            redis.call('INCR', key)
+            redis.call('EXPIRE', key, 259200)
+            return 1
+            """
+            allowed = await self._redis.eval(script, 1, self._daily_key(day_key), limit)
+            return bool(int(allowed))
 
-    async def increment_daily_conversation_count(self, day_key: str) -> int:
+        async with self._lock:
+            current = _daily_conversation_count.get(day_key, 0)
+            if current >= limit:
+                return False
+            _daily_conversation_count[day_key] = current + 1
+            return True
+
+    async def release_daily_conversation(self, day_key: str) -> None:
+        """Return a reserved unit after a failed or cancelled generation."""
         if self._redis is not None:
-            next_value = await self._redis.incr(self._daily_key(day_key))
-            if next_value == 1:
-                await self._redis.expire(self._daily_key(day_key), 3 * 24 * 60 * 60)
-            return int(next_value)
-        _daily_conversation_count[day_key] = _daily_conversation_count.get(day_key, 0) + 1
-        return _daily_conversation_count[day_key]
+            script = """
+            local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+            if current > 0 then
+                redis.call('DECR', KEYS[1])
+            end
+            return 0
+            """
+            await self._redis.eval(script, 1, self._daily_key(day_key))
+            return
+        async with self._lock:
+            current = _daily_conversation_count.get(day_key, 0)
+            if current > 0:
+                _daily_conversation_count[day_key] = current - 1
 
     async def close(self) -> None:
         if self._redis is None:
@@ -506,7 +565,9 @@ class ChatRequest(BaseModel):
 
 class UnlockRequest(BaseModel):
     password: str
-    session_id: str = Field(..., min_length=1, max_length=100)
+    # Accepted for backward compatibility but ignored: unlock is keyed to the
+    # server-minted visitor cookie, not the client-supplied session id.
+    session_id: str | None = Field(default=None, max_length=100)
 
 
 class JDMatchRequest(BaseModel):
@@ -777,19 +838,44 @@ async def _compact_session_history(session_id: str, store: SessionStore) -> None
 
 @dataclass(frozen=True)
 class ChatTurnContext:
-    """Validated identity + input for one chat turn (extended in later phases)."""
+    """Validated identity + input for one chat turn."""
 
     session_id: str
+    visitor_id: str
     message: str
 
 
-def _quota_key(request: Request, session_id: str) -> str:
-    """Identity key for the free-chat limit and unlock state.
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
 
-    Currently the client-supplied session_id; a later hardening phase swaps
-    this to a server-minted visitor id without touching call sites.
+
+def _resolve_visitor_id(request: Request) -> tuple[str, bool]:
+    """Server-owned visitor identity from the HttpOnly cookie.
+
+    Quotas and unlock are keyed to this (not the client-supplied session_id,
+    which is history-only) so clearing localStorage no longer resets limits
+    and session ids stop acting as bearer tokens for entitlements (SEC-01).
+    Only UUID-format cookie values are accepted. Returns (visitor_id, is_new).
     """
-    return session_id
+    settings = get_settings()
+    raw = request.cookies.get(settings.visitor_cookie_name, "")
+    if raw and _UUID_RE.match(raw):
+        return raw, False
+    return str(uuid4()), True
+
+
+def _set_visitor_cookie(response: Response, visitor_id: str, settings: Settings) -> None:
+    response.set_cookie(
+        key=settings.visitor_cookie_name,
+        value=visitor_id,
+        max_age=settings.visitor_ttl_seconds,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=settings.environment == "production",
+    )
 
 
 async def _run_chat_guardrails(
@@ -804,6 +890,7 @@ async def _run_chat_guardrails(
     """Run every pre-generation guardrail. Raises HTTPException before any
     stream starts, so error handling is identical for both chat endpoints."""
     session_id = payload.session_id or str(uuid4())
+    visitor_id, _ = _resolve_visitor_id(request)
 
     # Session cleanup: remove old sessions periodically
     expired_count = await store.cleanup_expired(settings.session_max_age_seconds)
@@ -811,8 +898,11 @@ async def _run_chat_guardrails(
         logger.info(f"Cleaned up {expired_count} expired sessions")
     await store.cleanup_stale_rate_limits()
 
-    # Track last access for cleanup
+    # Track last access for cleanup — for the chat session AND the visitor
+    # identity (whose metadata carries quota/unlock state; without a fresh
+    # last_access, cleanup_expired would wipe it and reset the quota).
     await store.update_metadata(session_id)
+    await store.update_metadata(visitor_id)
 
     # Rate limiting: prevent abuse (default key = client IP)
     rate_limit_key = _get_client_ip(request)
@@ -829,39 +919,46 @@ async def _run_chat_guardrails(
             ),
         )
 
-    # Daily conversation limit: control API costs
+    # Daily conversation budget: atomically reserve BEFORE the model call.
+    # Endpoints release the unit when generation fails or is cancelled.
     today = date.today().isoformat()
-    if await store.get_daily_conversation_count(today) >= DAILY_CONVERSATION_LIMIT:
+    if not await store.reserve_daily_conversation(today, DAILY_CONVERSATION_LIMIT):
         raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
 
-    # Input bounds (before consuming chat quota)
+    # Input bounds (before consuming chat quota). Any rejection below returns
+    # the reserved daily unit — client errors must not consume budget.
+    async def _reject(exc: HTTPException) -> None:
+        await store.release_daily_conversation(today)
+        raise exc
+
     message = (payload.message or "").strip()
     if not message:
-        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+        await _reject(HTTPException(status_code=400, detail="Message cannot be empty."))
     limit_chars = max_chars or settings.max_user_message_chars
     if len(message) > limit_chars:
-        raise HTTPException(
+        await _reject(HTTPException(
             status_code=413,
             detail=f"Message too long (max {limit_chars} characters).",
-        )
+        ))
 
     if not settings.anthropic_api_key:
-        raise HTTPException(
+        await _reject(HTTPException(
             status_code=503,
             detail="Anthropic API key not configured. Set ANTHROPIC_API_KEY.",
-        )
+        ))
 
     # Chat limit protection: free users limited to N exchanges (atomic
-    # check+increment). JD analyses skip this — they draw from their own
-    # daily budget so the recruiter happy path never dead-ends on chat quota.
+    # check+increment), keyed to the visitor id. JD analyses skip this — they
+    # draw from their own daily budget so the recruiter happy path never
+    # dead-ends on chat quota.
     if consume_quota:
         allowed, reason = await store.check_and_increment_limit(
-            _quota_key(request, session_id), settings.free_chat_limit
+            visitor_id, settings.free_chat_limit
         )
         if not allowed:
-            raise HTTPException(status_code=403, detail=reason)
+            await _reject(HTTPException(status_code=403, detail=reason))
 
-    return ChatTurnContext(session_id=session_id, message=message)
+    return ChatTurnContext(session_id=session_id, visitor_id=visitor_id, message=message)
 
 
 def _build_chat_context(
@@ -977,17 +1074,18 @@ def _build_api_messages(history: list[dict], message: str) -> list[dict]:
 
 async def _persist_chat(
     store: SessionStore,
+    settings: Settings,
     session_id: str,
     message: str,
     reply_text: str,
-    today: str,
     *,
     history_was_empty: bool,
     cache_key: str,
     model_id: str = "",
     route_reason: str = "",
 ) -> None:
-    """Post-generation bookkeeping. reply_text must already be FOLLOWUPS-stripped."""
+    """Post-generation bookkeeping. reply_text must already be FOLLOWUPS-stripped.
+    (The daily budget was reserved up front in the guardrails.)"""
     # Cache response for starter questions (populate lazily on first real answer)
     if history_was_empty and cache_key in STARTER_QUESTIONS:
         _starter_cache[cache_key] = reply_text
@@ -996,12 +1094,16 @@ async def _persist_chat(
     await store.append_message(session_id, "assistant", reply_text)
     await _compact_session_history(session_id, store)
 
-    # Log query for analytics (privacy: .jsonl files are gitignored)
+    # Log query for analytics (gitignored files; hashed id, never the live
+    # bearer session id)
     await asyncio.to_thread(
-        log_query, session_id, message, reply_text, model_id, route_reason
+        log_query,
+        anonymize_session_id(session_id, settings.session_hash_secret),
+        message,
+        reply_text,
+        model_id,
+        route_reason,
     )
-
-    await store.increment_daily_conversation_count(today)
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:
@@ -1049,6 +1151,7 @@ def _initialize_rag(settings) -> RAGPipeline | None:
 
 
 def build_app() -> FastAPI:
+    _configure_logging()
     app = FastAPI(title="Resume Assistant", docs_url=None, redoc_url=None, openapi_url=None)
     settings = get_settings()
 
@@ -1314,11 +1417,12 @@ def build_app() -> FastAPI:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/chat")
-    async def chat(payload: ChatRequest, request: Request) -> ChatResponse:
+    async def chat(payload: ChatRequest, request: Request, response: Response) -> ChatResponse:
         store = get_session_store()
         ctx = await _run_chat_guardrails(payload, request, store, settings)
         session_id, message = ctx.session_id, ctx.message
         today = date.today().isoformat()
+        _set_visitor_cookie(response, ctx.visitor_id, settings)
 
         # Starter question cache: instant responses for suggestion chips.
         # Only used when it's the first message in a session (no history yet).
@@ -1328,8 +1432,12 @@ def build_app() -> FastAPI:
             reply_text = _starter_cache[cache_key]
             await store.append_message(session_id, "user", message)
             await store.append_message(session_id, "assistant", reply_text)
-            await asyncio.to_thread(log_query, session_id, message, reply_text)
-            await store.increment_daily_conversation_count(today)
+            await asyncio.to_thread(
+                log_query,
+                anonymize_session_id(session_id, settings.session_hash_secret),
+                message,
+                reply_text,
+            )
             return ChatResponse(reply=reply_text, session_id=session_id)
 
         client = _make_anthropic_client(settings)
@@ -1339,10 +1447,11 @@ def build_app() -> FastAPI:
             )
         except RuntimeError as exc:
             logger.exception("Failed to load prompt or resume data")
+            await store.release_daily_conversation(today)
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
         try:
-            response = await client.messages.create(
+            api_response = await client.messages.create(
                 model=model_id,
                 max_tokens=settings.anthropic_max_tokens,
                 temperature=0.1,  # Low temperature for factual accuracy
@@ -1350,16 +1459,19 @@ def build_app() -> FastAPI:
                 messages=_build_api_messages(history, message),
             )
             reply_text = "".join(
-                block.text for block in response.content if block.type == "text"
+                block.text for block in api_response.content if block.type == "text"
             )
         except RateLimitError as exc:
             logger.warning("Anthropic rate limit or spending cap hit")
+            await store.release_daily_conversation(today)
             raise HTTPException(status_code=503, detail=BUSY_MESSAGE) from exc
         except AnthropicError as exc:
             logger.exception("Anthropic API request failed after retries")
+            await store.release_daily_conversation(today)
             raise HTTPException(status_code=502, detail=GENERIC_CHAT_ERROR) from exc
         except Exception as exc:  # pragma: no cover - unexpected errors
             logger.exception("Unexpected error during chat request")
+            await store.release_daily_conversation(today)
             raise HTTPException(
                 status_code=500,
                 detail="An unexpected error occurred. Please try again.",
@@ -1373,7 +1485,7 @@ def build_app() -> FastAPI:
         reply_text, _ = _split_followups(reply_text)
 
         await _persist_chat(
-            store, session_id, message, reply_text, today,
+            store, settings, session_id, message, reply_text,
             history_was_empty=not history, cache_key=cache_key,
             model_id=model_id, route_reason=route_reason,
         )
@@ -1400,7 +1512,7 @@ def build_app() -> FastAPI:
         history = await store.get_history(session_id)
         cached_reply = _starter_cache.get(cache_key) if not history else None
         quota_remaining = await store.get_remaining_quota(
-            _quota_key(request, session_id), settings.free_chat_limit
+            ctx.visitor_id, settings.free_chat_limit
         )
 
         async def event_gen() -> AsyncIterator[str]:
@@ -1411,8 +1523,12 @@ def build_app() -> FastAPI:
                 yield _sse("delta", {"text": cached_reply})
                 await store.append_message(session_id, "user", message)
                 await store.append_message(session_id, "assistant", cached_reply)
-                await asyncio.to_thread(log_query, session_id, message, cached_reply)
-                await store.increment_daily_conversation_count(today)
+                await asyncio.to_thread(
+                    log_query,
+                    anonymize_session_id(session_id, settings.session_hash_secret),
+                    message,
+                    cached_reply,
+                )
                 yield _sse("done", {
                     "reply": cached_reply, "used_rag": False, "sources": [],
                     "session_id": session_id, "model": "", "followups": [],
@@ -1428,6 +1544,7 @@ def build_app() -> FastAPI:
                 )
             except RuntimeError:
                 logger.exception("Failed to load prompt or resume data")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
                 return
             yield _sse("status", {
@@ -1463,7 +1580,7 @@ def build_app() -> FastAPI:
                 reply_text, followups = _split_followups(reply_text)
 
                 await _persist_chat(
-                    store, session_id, message, reply_text, today,
+                    store, settings, session_id, message, reply_text,
                     history_was_empty=not history, cache_key=cache_key,
                     model_id=model_id, route_reason=route_reason,
                 )
@@ -1474,24 +1591,31 @@ def build_app() -> FastAPI:
                 })
             except asyncio.CancelledError:
                 # Client disconnected: close the upstream Anthropic stream (the
-                # async with does this on unwind) and skip all persistence.
+                # async with does this on unwind), return the reserved daily
+                # unit, and skip all persistence.
                 logger.info("Client disconnected mid-stream; skipping persistence")
+                await store.release_daily_conversation(today)
                 raise
             except RateLimitError:
                 logger.warning("Anthropic rate limit or spending cap hit")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": BUSY_MESSAGE})
             except AnthropicError:
                 logger.exception("Anthropic API request failed after retries")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
             except Exception:  # pragma: no cover - unexpected errors
                 logger.exception("Unexpected error during streamed chat")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": "An unexpected error occurred. Please try again."})
 
-        return StreamingResponse(
+        streaming_response = StreamingResponse(
             event_gen(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+        _set_visitor_cookie(streaming_response, ctx.visitor_id, settings)
+        return streaming_response
 
     @app.post("/api/jd-match")
     async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingResponse:
@@ -1511,13 +1635,18 @@ def build_app() -> FastAPI:
         session_id = ctx.session_id
         today = date.today().isoformat()
 
+        async def _reject(exc: HTTPException) -> None:
+            # Return the daily unit reserved in the guardrails.
+            await store.release_daily_conversation(today)
+            raise exc
+
         # Token-heavy endpoint: extra per-IP limit on top of the global one
         jd_rate_key = f"jd:{_get_client_ip(request)}"
         if not await store.check_rate_limit(jd_rate_key, max_requests=3, window=600.0):
-            raise HTTPException(
+            await _reject(HTTPException(
                 status_code=429,
                 detail="Too many fit analyses at once. Please wait a few minutes and try again.",
-            )
+            ))
 
         history = await store.get_history(session_id)
 
@@ -1530,18 +1659,18 @@ def build_app() -> FastAPI:
                 if isinstance(block, dict)
             )
             if not has_analysis:
-                raise HTTPException(status_code=409, detail="Run a fit analysis first.")
+                await _reject(HTTPException(status_code=409, detail="Run a fit analysis first."))
         else:
             # Unlimited (password-unlocked) identities bypass the JD budget.
             remaining = await store.get_remaining_quota(
-                _quota_key(request, session_id), settings.free_chat_limit
+                ctx.visitor_id, settings.free_chat_limit
             )
             if remaining is not None:
                 allowed = await store.check_and_increment_scoped_limit(
-                    _quota_key(request, session_id), "jd", settings.jd_daily_limit, today
+                    ctx.visitor_id, "jd", settings.jd_daily_limit, today
                 )
                 if not allowed:
-                    raise HTTPException(status_code=403, detail=JD_LIMIT_MESSAGE)
+                    await _reject(HTTPException(status_code=403, detail=JD_LIMIT_MESSAGE))
 
         sanitized = _sanitize_jd_text(ctx.message)
         if payload.mode == "brief":
@@ -1569,6 +1698,7 @@ def build_app() -> FastAPI:
                 )
             except RuntimeError:
                 logger.exception("Failed to load prompt or resume data")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
                 return
             yield _sse("status", {"stage": "context_load", "state": "done"})
@@ -1599,7 +1729,7 @@ def build_app() -> FastAPI:
                 reply_text, _ = _split_followups(reply_text)
 
                 await _persist_chat(
-                    store, session_id, stored_user_text, reply_text, today,
+                    store, settings, session_id, stored_user_text, reply_text,
                     history_was_empty=False, cache_key="",
                     model_id=settings.anthropic_model, route_reason="jd-match",
                 )
@@ -1610,35 +1740,54 @@ def build_app() -> FastAPI:
                 })
             except asyncio.CancelledError:
                 logger.info("Client disconnected mid-analysis; skipping persistence")
+                await store.release_daily_conversation(today)
                 raise
             except RateLimitError:
                 logger.warning("Anthropic rate limit or spending cap hit")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": BUSY_MESSAGE})
             except AnthropicError:
                 logger.exception("Anthropic API request failed after retries")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
             except Exception:  # pragma: no cover - unexpected errors
                 logger.exception("Unexpected error during JD analysis")
+                await store.release_daily_conversation(today)
                 yield _sse("error", {"detail": "An unexpected error occurred. Please try again."})
 
-        return StreamingResponse(
+        streaming_response = StreamingResponse(
             event_gen(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+        _set_visitor_cookie(streaming_response, ctx.visitor_id, settings)
+        return streaming_response
 
     @app.post("/api/unlock")
-    async def unlock_chat(payload: UnlockRequest, request: Request) -> UnlockResponse:
+    async def unlock_chat(
+        payload: UnlockRequest, request: Request, response: Response
+    ) -> UnlockResponse:
         """
         Unlock unlimited chat access with password.
         Password is found on Dakota's resume PDF.
+
+        Unlock is granted to the server-minted visitor identity, so it
+        survives cleared localStorage and new session ids. This may be the
+        visitor's first request — the cookie is minted and set here too.
         """
         store = get_session_store()
+        visitor_id, _ = _resolve_visitor_id(request)
+        _set_visitor_cookie(response, visitor_id, settings)
 
-        # Rate limit: prevent brute-force password attempts (5 per minute)
-        rate_limit_key = f"unlock:{_get_client_ip(request)}"
-        allowed = await store.check_rate_limit(rate_limit_key, max_requests=5, window=60.0)
-        if not allowed:
+        # Rate limit brute-force attempts per IP AND per visitor identity
+        # (5 per minute each).
+        ip_allowed = await store.check_rate_limit(
+            f"unlock:{_get_client_ip(request)}", max_requests=5, window=60.0
+        )
+        visitor_allowed = await store.check_rate_limit(
+            f"unlock:visitor:{visitor_id}", max_requests=5, window=60.0
+        )
+        if not (ip_allowed and visitor_allowed):
             return UnlockResponse(
                 success=False,
                 message="Too many attempts. Please wait a moment and try again."
@@ -1659,8 +1808,9 @@ def build_app() -> FastAPI:
                 message="Incorrect password. Please check Dakota's resume."
             )
 
-        # Grant unlimited access
-        await store.set_unlimited(payload.session_id, True)
+        # Grant unlimited access to the visitor identity
+        await store.update_metadata(visitor_id)
+        await store.set_unlimited(visitor_id, True)
 
         return UnlockResponse(
             success=True,
@@ -1683,7 +1833,7 @@ def build_app() -> FastAPI:
 
         await asyncio.to_thread(
             log_feedback,
-            payload.session_id,
+            anonymize_session_id(payload.session_id, settings.session_hash_secret),
             payload.rating,
             payload.comment,
             payload.trigger
