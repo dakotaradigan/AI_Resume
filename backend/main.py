@@ -4,6 +4,7 @@ import asyncio
 import hmac
 import json
 import logging
+import re
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -55,6 +56,23 @@ BUSY_MESSAGE = (
 
 GENERIC_CHAT_ERROR = "Unable to process chat right now. Please try again soon."
 
+JD_LIMIT_MESSAGE = (
+    "You've used today's free fit analyses. Enter the password from Dakota's "
+    "resume for unlimited access, or email dakotaradigan@gmail.com — he'd "
+    "love to hear about the role."
+)
+
+# History sentinel marking a completed fit analysis; brief mode requires it.
+JD_SENTINEL = "[jd-analysis]"
+
+# Strip BOTH tag forms (opening and closing) case-insensitively so pasted
+# text can't forge or break the prompt delimiter.
+_JD_TAG_RE = re.compile(r"</?\s*job_description", re.IGNORECASE)
+
+
+def _sanitize_jd_text(jd_text: str) -> str:
+    return _JD_TAG_RE.sub("", jd_text)
+
 # The system prompt asks the model to end replies with a machine-readable
 # follow-up line: "FOLLOWUPS: q1 | q2 | q3". It is stripped from every stored,
 # cached, and returned reply; the parsed questions ride on the SSE done event.
@@ -85,6 +103,7 @@ class SessionStore:
     def __init__(self, redis_client=None, session_ttl: int = 3600):
         self._messages: dict[str, list[dict]] = {}
         self._metadata: dict[str, dict] = {}
+        self._scoped_counts: dict[tuple[str, str, str], int] = {}
         self._rate_limits: dict[str, list[float]] = defaultdict(list)
         self._lock = asyncio.Lock()
         self._redis = redis_client
@@ -307,6 +326,36 @@ class SessionStore:
             return None
         return max(0, limit - count)
 
+    async def check_and_increment_scoped_limit(
+        self, key: str, scope: str, limit: int, day_key: str
+    ) -> bool:
+        """Atomic daily counter for a named scope (e.g. JD analyses per identity),
+        independent of the chat quota. Returns True while under the limit
+        (incrementing), False once the limit is reached."""
+        if self._redis is not None:
+            script = """
+            local key = KEYS[1]
+            local limit = tonumber(ARGV[1])
+            local current = tonumber(redis.call('GET', key) or '0')
+            if current >= limit then
+                return 0
+            end
+            redis.call('INCR', key)
+            redis.call('EXPIRE', key, 172800)
+            return 1
+            """
+            redis_key = f"{self._redis_prefix}:quota:{scope}:{key}:{day_key}"
+            allowed = await self._redis.eval(script, 1, redis_key, limit)
+            return bool(int(allowed))
+
+        async with self._lock:
+            counter_key = (scope, key, day_key)
+            current = self._scoped_counts.get(counter_key, 0)
+            if current >= limit:
+                return False
+            self._scoped_counts[counter_key] = current + 1
+            return True
+
     async def cleanup_expired(self, max_age_seconds: int) -> int:
         """
         Remove sessions older than max_age_seconds.
@@ -460,6 +509,12 @@ class UnlockRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
 
 
+class JDMatchRequest(BaseModel):
+    jd_text: str = Field(..., min_length=1)
+    mode: Literal["analysis", "brief"] = "analysis"
+    session_id: str | None = Field(default=None, max_length=100)
+
+
 class UnlockResponse(BaseModel):
     success: bool
     message: str
@@ -571,6 +626,12 @@ def _format_resume_context(data: dict) -> str:
 def load_system_prompt() -> str:
     settings = get_settings()
     return _read_text(settings.data_dir / "system_prompt.txt").strip()
+
+
+@lru_cache(maxsize=1)
+def load_jd_match_prompt() -> str:
+    settings = get_settings()
+    return _read_text(settings.data_dir / "jd_match_prompt.txt").strip()
 
 
 @lru_cache(maxsize=1)
@@ -738,6 +799,7 @@ async def _run_chat_guardrails(
     settings: Settings,
     *,
     max_chars: int | None = None,
+    consume_quota: bool = True,
 ) -> ChatTurnContext:
     """Run every pre-generation guardrail. Raises HTTPException before any
     stream starts, so error handling is identical for both chat endpoints."""
@@ -789,12 +851,15 @@ async def _run_chat_guardrails(
             detail="Anthropic API key not configured. Set ANTHROPIC_API_KEY.",
         )
 
-    # Chat limit protection: free users limited to N exchanges (atomic check+increment)
-    allowed, reason = await store.check_and_increment_limit(
-        _quota_key(request, session_id), settings.free_chat_limit
-    )
-    if not allowed:
-        raise HTTPException(status_code=403, detail=reason)
+    # Chat limit protection: free users limited to N exchanges (atomic
+    # check+increment). JD analyses skip this — they draw from their own
+    # daily budget so the recruiter happy path never dead-ends on chat quota.
+    if consume_quota:
+        allowed, reason = await store.check_and_increment_limit(
+            _quota_key(request, session_id), settings.free_chat_limit
+        )
+        if not allowed:
+            raise HTTPException(status_code=403, detail=reason)
 
     return ChatTurnContext(session_id=session_id, message=message)
 
@@ -1121,10 +1186,11 @@ def build_app() -> FastAPI:
         _require_admin(x_admin_token, request)
 
         load_system_prompt.cache_clear()
+        load_jd_match_prompt.cache_clear()
         load_resume_context.cache_clear()
         load_resume_json_public.cache_clear()
         _starter_cache.clear()
-        logger.info("Cache cleared: system_prompt, resume_context, and starter responses")
+        logger.info("Cache cleared: prompts, resume_context, and starter responses")
         return {
             "status": "success",
             "message": "Cache cleared. Fresh data will be loaded on next request.",
@@ -1419,6 +1485,140 @@ def build_app() -> FastAPI:
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
             except Exception:  # pragma: no cover - unexpected errors
                 logger.exception("Unexpected error during streamed chat")
+                yield _sse("error", {"detail": "An unexpected error occurred. Please try again."})
+
+        return StreamingResponse(
+            event_gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.post("/api/jd-match")
+    async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingResponse:
+        """SSE job-fit analysis for a pasted job description.
+
+        Draws from its own daily budget (jd_daily_limit) so it never consumes
+        the chat quota; password unlock bypasses it. The pasted JD is untrusted:
+        delimiter tags are stripped and it rides in the user turn only. Briefs
+        are quota-free but require a prior analysis in this session.
+        """
+        store = get_session_store()
+        guard_payload = ChatRequest(message=payload.jd_text, session_id=payload.session_id)
+        ctx = await _run_chat_guardrails(
+            guard_payload, request, store, settings,
+            max_chars=settings.max_jd_chars, consume_quota=False,
+        )
+        session_id = ctx.session_id
+        today = date.today().isoformat()
+
+        # Token-heavy endpoint: extra per-IP limit on top of the global one
+        jd_rate_key = f"jd:{_get_client_ip(request)}"
+        if not await store.check_rate_limit(jd_rate_key, max_requests=3, window=600.0):
+            raise HTTPException(
+                status_code=429,
+                detail="Too many fit analyses at once. Please wait a few minutes and try again.",
+            )
+
+        history = await store.get_history(session_id)
+
+        if payload.mode == "brief":
+            has_analysis = any(
+                JD_SENTINEL in block.get("text", "")
+                for msg in history
+                if msg.get("role") == "user"
+                for block in msg.get("content", [])
+                if isinstance(block, dict)
+            )
+            if not has_analysis:
+                raise HTTPException(status_code=409, detail="Run a fit analysis first.")
+        else:
+            # Unlimited (password-unlocked) identities bypass the JD budget.
+            remaining = await store.get_remaining_quota(
+                _quota_key(request, session_id), settings.free_chat_limit
+            )
+            if remaining is not None:
+                allowed = await store.check_and_increment_scoped_limit(
+                    _quota_key(request, session_id), "jd", settings.jd_daily_limit, today
+                )
+                if not allowed:
+                    raise HTTPException(status_code=403, detail=JD_LIMIT_MESSAGE)
+
+        sanitized = _sanitize_jd_text(ctx.message)
+        if payload.mode == "brief":
+            user_text = (
+                "Generate a phone-screen brief for the role analyzed above: "
+                "suggested screening questions with answers grounded in the "
+                "resume, key logistics, and the recruiter summary, as one "
+                "copyable block."
+            )
+            stored_user_text = "[jd-brief] requested"
+        else:
+            user_text = (
+                "Analyze Dakota's fit for this role.\n"
+                f"<job_description>\n{sanitized}\n</job_description>"
+            )
+            stored_user_text = f"{JD_SENTINEL} {sanitized[:300]}"
+
+        async def event_gen() -> AsyncIterator[str]:
+            yield _sse("session", {"session_id": session_id})
+            yield _sse("status", {"stage": "context_load", "state": "start"})
+            try:
+                system_message = (
+                    f"{load_system_prompt()}\n\n{load_jd_match_prompt()}"
+                    f"\n\n[RESUME DATA]\n{load_resume_context()}"
+                )
+            except RuntimeError:
+                logger.exception("Failed to load prompt or resume data")
+                yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
+                return
+            yield _sse("status", {"stage": "context_load", "state": "done"})
+            yield _sse("status", {"stage": "generation", "state": "start"})
+
+            # Always the primary model: JD analysis is the synthesis-heavy case.
+            client = _make_anthropic_client(settings)
+            try:
+                async with client.messages.stream(
+                    model=settings.anthropic_model,
+                    max_tokens=settings.anthropic_max_tokens,
+                    temperature=0.1,
+                    system=system_message,
+                    messages=_build_api_messages(history, user_text),
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield _sse("delta", {"text": text})
+                    final = await stream.get_final_message()
+
+                reply_text = "".join(
+                    block.text for block in final.content if block.type == "text"
+                )
+                if not reply_text:
+                    reply_text = (
+                        "I couldn't generate the analysis just now. "
+                        "Please try again."
+                    )
+                reply_text, _ = _split_followups(reply_text)
+
+                await _persist_chat(
+                    store, session_id, stored_user_text, reply_text, today,
+                    history_was_empty=False, cache_key="",
+                    model_id=settings.anthropic_model, route_reason="jd-match",
+                )
+                yield _sse("done", {
+                    "reply": reply_text, "mode": payload.mode,
+                    "session_id": session_id, "used_rag": False, "sources": [],
+                    "followups": [], "quota_remaining": None,
+                })
+            except asyncio.CancelledError:
+                logger.info("Client disconnected mid-analysis; skipping persistence")
+                raise
+            except RateLimitError:
+                logger.warning("Anthropic rate limit or spending cap hit")
+                yield _sse("error", {"detail": BUSY_MESSAGE})
+            except AnthropicError:
+                logger.exception("Anthropic API request failed after retries")
+                yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
+            except Exception:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error during JD analysis")
                 yield _sse("error", {"detail": "An unexpected error occurred. Please try again."})
 
         return StreamingResponse(
