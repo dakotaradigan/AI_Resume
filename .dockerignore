@@ -1,0 +1,16 @@
+.git
+.cursor/
+**/.DS_Store
+.env
+**/.env
+venv/
+.venv/
+**/__pycache__/
+**/.pycache_tmp/
+.pytest_cache/
+.ruff_cache/
+*.log
+evals/datasets/
+evals/results/
+backend/analytics/*.json
+backend/analytics/*.jsonl

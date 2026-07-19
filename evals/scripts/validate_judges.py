@@ -17,8 +17,8 @@ We prioritize TNR — catching every failure matters more than avoiding false al
 Target: TNR > 80%, TPR > 85%
 """
 
-import json
 import argparse
+import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -76,7 +76,7 @@ def validate(judge_verdicts: list[dict], human_labels: dict[int, dict]) -> None:
         by_judge[v["judge"]].append(v)
 
     print(f"\n{'='*60}")
-    print(f"JUDGE VALIDATION REPORT")
+    print("JUDGE VALIDATION REPORT")
     print(f"{'='*60}")
     print(f"Human labels available: {len(human_labels)}")
     print(f"Judges evaluated: {list(by_judge.keys())}\n")
@@ -142,8 +142,8 @@ def validate(judge_verdicts: list[dict], human_labels: dict[int, dict]) -> None:
         print(f"  With human label: {total_compared}")
         print(f"  No human label:   {no_label}")
         print()
-        print(f"  Confusion Matrix:")
-        print(f"                    Judge Pass    Judge Fail")
+        print("  Confusion Matrix:")
+        print("                    Judge Pass    Judge Fail")
         print(f"  Human Pass        {true_pos:>6d}        {false_neg:>6d}")
         print(f"  Human Fail        {false_pos:>6d}        {true_neg:>6d}")
         print()
@@ -155,13 +155,13 @@ def validate(judge_verdicts: list[dict], human_labels: dict[int, dict]) -> None:
         tpr_ok = tpr >= 85
         tnr_ok = tnr >= 80
         if tpr_ok and tnr_ok:
-            print(f"  Status: PASSING")
+            print("  Status: PASSING")
         else:
             issues = []
             if not tnr_ok:
-                issues.append(f"TNR below 80% (judge is too lenient)")
+                issues.append("TNR below 80% (judge is too lenient)")
             if not tpr_ok:
-                issues.append(f"TPR below 85% (judge is too strict)")
+                issues.append("TPR below 85% (judge is too strict)")
             print(f"  Status: NEEDS TUNING - {'; '.join(issues)}")
 
         # Show disagreements

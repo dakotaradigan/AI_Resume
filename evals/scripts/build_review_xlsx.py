@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 DATASETS_DIR = Path(__file__).parent.parent / "datasets"
@@ -138,5 +138,5 @@ output_path = DATASETS_DIR / "eval_review.xlsx"
 wb.save(output_path)
 print(f"Written {len(results)} rows to {output_path}")
 print(f"\nOpen in Excel: {output_path}")
-print(f"\nFill in columns G (PASS or FAIL) and H (Critique)")
-print(f"See 'Grading Rubric' tab for guidance")
+print("\nFill in columns G (PASS or FAIL) and H (Critique)")
+print("See 'Grading Rubric' tab for guidance")

@@ -12,9 +12,9 @@ Reads from:  evals/results/eval_run_*.jsonl (bot responses)
 Writes to:   evals/results/judge_run_YYYY-MM-DD_HHMMSS.jsonl
 """
 
+import argparse
 import json
 import re
-import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -264,7 +264,7 @@ def run_judges(
 
     # Summary
     print(f"\n{'='*50}")
-    print(f"JUDGE RUN COMPLETE")
+    print("JUDGE RUN COMPLETE")
     print(f"{'='*50}")
     print(f"Total judge calls: {total_calls}")
     print(f"Skipped (category mismatch): {skipped}")

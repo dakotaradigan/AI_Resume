@@ -7,6 +7,7 @@ Usage:
 
 import json
 from pathlib import Path
+
 from openpyxl import load_workbook
 
 DATASETS_DIR = Path(__file__).parent.parent / "datasets"
@@ -43,7 +44,7 @@ fails = [r for r in labeled if r["human_label"] == "fail"]
 unlabeled = [r for r in results if r["human_label"] not in ("pass", "fail")]
 
 print(f"{'='*60}")
-print(f"EVAL REVIEW SUMMARY")
+print("EVAL REVIEW SUMMARY")
 print(f"{'='*60}")
 print(f"Total cases:  {total}")
 print(f"Labeled:      {len(labeled)}")
@@ -54,7 +55,7 @@ if unlabeled:
 
 # Pass/fail by category
 print(f"\n{'='*60}")
-print(f"RESULTS BY CATEGORY")
+print("RESULTS BY CATEGORY")
 print(f"{'='*60}")
 categories = sorted(set(r["category"] for r in labeled))
 for cat in categories:
@@ -67,7 +68,7 @@ for cat in categories:
 # Failures detail
 if fails:
     print(f"\n{'='*60}")
-    print(f"FAILURE DETAILS")
+    print("FAILURE DETAILS")
     print(f"{'='*60}")
     for r in fails:
         print(f"\n  [{r['id']}] ({r['category']}) {r['query'][:60]}")
@@ -77,7 +78,7 @@ if fails:
 
 # Latency summary
 print(f"\n{'='*60}")
-print(f"LATENCY SUMMARY")
+print("LATENCY SUMMARY")
 print(f"{'='*60}")
 times = [r["response_time_s"] for r in results if r["response_time_s"]]
 if times:
@@ -94,7 +95,7 @@ if times:
 # Critique patterns (for failure mode grouping)
 if fails:
     print(f"\n{'='*60}")
-    print(f"CRITIQUE PATTERNS (for failure mode table)")
+    print("CRITIQUE PATTERNS (for failure mode table)")
     print(f"{'='*60}")
     critiques = {}
     for r in fails:
