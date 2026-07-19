@@ -41,6 +41,22 @@
   --footer-btn-bg: transparent;
   --footer-btn-text: hsl(220, 14%, 18%);
   --footer-separator: hsla(220, 12%, 50%, 0.12);
+  /* Component tokens (lifted from hardcoded values so themes can override) */
+  --on-primary: #ffffff;
+  --input-bg: hsl(40, 15%, 97%);
+  --chat-fade: var(--card);
+  --nav-glass: hsla(40, 20%, 97%, 0.92);
+  --nav-glass-solid: hsla(40, 20%, 97%, 0.96);
+  --scrollbar-thumb: rgba(10, 10, 10, 0.18);
+  --error-text: #e57373;
+  --chat-card-shadow: 0 10px 50px hsla(25, 30%, 20%, 0.12), 0 2px 8px hsla(25, 30%, 20%, 0.06);
+  --cite-border: rgba(213, 112, 36, 0.35);
+  --cite-bg: rgba(213, 112, 36, 0.08);
+  --cite-bg-hover: rgba(213, 112, 36, 0.14);
+  --cite-border-hover: rgba(213, 112, 36, 0.6);
+  --cite-card-border: rgba(213, 112, 36, 0.75);
+  --cite-glow: rgba(213, 112, 36, 0.22);
+  --cite-glow-soft: rgba(213, 112, 36, 0.16);
   --footer-copyright: hsl(220, 8%, 52%);
 }
 
@@ -131,7 +147,7 @@ a:hover {
 }
 
 .site-header.is-scrolled {
-  background: hsla(40, 20%, 97%, 0.92);
+  background: var(--nav-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom-color: var(--border);
@@ -463,9 +479,9 @@ section[id],
   width: 100%;
   border: 1px solid hsla(30, 20%, 70%, 0.35);
   border-radius: 0.8rem;
-  background: #ffffff;
+  background: var(--card);
   overflow: hidden;
-  box-shadow: 0 10px 50px hsla(25, 30%, 20%, 0.12), 0 2px 8px hsla(25, 30%, 20%, 0.06);
+  box-shadow: var(--chat-card-shadow);
 }
 
 .chat-header {
@@ -474,7 +490,7 @@ section[id],
   gap: 12px;
   padding: 18px 20px;
   border-bottom: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--card);
   font-size: 16px;
   font-weight: 600;
 }
@@ -489,7 +505,7 @@ section[id],
   border-radius: 999px;
   font-size: 14px;
   line-height: 1;
-  color: #ffffff;
+  color: var(--on-primary);
   background: var(--accent-warm);
 }
 
@@ -533,7 +549,7 @@ section[id],
   max-height: min(440px, 50vh);
   overflow-y: auto;
   padding: 18px;
-  background: #ffffff;
+  background: var(--card);
   border: none;
   border-radius: 0;
   margin-bottom: 0;
@@ -547,7 +563,7 @@ section[id],
 }
 
 .chat-log::-webkit-scrollbar-thumb {
-  background: rgba(10, 10, 10, 0.18);
+  background: var(--scrollbar-thumb);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 999px;
@@ -560,7 +576,7 @@ section[id],
   left: 0;
   right: 0;
   padding: 14px 18px;
-  background: linear-gradient(to top, #ffffff, transparent);
+  background: linear-gradient(to top, var(--chat-fade), transparent);
   pointer-events: none;
 }
 
@@ -809,9 +825,9 @@ section[id],
 }
 
 .answer-citation {
-  border: 1px solid rgba(213, 112, 36, 0.35);
+  border: 1px solid var(--cite-border);
   border-radius: 999px;
-  background: rgba(213, 112, 36, 0.08);
+  background: var(--cite-bg);
   color: var(--gold-dark);
   cursor: pointer;
   font: inherit;
@@ -823,8 +839,8 @@ section[id],
 
 .answer-citation:hover,
 .answer-citation:focus-visible {
-  background: rgba(213, 112, 36, 0.14);
-  border-color: rgba(213, 112, 36, 0.6);
+  background: var(--cite-bg-hover);
+  border-color: var(--cite-border-hover);
   outline: none;
 }
 
@@ -888,7 +904,7 @@ section[id],
   padding: 14px 18px;
   align-items: center;
   border-top: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--card);
 }
 
 .chat-form input {
@@ -896,7 +912,7 @@ section[id],
   padding: 10px 14px;
   border-radius: 0.5rem;
   border: 1px solid var(--border-strong);
-  background: hsl(40, 15%, 97%);
+  background: var(--input-bg);
   color: var(--text);
   font-size: 15px;
   font-family: var(--font-body);
@@ -915,7 +931,7 @@ section[id],
   border-radius: 999px;
   border: none;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1320,7 +1336,7 @@ section[id],
 }
 
 .resume-card--link:focus-visible {
-  outline: 3px solid rgba(213, 112, 36, 0.35);
+  outline: 3px solid var(--cite-border);
   outline-offset: 3px;
 }
 
@@ -1338,14 +1354,14 @@ section[id],
 }
 
 .resume-card.is-cited {
-  border-color: rgba(213, 112, 36, 0.75);
-  background: linear-gradient(0deg, rgba(213, 112, 36, 0.08), rgba(213, 112, 36, 0.08)), var(--card);
-  box-shadow: 0 0 0 4px rgba(213, 112, 36, 0.22), var(--shadow-md);
+  border-color: var(--cite-card-border);
+  background: linear-gradient(0deg, var(--cite-bg), var(--cite-bg)), var(--card);
+  box-shadow: 0 0 0 4px var(--cite-glow), var(--shadow-md);
 }
 
 .citation-group.is-cited {
   border-radius: 16px;
-  box-shadow: 0 0 0 4px rgba(213, 112, 36, 0.16);
+  box-shadow: 0 0 0 4px var(--cite-glow-soft);
 }
 
 .resume-card-title-row {
@@ -1454,7 +1470,7 @@ section[id],
 .feedback-btn.selected {
   background: var(--gold);
   border-color: var(--gold);
-  color: white;
+  color: var(--on-primary);
 }
 
 .feedback-comment {
@@ -1479,7 +1495,7 @@ section[id],
   border: none;
   border-radius: 6px;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   font-size: 14px;
   font-family: var(--font-body);
   cursor: pointer;
@@ -1514,7 +1530,7 @@ section[id],
 .unlock-submit {
   padding: 8px 16px;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1524,7 +1540,7 @@ section[id],
 
 .unlock-error {
   margin-top: 8px;
-  color: #e57373;
+  color: var(--error-text);
   font-size: 14px;
   display: none;
 }
@@ -1717,7 +1733,7 @@ section[id],
 .feedback-dialog-btn--send {
   border: none;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
 }
 
 .feedback-dialog-btn--send:hover {
@@ -1742,7 +1758,7 @@ section[id],
     right: 0;
     flex-direction: column;
     gap: 0;
-    background: hsla(40, 20%, 97%, 0.96);
+    background: var(--nav-glass-solid);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
@@ -1813,7 +1829,7 @@ section[id],
   border: 1px solid hsla(30, 20%, 70%, 0.35);
   border-radius: 0.8rem;
   background: var(--card);
-  box-shadow: 0 10px 50px hsla(25, 30%, 20%, 0.12), 0 2px 8px hsla(25, 30%, 20%, 0.06);
+  box-shadow: var(--chat-card-shadow);
   padding: 26px 28px 28px;
   display: flex;
   flex-direction: column;
@@ -1884,7 +1900,7 @@ section[id],
   border: none;
   border-radius: 999px;
   background: var(--primary);
-  color: white;
+  color: var(--on-primary);
   cursor: pointer;
   font: inherit;
   font-size: 14px;
@@ -2003,13 +2019,13 @@ section[id],
 .chip--primary {
   background: var(--primary);
   border-color: var(--primary);
-  color: white;
+  color: var(--on-primary);
 }
 
 .chip--primary:hover {
   background: var(--gold);
   border-color: var(--gold);
-  color: white;
+  color: var(--on-primary);
 }
 
 .chip:disabled {
