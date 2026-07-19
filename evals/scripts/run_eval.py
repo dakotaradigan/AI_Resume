@@ -11,10 +11,10 @@ Each result includes the original query, the bot's response, response time,
 and fields for human labeling (pass/fail + critique).
 """
 
+import argparse
 import json
 import time
 import uuid
-import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -105,7 +105,7 @@ def run_eval(dataset_path: Path, output_path: Path) -> None:
     avg_time = sum(r["response_time_s"] for r in results if r["status"] == "success") / max(success, 1)
 
     print(f"\n{'='*50}")
-    print(f"EVAL RUN COMPLETE")
+    print("EVAL RUN COMPLETE")
     print(f"{'='*50}")
     print(f"Total:    {len(results)}")
     print(f"Success:  {success}")
