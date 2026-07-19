@@ -20,7 +20,13 @@ ANALYTICS_FILE = ANALYTICS_DIR / "queries.jsonl"
 FEEDBACK_FILE = ANALYTICS_DIR / "feedback.jsonl"
 
 
-def log_query(session_id: str, query: str, response: str = "") -> None:
+def log_query(
+    session_id: str,
+    query: str,
+    response: str = "",
+    model: str = "",
+    route_reason: str = "",
+) -> None:
     """
     Log a user query for analytics.
 
@@ -28,6 +34,8 @@ def log_query(session_id: str, query: str, response: str = "") -> None:
         session_id: Session identifier (anonymized)
         query: User's question
         response: Full bot response (used by evals judges)
+        model: Model that generated the response (router evals)
+        route_reason: Why the router picked that model (router evals)
     """
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -35,6 +43,10 @@ def log_query(session_id: str, query: str, response: str = "") -> None:
         "query": query,
         "response": response,
     }
+    if model:
+        entry["model"] = model
+    if route_reason:
+        entry["route_reason"] = route_reason
 
     try:
         with open(ANALYTICS_FILE, "a", encoding="utf-8") as f:

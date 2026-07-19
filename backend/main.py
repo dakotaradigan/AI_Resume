@@ -6,16 +6,17 @@ import json
 import logging
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date
 from ipaddress import ip_address
 from pathlib import Path
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, AsyncIterator, Literal
 from uuid import uuid4
 
 from anthropic import AsyncAnthropic, AnthropicError, RateLimitError
 from fastapi import FastAPI, HTTPException, Request, Header
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
@@ -25,7 +26,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency until REDIS_URL is set
     redis_asyncio = None
 
-from config import get_settings
+from config import get_settings, Settings
 from rag import initialize_rag_pipeline, RAGPipeline
 from analytics.analytics import log_query, log_feedback
 
@@ -51,6 +52,23 @@ BUSY_MESSAGE = (
     "Feel free to reach out directly at dakotaradigan@gmail.com or connect on LinkedIn. "
     "We'll be back soon!"
 )
+
+GENERIC_CHAT_ERROR = "Unable to process chat right now. Please try again soon."
+
+# The system prompt asks the model to end replies with a machine-readable
+# follow-up line: "FOLLOWUPS: q1 | q2 | q3". It is stripped from every stored,
+# cached, and returned reply; the parsed questions ride on the SSE done event.
+FOLLOWUPS_MARKER = "FOLLOWUPS:"
+
+
+def _split_followups(reply_text: str) -> tuple[str, list[str]]:
+    """Split the trailing FOLLOWUPS marker line off a model reply."""
+    lines = reply_text.rstrip().split("\n")
+    if lines and lines[-1].strip().startswith(FOLLOWUPS_MARKER):
+        raw = lines[-1].strip()[len(FOLLOWUPS_MARKER):]
+        followups = [q.strip() for q in raw.split("|") if q.strip()][:3]
+        return "\n".join(lines[:-1]).rstrip(), followups
+    return reply_text, []
 
 # Scalability: In-memory storage (easy to swap to Redis later)
 # Wrapped in SessionStore class for async-safe access
@@ -271,6 +289,23 @@ class SessionStore:
         async with self._lock:
             if session_id in self._metadata:
                 self._metadata[session_id]["unlimited"] = value
+
+    async def get_remaining_quota(self, session_id: str, limit: int) -> int | None:
+        """Remaining free exchanges for this identity, or None when unlimited."""
+        if self._redis is not None:
+            values = await self._redis.hmget(
+                self._meta_key(session_id), "unlimited", "user_message_count"
+            )
+            unlimited = (values[0] or "0") == "1"
+            count = int(values[1] or 0)
+        else:
+            async with self._lock:
+                meta = self._metadata.get(session_id, {})
+                unlimited = bool(meta.get("unlimited", False))
+                count = int(meta.get("user_message_count", 0))
+        if unlimited:
+            return None
+        return max(0, limit - count)
 
     async def cleanup_expired(self, max_age_seconds: int) -> int:
         """
@@ -585,7 +620,7 @@ def retrieve_rag_context(
     query: str,
     limit: int = 3,
     score_threshold: float = 0.5
-) -> tuple[str, bool, list[str]]:
+) -> tuple[str, bool, list[dict[str, Any]]]:
     """
     Retrieve relevant resume context using RAG pipeline.
 
@@ -596,7 +631,9 @@ def retrieve_rag_context(
         score_threshold: Minimum similarity score (0-1)
 
     Returns:
-        (context, used_rag, source_titles) — source_titles lists the chunk titles retrieved.
+        (context, used_rag, sources) — sources is [{"title": str, "score": float}]
+        for the retrieved chunks. The non-streaming API maps these to bare
+        titles to keep the ChatResponse.sources contract (list[str]) unchanged.
     """
     if rag_pipeline is None:
         logger.warning("RAG pipeline not initialized, falling back to static context")
@@ -611,14 +648,17 @@ def retrieve_rag_context(
 
         # Format retrieved chunks into context string
         context_parts = []
-        titles = []
+        sources = []
         for idx, result in enumerate(results, 1):
             context_parts.append(
                 f"[Context {idx}: {result['title']}]\n{result['text']}"
             )
-            titles.append(result["title"])
+            sources.append({
+                "title": result["title"],
+                "score": round(float(result.get("score") or 0.0), 3),
+            })
 
-        return "\n\n".join(context_parts), True, titles
+        return "\n\n".join(context_parts), True, sources
 
     except Exception as exc:
         logger.exception("RAG retrieval failed, falling back to static context")
@@ -669,6 +709,239 @@ async def _compact_session_history(session_id: str, store: SessionStore) -> None
         new_history = new_history[-MAX_SESSION_MESSAGES:]
 
     await store.set_history(session_id, new_history)
+
+
+# === Chat turn helpers (shared by /api/chat and /api/chat/stream) ===
+
+
+@dataclass(frozen=True)
+class ChatTurnContext:
+    """Validated identity + input for one chat turn (extended in later phases)."""
+
+    session_id: str
+    message: str
+
+
+def _quota_key(request: Request, session_id: str) -> str:
+    """Identity key for the free-chat limit and unlock state.
+
+    Currently the client-supplied session_id; a later hardening phase swaps
+    this to a server-minted visitor id without touching call sites.
+    """
+    return session_id
+
+
+async def _run_chat_guardrails(
+    payload: ChatRequest,
+    request: Request,
+    store: SessionStore,
+    settings: Settings,
+    *,
+    max_chars: int | None = None,
+) -> ChatTurnContext:
+    """Run every pre-generation guardrail. Raises HTTPException before any
+    stream starts, so error handling is identical for both chat endpoints."""
+    session_id = payload.session_id or str(uuid4())
+
+    # Session cleanup: remove old sessions periodically
+    expired_count = await store.cleanup_expired(settings.session_max_age_seconds)
+    if expired_count > 0:
+        logger.info(f"Cleaned up {expired_count} expired sessions")
+    await store.cleanup_stale_rate_limits()
+
+    # Track last access for cleanup
+    await store.update_metadata(session_id)
+
+    # Rate limiting: prevent abuse (default key = client IP)
+    rate_limit_key = _get_client_ip(request)
+    allowed = await store.check_rate_limit(
+        rate_limit_key,
+        max_requests=settings.rate_limit_requests_per_minute
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Rate limit exceeded. Please wait a moment before sending "
+                "another message. This helps ensure fair access for all visitors."
+            ),
+        )
+
+    # Daily conversation limit: control API costs
+    today = date.today().isoformat()
+    if await store.get_daily_conversation_count(today) >= DAILY_CONVERSATION_LIMIT:
+        raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
+
+    # Input bounds (before consuming chat quota)
+    message = (payload.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    limit_chars = max_chars or settings.max_user_message_chars
+    if len(message) > limit_chars:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Message too long (max {limit_chars} characters).",
+        )
+
+    if not settings.anthropic_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Anthropic API key not configured. Set ANTHROPIC_API_KEY.",
+        )
+
+    # Chat limit protection: free users limited to N exchanges (atomic check+increment)
+    allowed, reason = await store.check_and_increment_limit(
+        _quota_key(request, session_id), settings.free_chat_limit
+    )
+    if not allowed:
+        raise HTTPException(status_code=403, detail=reason)
+
+    return ChatTurnContext(session_id=session_id, message=message)
+
+
+def _build_chat_context(
+    message: str,
+    rag_pipeline: RAGPipeline | None,
+    settings: Settings,
+) -> tuple[str, bool, list[dict[str, Any]]]:
+    """Build the full system message (prompt + resume context) for one turn.
+
+    Blocking (RAG embed + search); call via asyncio.to_thread.
+    """
+    system_prompt = load_system_prompt()
+    if settings.use_rag and rag_pipeline is not None:
+        resume_context, used_rag, sources = retrieve_rag_context(
+            rag_pipeline, message, 3, 0.35
+        )
+        context_label = "RETRIEVED CONTEXT" if used_rag else "RESUME DATA"
+    else:
+        resume_context = load_resume_context()
+        context_label = "RESUME DATA"
+        used_rag = False
+        sources = []
+    return f"{system_prompt}\n\n[{context_label}]\n{resume_context}", used_rag, sources
+
+
+def _make_anthropic_client(settings: Settings) -> AsyncAnthropic:
+    return AsyncAnthropic(
+        api_key=settings.anthropic_api_key,
+        timeout=settings.api_timeout_seconds,
+        max_retries=3,  # Built-in retry with exponential backoff
+    )
+
+
+def _model_short_label(model_id: str) -> str:
+    """Human label for status events: 'claude-sonnet-5' -> 'Sonnet'."""
+    lowered = model_id.lower()
+    for family in ("opus", "sonnet", "haiku"):
+        if family in lowered:
+            return family.capitalize()
+    return model_id
+
+
+_ROUTER_SYSTEM = (
+    "Classify the user question about a resume as 'simple' (single factual "
+    "lookup) or 'complex' (synthesis, comparison, multi-part, or open-ended). "
+    "Reply with exactly one word: simple or complex."
+)
+
+
+def _is_fast_path_simple(message: str) -> bool:
+    """Trivial queries skip the classifier and go straight to the simple model."""
+    if len(message) >= 120:
+        return False
+    lowered = message.lower()
+    return " and " not in lowered and "," not in message and message.count("?") <= 1
+
+
+async def _route_model(
+    message: str, client: AsyncAnthropic, settings: Settings
+) -> tuple[str, str]:
+    """Pick the generation model for this turn. Returns (model_id, reason).
+
+    Fails safe: any classifier error routes to the primary (most capable)
+    model, bounded by the existing rate and daily limits.
+    """
+    if _is_fast_path_simple(message):
+        return settings.anthropic_model_simple, "fast-path"
+    try:
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=settings.anthropic_router_model,
+                max_tokens=4,
+                temperature=0,
+                system=_ROUTER_SYSTEM,
+                messages=[{"role": "user", "content": [{"type": "text", "text": message}]}],
+            ),
+            timeout=2.0,
+        )
+        label = "".join(
+            block.text for block in response.content if block.type == "text"
+        ).strip().lower()
+    except Exception:
+        logger.warning("Model router classification failed; using primary model")
+        return settings.anthropic_model, "router-error"
+    if label == "simple":
+        return settings.anthropic_model_simple, "simple"
+    return settings.anthropic_model, "complex"
+
+
+async def _prepare_generation(
+    message: str,
+    rag_pipeline: RAGPipeline | None,
+    client: AsyncAnthropic,
+    settings: Settings,
+) -> tuple[str, bool, list[dict[str, Any]], str, str]:
+    """Run context retrieval and model routing concurrently (routing must not
+    add serial time-to-first-token)."""
+    (system_message, used_rag, sources), (model_id, route_reason) = await asyncio.gather(
+        asyncio.to_thread(_build_chat_context, message, rag_pipeline, settings),
+        _route_model(message, client, settings),
+    )
+    return system_message, used_rag, sources, model_id, route_reason
+
+
+def _build_api_messages(history: list[dict], message: str) -> list[dict]:
+    # Drop any history entries with roles the Messages API rejects
+    # (e.g. "system" summaries written by older compaction code).
+    return [
+        *(msg for msg in history if msg.get("role") in ("user", "assistant")),
+        {"role": "user", "content": [{"type": "text", "text": message}]},
+    ]
+
+
+async def _persist_chat(
+    store: SessionStore,
+    session_id: str,
+    message: str,
+    reply_text: str,
+    today: str,
+    *,
+    history_was_empty: bool,
+    cache_key: str,
+    model_id: str = "",
+    route_reason: str = "",
+) -> None:
+    """Post-generation bookkeeping. reply_text must already be FOLLOWUPS-stripped."""
+    # Cache response for starter questions (populate lazily on first real answer)
+    if history_was_empty and cache_key in STARTER_QUESTIONS:
+        _starter_cache[cache_key] = reply_text
+
+    await store.append_message(session_id, "user", message)
+    await store.append_message(session_id, "assistant", reply_text)
+    await _compact_session_history(session_id, store)
+
+    # Log query for analytics (privacy: .jsonl files are gitignored)
+    await asyncio.to_thread(
+        log_query, session_id, message, reply_text, model_id, route_reason
+    )
+
+    await store.increment_daily_conversation_count(today)
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    """Format one SSE frame. json.dumps guarantees single-line data."""
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 def _initialize_rag(settings) -> RAGPipeline | None:
@@ -976,65 +1249,13 @@ def build_app() -> FastAPI:
 
     @app.post("/api/chat")
     async def chat(payload: ChatRequest, request: Request) -> ChatResponse:
-        session_id = payload.session_id or str(uuid4())
         store = get_session_store()
-
-        # === Scalability Guardrails ===
-
-        # 1. Session cleanup: Remove old sessions periodically
-        expired_count = await store.cleanup_expired(settings.session_max_age_seconds)
-        if expired_count > 0:
-            logger.info(f"Cleaned up {expired_count} expired sessions")
-        await store.cleanup_stale_rate_limits()
-
-        # 2. Update session metadata (tracks last access for cleanup)
-        await store.update_metadata(session_id)
-
-        # 3. Rate limiting: Prevent abuse (default key = client IP)
-        rate_limit_key = _get_client_ip(request)
-        allowed = await store.check_rate_limit(
-            rate_limit_key,
-            max_requests=settings.rate_limit_requests_per_minute
-        )
-        if not allowed:
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    "Rate limit exceeded. Please wait a moment before sending "
-                    "another message. This helps ensure fair access for all visitors."
-                ),
-        )
-
-        # 4. Daily conversation limit: Control API costs
+        ctx = await _run_chat_guardrails(payload, request, store, settings)
+        session_id, message = ctx.session_id, ctx.message
         today = date.today().isoformat()
-        if await store.get_daily_conversation_count(today) >= DAILY_CONVERSATION_LIMIT:
-            raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
 
-        # === Validation (before consuming chat quota) ===
-
-        # Input bounds
-        message = (payload.message or "").strip()
-        if not message:
-            raise HTTPException(status_code=400, detail="Message cannot be empty.")
-        if len(message) > settings.max_user_message_chars:
-            raise HTTPException(
-                status_code=413,
-                detail=f"Message too long (max {settings.max_user_message_chars} characters).",
-            )
-
-        if not settings.anthropic_api_key:
-            raise HTTPException(
-                status_code=503,
-                detail="Anthropic API key not configured. Set ANTHROPIC_API_KEY.",
-            )
-
-        # 5. Chat limit protection: Free users limited to N exchanges (atomic check+increment)
-        allowed, reason = await store.check_and_increment_limit(session_id, settings.free_chat_limit)
-        if not allowed:
-            raise HTTPException(status_code=403, detail=reason)
-
-        # === Starter question cache: instant responses for suggestion chips ===
-        # Only use cache when it's the first message in a session (no history yet).
+        # Starter question cache: instant responses for suggestion chips.
+        # Only used when it's the first message in a session (no history yet).
         cache_key = message.lower().strip().rstrip("?") + "?"
         history = await store.get_history(session_id)
         if not history and cache_key in _starter_cache:
@@ -1045,57 +1266,22 @@ def build_app() -> FastAPI:
             await store.increment_daily_conversation_count(today)
             return ChatResponse(reply=reply_text, session_id=session_id)
 
+        client = _make_anthropic_client(settings)
         try:
-            system_prompt = load_system_prompt()
-
-            # Use RAG retrieval if enabled, otherwise fall back to static context
-            rag_pipeline = get_rag_pipeline()
-            if settings.use_rag and rag_pipeline is not None:
-                # Run in thread pool to avoid blocking event loop during API calls
-                resume_context, used_rag, sources = await asyncio.to_thread(
-                    retrieve_rag_context,
-                    rag_pipeline,
-                    message,
-                    3,     # limit
-                    0.35   # score_threshold
-                )
-                context_label = "RETRIEVED CONTEXT" if used_rag else "RESUME DATA"
-            else:
-                resume_context = load_resume_context()
-                context_label = "RESUME DATA"
-                used_rag = False
-                sources = []
-
+            system_message, used_rag, sources, model_id, route_reason = (
+                await _prepare_generation(message, get_rag_pipeline(), client, settings)
+            )
         except RuntimeError as exc:
             logger.exception("Failed to load prompt or resume data")
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-        system_message = f"{system_prompt}\n\n[{context_label}]\n{resume_context}"
-
-        # === Async API Call with Timeout and Retry ===
-
-        # 4. API timeout and automatic retry: Prevent hanging requests and handle transient failures
-        # Using async client to avoid blocking the event loop under high load
-        client = AsyncAnthropic(
-            api_key=settings.anthropic_api_key,
-            timeout=settings.api_timeout_seconds,
-            max_retries=3,  # Built-in retry with exponential backoff
-        )
-
         try:
-            # Drop any history entries with roles the Messages API rejects
-            # (e.g. "system" summaries written by older compaction code).
-            messages = [
-                *(msg for msg in history if msg.get("role") in ("user", "assistant")),
-                {"role": "user", "content": [{"type": "text", "text": message}]},
-            ]
-
             response = await client.messages.create(
-                model=settings.anthropic_model,
+                model=model_id,
                 max_tokens=settings.anthropic_max_tokens,
                 temperature=0.1,  # Low temperature for factual accuracy
                 system=system_message,
-                messages=messages,
+                messages=_build_api_messages(history, message),
             )
             reply_text = "".join(
                 block.text for block in response.content if block.type == "text"
@@ -1105,10 +1291,7 @@ def build_app() -> FastAPI:
             raise HTTPException(status_code=503, detail=BUSY_MESSAGE) from exc
         except AnthropicError as exc:
             logger.exception("Anthropic API request failed after retries")
-            raise HTTPException(
-                status_code=502,
-                detail="Unable to process chat right now. Please try again soon.",
-            ) from exc
+            raise HTTPException(status_code=502, detail=GENERIC_CHAT_ERROR) from exc
         except Exception as exc:  # pragma: no cover - unexpected errors
             logger.exception("Unexpected error during chat request")
             raise HTTPException(
@@ -1121,25 +1304,127 @@ def build_app() -> FastAPI:
                 "I couldn't generate a response just now. "
                 "Please try asking in a different way."
             )
+        reply_text, _ = _split_followups(reply_text)
 
-        # Cache response for starter questions (populate lazily on first real answer)
-        if not history and cache_key in STARTER_QUESTIONS:
-            _starter_cache[cache_key] = reply_text
-
-        # Append messages and compact history
-        await store.append_message(session_id, "user", message)
-        await store.append_message(session_id, "assistant", reply_text)
-        await _compact_session_history(session_id, store)
-
-        # Log query for analytics (privacy: .jsonl files are gitignored)
-        await asyncio.to_thread(log_query, session_id, message, reply_text)
-
-        # Increment daily conversation counter
-        await store.increment_daily_conversation_count(today)
+        await _persist_chat(
+            store, session_id, message, reply_text, today,
+            history_was_empty=not history, cache_key=cache_key,
+            model_id=model_id, route_reason=route_reason,
+        )
 
         return ChatResponse(
             reply=reply_text, session_id=session_id,
-            sources=sources, used_rag=used_rag,
+            sources=[s["title"] for s in sources], used_rag=used_rag,
+        )
+
+    @app.post("/api/chat/stream")
+    async def chat_stream(payload: ChatRequest, request: Request) -> StreamingResponse:
+        """SSE chat: real pipeline events (retrieval, routing) then token deltas.
+
+        All guardrails raise plain HTTPExceptions BEFORE the stream starts, so
+        the frontend's 403-unlock and error handling work exactly as for
+        /api/chat. Only failures after headers are sent become `error` events.
+        """
+        store = get_session_store()
+        ctx = await _run_chat_guardrails(payload, request, store, settings)
+        session_id, message = ctx.session_id, ctx.message
+        today = date.today().isoformat()
+
+        cache_key = message.lower().strip().rstrip("?") + "?"
+        history = await store.get_history(session_id)
+        cached_reply = _starter_cache.get(cache_key) if not history else None
+        quota_remaining = await store.get_remaining_quota(
+            _quota_key(request, session_id), settings.free_chat_limit
+        )
+
+        async def event_gen() -> AsyncIterator[str]:
+            yield _sse("session", {"session_id": session_id})
+
+            if cached_reply is not None:
+                yield _sse("status", {"stage": "cached", "state": "done"})
+                yield _sse("delta", {"text": cached_reply})
+                await store.append_message(session_id, "user", message)
+                await store.append_message(session_id, "assistant", cached_reply)
+                await asyncio.to_thread(log_query, session_id, message, cached_reply)
+                await store.increment_daily_conversation_count(today)
+                yield _sse("done", {
+                    "reply": cached_reply, "used_rag": False, "sources": [],
+                    "session_id": session_id, "model": "", "followups": [],
+                    "quota_remaining": quota_remaining,
+                })
+                return
+
+            yield _sse("status", {"stage": "rag_search", "state": "start"})
+            client = _make_anthropic_client(settings)
+            try:
+                system_message, used_rag, sources, model_id, route_reason = (
+                    await _prepare_generation(message, get_rag_pipeline(), client, settings)
+                )
+            except RuntimeError:
+                logger.exception("Failed to load prompt or resume data")
+                yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
+                return
+            yield _sse("status", {
+                "stage": "rag_search", "state": "done",
+                "used_rag": used_rag, "sources": sources,
+            })
+            yield _sse("status", {
+                "stage": "routing", "state": "done",
+                "model": _model_short_label(model_id), "reason": route_reason,
+            })
+            yield _sse("status", {"stage": "generation", "state": "start"})
+
+            try:
+                async with client.messages.stream(
+                    model=model_id,
+                    max_tokens=settings.anthropic_max_tokens,
+                    temperature=0.1,
+                    system=system_message,
+                    messages=_build_api_messages(history, message),
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield _sse("delta", {"text": text})
+                    final = await stream.get_final_message()
+
+                reply_text = "".join(
+                    block.text for block in final.content if block.type == "text"
+                )
+                if not reply_text:
+                    reply_text = (
+                        "I couldn't generate a response just now. "
+                        "Please try asking in a different way."
+                    )
+                reply_text, followups = _split_followups(reply_text)
+
+                await _persist_chat(
+                    store, session_id, message, reply_text, today,
+                    history_was_empty=not history, cache_key=cache_key,
+                    model_id=model_id, route_reason=route_reason,
+                )
+                yield _sse("done", {
+                    "reply": reply_text, "used_rag": used_rag, "sources": sources,
+                    "session_id": session_id, "model": _model_short_label(model_id),
+                    "followups": followups, "quota_remaining": quota_remaining,
+                })
+            except asyncio.CancelledError:
+                # Client disconnected: close the upstream Anthropic stream (the
+                # async with does this on unwind) and skip all persistence.
+                logger.info("Client disconnected mid-stream; skipping persistence")
+                raise
+            except RateLimitError:
+                logger.warning("Anthropic rate limit or spending cap hit")
+                yield _sse("error", {"detail": BUSY_MESSAGE})
+            except AnthropicError:
+                logger.exception("Anthropic API request failed after retries")
+                yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
+            except Exception:  # pragma: no cover - unexpected errors
+                logger.exception("Unexpected error during streamed chat")
+                yield _sse("error", {"detail": "An unexpected error occurred. Please try again."})
+
+        return StreamingResponse(
+            event_gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     @app.post("/api/unlock")
