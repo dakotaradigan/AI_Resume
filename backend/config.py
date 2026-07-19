@@ -103,7 +103,7 @@ def get_settings() -> Settings:
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         anthropic_model=os.getenv(
             "ANTHROPIC_MODEL",
-            "claude-opus-4-5-20251101",
+            "claude-opus-4-8",
         ),
         anthropic_max_tokens=_to_int(os.getenv("ANTHROPIC_MAX_TOKENS"), 1024),
         anthropic_model_simple=os.getenv(
