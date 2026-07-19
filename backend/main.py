@@ -1008,6 +1008,19 @@ _ROUTER_SYSTEM = (
 )
 
 
+# Newer Anthropic models (Sonnet 5, Opus 4.7/4.8, Fable/Mythos) reject requests
+# that set non-default sampling params like temperature with 400 Bad Request.
+_NO_SAMPLING_MODEL_MARKERS = ("sonnet-5", "opus-4-7", "opus-4-8", "fable", "mythos")
+
+
+def _sampling_kwargs(model_id: str, temperature: float) -> dict[str, Any]:
+    """Sampling params for a messages call, omitted for models that reject them."""
+    lowered = model_id.lower()
+    if any(marker in lowered for marker in _NO_SAMPLING_MODEL_MARKERS):
+        return {}
+    return {"temperature": temperature}
+
+
 def _is_fast_path_simple(message: str) -> bool:
     """Trivial queries skip the classifier and go straight to the simple model."""
     if len(message) >= 120:
@@ -1031,7 +1044,7 @@ async def _route_model(
             client.messages.create(
                 model=settings.anthropic_router_model,
                 max_tokens=4,
-                temperature=0,
+                **_sampling_kwargs(settings.anthropic_router_model, 0.0),
                 system=_ROUTER_SYSTEM,
                 messages=[{"role": "user", "content": [{"type": "text", "text": message}]}],
             ),
@@ -1301,6 +1314,37 @@ def build_app() -> FastAPI:
             "vector_db_live": vector_db_live,
         }
 
+    @app.get("/health/models")
+    async def models_health() -> dict[str, Any]:
+        """Live-check each configured model against the Anthropic API.
+
+        'Deploy succeeded' says nothing about whether the account can call
+        the configured models; this endpoint does, without spending tokens.
+        """
+        client = _make_anthropic_client(settings)
+        results: dict[str, Any] = {}
+        for env_name, model_id in (
+            ("ANTHROPIC_MODEL", settings.anthropic_model),
+            ("ANTHROPIC_MODEL_SIMPLE", settings.anthropic_model_simple),
+            ("ANTHROPIC_ROUTER_MODEL", settings.anthropic_router_model),
+        ):
+            try:
+                await client.models.retrieve(model_id)
+                results[env_name] = {"model": model_id, "status": "ok"}
+            except AnthropicError as exc:
+                results[env_name] = {
+                    "model": model_id,
+                    "status": "error",
+                    "detail": str(exc)[:300],
+                }
+            except Exception as exc:  # pragma: no cover - unexpected transport errors
+                results[env_name] = {
+                    "model": model_id,
+                    "status": "error",
+                    "detail": f"{type(exc).__name__}: {exc}"[:300],
+                }
+        return results
+
     @app.post("/admin/cache/clear")
     async def clear_cache(
         request: Request,
@@ -1491,7 +1535,7 @@ def build_app() -> FastAPI:
                     api_response = await client.messages.create(
                         model=attempt_model,
                         max_tokens=settings.anthropic_max_tokens,
-                        temperature=0.1,  # Low temperature for factual accuracy
+                        **_sampling_kwargs(attempt_model, 0.1),
                         system=system_message,
                         messages=_build_api_messages(history, message),
                     )
@@ -1620,7 +1664,7 @@ def build_app() -> FastAPI:
                         async with client.messages.stream(
                             model=attempt_model,
                             max_tokens=settings.anthropic_max_tokens,
-                            temperature=0.1,
+                            **_sampling_kwargs(attempt_model, 0.1),
                             system=system_message,
                             messages=_build_api_messages(history, message),
                         ) as stream:
@@ -1780,7 +1824,7 @@ def build_app() -> FastAPI:
                 async with client.messages.stream(
                     model=settings.anthropic_model,
                     max_tokens=settings.anthropic_max_tokens,
-                    temperature=0.1,
+                    **_sampling_kwargs(settings.anthropic_model, 0.1),
                     system=system_message,
                     messages=_build_api_messages(history, user_text),
                 ) as stream:

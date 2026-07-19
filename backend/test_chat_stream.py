@@ -122,9 +122,11 @@ class FakeStreamingMessages:
 
 class FakeAnthropic:
     messages_api: FakeStreamingMessages | None = None
+    models_api = None
 
     def __init__(self, **_kwargs) -> None:
         self.messages = type(self).messages_api
+        self.models = type(self).models_api
 
 
 def parse_sse(raw: str) -> list[tuple[str, dict]]:
@@ -422,6 +424,29 @@ class TestRouterUnits(unittest.TestCase):
         self.assertEqual(reason, "simple")
 
 
+class TestSamplingParams(unittest.TestCase):
+    def test_temperature_omitted_for_models_that_reject_it(self) -> None:
+        for model in (
+            "claude-sonnet-5",
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-fable-5",
+            "claude-mythos-5",
+        ):
+            self.assertEqual(main._sampling_kwargs(model, 0.1), {}, model)
+
+    def test_temperature_kept_for_older_models(self) -> None:
+        for model in (
+            "claude-sonnet-4-5-20250929",
+            "claude-haiku-4-5-20251001",
+            "claude-opus-4-5-20251101",
+            "test-opus",
+        ):
+            self.assertEqual(
+                main._sampling_kwargs(model, 0.1), {"temperature": 0.1}, model
+            )
+
+
 class TestModelIdGuard(unittest.TestCase):
     def test_malformed_claude_ids_are_flagged(self) -> None:
         import dataclasses
@@ -446,6 +471,29 @@ class TestModelIdGuard(unittest.TestCase):
         # Test fixtures like "test-opus" are not claude ids and must not warn.
         with self.assertNoLogs("resume-assistant", level="ERROR"):
             main._warn_on_suspicious_model_ids(make_settings())
+
+
+class TestModelsHealth(ChatStreamTestCase):
+    def test_reports_ok_and_error_per_configured_model(self) -> None:
+        class FakeModelsAPI:
+            async def retrieve(self, model_id):
+                if model_id == "test-sonnet":
+                    raise AnthropicError("This model is not available to your organization")
+                return SimpleNamespace(id=model_id)
+
+        FakeAnthropic.messages_api = FakeStreamingMessages(["x"])
+        FakeAnthropic.models_api = FakeModelsAPI()
+        self.addCleanup(lambda: setattr(FakeAnthropic, "models_api", None))
+
+        with self.build_client(make_settings()) as client:
+            response = client.get("/health/models")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["ANTHROPIC_MODEL"]["status"], "ok")
+        self.assertEqual(data["ANTHROPIC_ROUTER_MODEL"]["status"], "ok")
+        self.assertEqual(data["ANTHROPIC_MODEL_SIMPLE"]["status"], "error")
+        self.assertIn("not available", data["ANTHROPIC_MODEL_SIMPLE"]["detail"])
 
 
 class TestFollowupsSplit(unittest.TestCase):
