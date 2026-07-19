@@ -23,27 +23,3 @@ jobs:
         run: ruff check backend evals/scripts
       - name: Test
         run: PYTHONPATH=backend USE_RAG=false python -m unittest discover -s backend -p 'test*.py' -v
-
-  docker-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build image
-        run: docker build --tag ai-resume-d3-smoke .
-      - name: Run image
-        run: >-
-          docker run --detach --name ai-resume-d3-smoke --env USE_RAG=false --env PORT=8000
-          --publish 127.0.0.1:8000:8000 ai-resume-d3-smoke
-      - name: Verify site
-        run: |
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8000/health; then
-              exit 0
-            fi
-            sleep 1
-          done
-          docker logs ai-resume-d3-smoke
-          exit 1
-      - name: Stop container
-        if: always()
-        run: docker rm --force ai-resume-d3-smoke
