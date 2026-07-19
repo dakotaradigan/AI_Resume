@@ -708,6 +708,19 @@ if (heroCta) {
   });
 }
 
+// Secondary hero CTA — reveal the resume and move directly to Experience.
+const heroResumeCta = document.getElementById("hero-resume-cta");
+if (heroResumeCta) {
+  heroResumeCta.addEventListener("click", (e) => {
+    e.preventDefault();
+    expandResumeSection("experience");
+    const experienceEl = document.getElementById("experience");
+    window.setTimeout(() => {
+      experienceEl?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+    }, 100);
+  });
+}
+
 // Collapsible resume sections — attached after DOM is fully ready
 window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".resume-section .section-header--link[role='button']").forEach((header) => {
@@ -729,7 +742,7 @@ window.addEventListener("DOMContentLoaded", () => {
 // --- Theme (dark mode) ---
 // theme-init.js already stamped data-theme before first paint; this wires the
 // toggle, persists the choice, and keeps <meta name="theme-color"> in sync.
-const THEME_COLORS = { light: "#f9f8f6", dark: "#191714" };
+const THEME_COLORS = { light: "#FBFDFF", dark: "#16171C" };
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;

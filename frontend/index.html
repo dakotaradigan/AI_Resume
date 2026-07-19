@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f9f8f6" />
+  <meta name="theme-color" content="#FBFDFF" />
   <meta name="description" content="Dakota Radigan, MBA — Senior Product Manager. Interactive AI-powered resume showcasing experience, skills, and projects." />
   <title>Dakota Radigan, MBA | Senior Product Manager</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="./theme-init.js"></script>
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -49,7 +49,10 @@
       <p id="hero-tagline" class="hero-tagline">
         Turning product vision into reality with Python-driven AI solutions
       </p>
-      <a href="#chat" id="hero-cta" class="hero-subtitle">Skip the PDF. Ask my AI agent anything.</a>
+      <div class="hero-actions" role="group" aria-label="Resume actions">
+        <a href="#chat" id="hero-cta" class="hero-action hero-action--primary">Ask my AI agent</a>
+        <a href="#experience" id="hero-resume-cta" class="hero-action hero-action--secondary">View resume</a>
+      </div>
 
       <div id="hero-contact" class="hero-contact">
         <a id="hero-email" class="hero-contact-item" href="mailto:dakotaradigan@gmail.com">
@@ -144,7 +147,8 @@
     <section id="resume" class="resume">
       <section id="experience" class="resume-section">
         <div class="section-header section-header--link" role="button" tabindex="0" aria-expanded="false">
-          <h2 class="section-title">Experience</h2>
+          <span class="section-label">Experience</span>
+          <h2 class="section-title">A track record of shipping.</h2>
           <span class="section-toggle">Show details</span>
         </div>
         <div class="section-content">
@@ -175,7 +179,8 @@
 
       <section id="skills" class="resume-section">
         <div class="section-header section-header--link" role="button" tabindex="0" aria-expanded="false">
-          <h2 class="section-title">Skills</h2>
+          <span class="section-label">Skills</span>
+          <h2 class="section-title">What I bring.</h2>
           <span class="section-toggle">Show details</span>
         </div>
         <div class="section-content">
