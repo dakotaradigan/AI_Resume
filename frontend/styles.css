@@ -1205,7 +1205,6 @@ section[id],
 #skills {
   background: var(--secondary);
   border: 0;
-  border-radius: 0;
   box-shadow: none;
   margin-inline: -16px;
   margin-bottom: 56px;
@@ -2372,7 +2371,6 @@ section[id],
     margin-inline: -12px;
     margin-bottom: 40px;
     padding: 44px 16px 48px;
-    border-radius: 0;
   }
 
   #jd-input {
