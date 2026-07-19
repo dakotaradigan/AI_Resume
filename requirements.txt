@@ -18,3 +18,6 @@ tenacity==8.2.3  # Retry logic with exponential backoff
 
 # PDF resume download (Phase E)
 reportlab>=4.2.0
+
+# MCP endpoint: /mcp with a single data-only get_resume tool (Phase E)
+mcp>=1.28.0

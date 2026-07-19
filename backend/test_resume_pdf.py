@@ -94,5 +94,29 @@ class TestResumePdf(RenderCacheMixin, VisitorQuotaTestCase):
             self.assertEqual(client.get("/api/resume.pdf").status_code, 429)
 
 
+class TestMcpEndpoint(RenderCacheMixin, VisitorQuotaTestCase):
+    def test_initialize_handshake_succeeds_on_bare_mcp_path(self) -> None:
+        # Clients connect to exactly <domain>/mcp — no trailing slash. A
+        # naive Mount 405s bare POSTs, so this guards the Route re-rooting.
+        body = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "0"},
+            },
+        }
+        with self.build_client(make_settings()) as client:
+            response = client.post(
+                "/mcp",
+                json=body,
+                headers={"Accept": "application/json, text/event-stream"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("dakota-resume", response.text)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hmac
 import io
 import json
@@ -21,6 +22,7 @@ from fastapi import FastAPI, HTTPException, Request, Header, Response
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from starlette.routing import Route as StarletteRoute
 from starlette.staticfiles import StaticFiles
 
 try:
@@ -1400,15 +1402,65 @@ def _warn_on_suspicious_model_ids(settings: Settings) -> None:
             )
 
 
+def _build_mcp_server():
+    """MCP server with exactly ONE tool: get_resume (data-only).
+
+    An LLM-invoking tool (ask_resume) was reviewed and rejected: it would be
+    an unauthenticated LLM proxy able to starve the global daily budget. The
+    connected client's own model does the reasoning over the raw resume.
+    """
+    from mcp.server.fastmcp import FastMCP
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    server = FastMCP(
+        "dakota-resume",
+        instructions=(
+            "Dakota Radigan's resume. Call get_resume for the full structured "
+            "resume JSON (experience, projects, skills, education, certifications)."
+        ),
+        stateless_http=True,
+    )
+    # The sub-app is mounted at /mcp by the parent app; serve at its root.
+    server.settings.streamable_http_path = "/"
+    # The SDK's DNS-rebinding protection rejects any Host not on its
+    # allowlist (default: localhost only) with 421 — including the real
+    # domain. This server is public, unauthenticated, and data-only, so
+    # rebinding protection defends nothing; disable it rather than chase
+    # the domain list.
+    server.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
+
+    @server.tool()
+    def get_resume() -> dict:
+        """Dakota Radigan's full resume as structured JSON (phone number excluded)."""
+        return load_resume_json_public()
+
+    return server
+
+
 def build_app() -> FastAPI:
     _configure_logging()
-    app = FastAPI(title="Resume Assistant", docs_url=None, redoc_url=None, openapi_url=None)
+    mcp_server = _build_mcp_server()
+    mcp_asgi_app = mcp_server.streamable_http_app()
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # The MCP session manager requires a running lifespan; the session
+        # store close was previously an on_event("shutdown") handler.
+        async with mcp_server.session_manager.run():
+            yield
+        await get_session_store().close()
+
+    app = FastAPI(
+        title="Resume Assistant",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        lifespan=lifespan,
+    )
     settings = get_settings()
     _warn_on_suspicious_model_ids(settings)
-
-    @app.on_event("shutdown")
-    async def shutdown_event() -> None:
-        await get_session_store().close()
 
     app.state.reindex_status = {
         "running": False,
@@ -2226,6 +2278,15 @@ def build_app() -> FastAPI:
             payload.trigger
         )
         return {"success": True}
+
+    # MCP endpoint (streamable HTTP), registered before the "/" static
+    # catch-all. The SDK's Starlette sub-app holds a single ASGI route;
+    # re-root it at /mcp directly — a Mount would 405 bare `POST /mcp`
+    # (empty-remainder mounts can only slash-redirect GETs). Data-only —
+    # see _build_mcp_server.
+    app.router.routes.append(
+        StarletteRoute("/mcp", endpoint=mcp_asgi_app.routes[0].endpoint, name="mcp")
+    )
 
     # Serve the frontend files from ../frontend
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
