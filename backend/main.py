@@ -74,7 +74,6 @@ COMPACT_KEEP_RECENT = 10
 COMPACT_CHAR_LIMIT = 800
 
 # Daily conversation limit to control API costs
-DAILY_CONVERSATION_LIMIT = 200
 _daily_conversation_count: dict[str, int] = {}  # {"2026-02-03": 42}
 
 CHAT_LIMIT_MESSAGE = (
@@ -1138,8 +1137,9 @@ async def _run_chat_guardrails(
 
     # Daily conversation budget: atomically reserve BEFORE the model call.
     # Endpoints release the unit when generation fails or is cancelled.
+    # The limit is env-tunable (DAILY_CONVERSATION_LIMIT on Railway).
     today = date.today().isoformat()
-    if not await store.reserve_daily_conversation(today, DAILY_CONVERSATION_LIMIT):
+    if not await store.reserve_daily_conversation(today, settings.daily_conversation_limit):
         raise HTTPException(status_code=503, detail=BUSY_MESSAGE)
 
     # Input bounds (before consuming chat quota). Any rejection below returns

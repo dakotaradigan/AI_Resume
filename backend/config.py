@@ -39,6 +39,7 @@ class Settings:
     # Chat limit protection
     chat_password: str = ""  # Password to unlock unlimited chat access
     free_chat_limit: int = 2  # Number of exchanges before requiring password
+    daily_conversation_limit: int = 200  # Global model-call budget per day (all visitors)
 
     # JD fit analysis ("Paste a job description")
     max_jd_chars: int = 15000  # Job descriptions are much longer than chat messages
@@ -129,6 +130,7 @@ def get_settings() -> Settings:
         # Chat limit protection
         chat_password=os.getenv("CHAT_PASSWORD", ""),
         free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),
+        daily_conversation_limit=_to_int(os.getenv("DAILY_CONVERSATION_LIMIT"), 200),
         max_jd_chars=_to_int(os.getenv("MAX_JD_CHARS"), 15000),
         jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 2),
         visitor_cookie_name=os.getenv("VISITOR_COOKIE_NAME", "resume_assistant_visitor_id"),
