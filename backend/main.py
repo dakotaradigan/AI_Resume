@@ -33,6 +33,37 @@ from analytics.analytics import anonymize_session_id, log_query, log_feedback
 
 logger = logging.getLogger("resume-assistant")
 
+
+class _JsonLogFormatter(logging.Formatter):
+    """Single-line JSON records so deployed logs are machine-greppable."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        entry: dict[str, Any] = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            entry["exc"] = self.formatException(record.exc_info)
+        return json.dumps(entry)
+
+
+def _configure_logging() -> None:
+    """Attach a JSON handler when nothing else configured the root logger.
+
+    Under uvicorn the root logger has no handlers, so app logs would fall back
+    to lastResort plain text; tests and embedders that configure logging first
+    are left untouched.
+    """
+    root = logging.getLogger()
+    if root.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(_JsonLogFormatter())
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+
 # Keep context small: compact early and keep fewer turns to reduce memory and token use.
 MAX_SESSION_MESSAGES = 24
 COMPACT_AFTER = 12
@@ -1120,6 +1151,7 @@ def _initialize_rag(settings) -> RAGPipeline | None:
 
 
 def build_app() -> FastAPI:
+    _configure_logging()
     app = FastAPI(title="Resume Assistant", docs_url=None, redoc_url=None, openapi_url=None)
     settings = get_settings()
 
