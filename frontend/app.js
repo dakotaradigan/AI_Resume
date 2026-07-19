@@ -1476,7 +1476,15 @@ function updateJDControls() {
   const len = jdInput.value.length;
   jdCounter.textContent = `${len.toLocaleString("en-US")} / 15,000`;
   jdCounter.classList.toggle("is-near-limit", len >= JD_MAX_CHARS * 0.9);
-  jdAnalyzeBtn.disabled = jdBusy || len < JD_MIN_CHARS;
+  const tooShort = len < JD_MIN_CHARS;
+  jdAnalyzeBtn.disabled = jdBusy || tooShort;
+  jdAnalyzeBtn.title = tooShort
+    ? `Paste at least ${JD_MIN_CHARS} characters of the job description`
+    : "";
+  // Explain the disabled button once the user has pasted *something* short —
+  // an unexplained dead button reads as frozen.
+  const hint = document.getElementById("jd-hint");
+  if (hint) hint.hidden = !(len > 0 && tooShort);
 }
 
 function looksLikeJD(text) {

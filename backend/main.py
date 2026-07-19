@@ -1202,6 +1202,11 @@ def build_app() -> FastAPI:
     class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):
             response = await call_next(request)
+            # Force revalidation (cheap 304s via StaticFiles ETags) so shipped
+            # frontend changes take effect immediately — HTML depends on fresh
+            # app.js to enable controls, and stale caches froze the JD button.
+            if "cache-control" not in response.headers:
+                response.headers["Cache-Control"] = "no-cache"
             response.headers["X-Frame-Options"] = "DENY"
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

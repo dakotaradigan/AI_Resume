@@ -1996,6 +1996,12 @@ section[id],
   color: var(--gold-dark);
 }
 
+.jd-hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
 .jd-analyze {
   border: none;
   border-radius: 999px;
