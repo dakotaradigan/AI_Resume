@@ -1455,14 +1455,32 @@ def build_app() -> FastAPI:
             await store.release_daily_conversation(today)
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+        # Same routed-model fallback as the streaming path: a failure on the
+        # cheaper model retries once on the known-good primary model.
+        candidate_models = [model_id]
+        if model_id != settings.anthropic_model:
+            candidate_models.append(settings.anthropic_model)
+
         try:
-            api_response = await client.messages.create(
-                model=model_id,
-                max_tokens=settings.anthropic_max_tokens,
-                temperature=0.1,  # Low temperature for factual accuracy
-                system=system_message,
-                messages=_build_api_messages(history, message),
-            )
+            api_response = None
+            for attempt_index, attempt_model in enumerate(candidate_models):
+                try:
+                    api_response = await client.messages.create(
+                        model=attempt_model,
+                        max_tokens=settings.anthropic_max_tokens,
+                        temperature=0.1,  # Low temperature for factual accuracy
+                        system=system_message,
+                        messages=_build_api_messages(history, message),
+                    )
+                    model_id = attempt_model
+                    break
+                except AnthropicError:
+                    if attempt_index + 1 >= len(candidate_models):
+                        raise
+                    logger.warning(
+                        "Routed model %s failed; falling back to primary model",
+                        attempt_model,
+                    )
             reply_text = "".join(
                 block.text for block in api_response.content if block.type == "text"
             )
@@ -1562,17 +1580,41 @@ def build_app() -> FastAPI:
             })
             yield _sse("status", {"stage": "generation", "state": "start"})
 
+            # Resilience: if the routed (cheaper) model fails — e.g. the org's
+            # API key lacks access to it — retry once on the primary model,
+            # which is the known-good pre-router path. Only retry when no
+            # tokens have streamed yet, so text is never duplicated.
+            candidate_models = [model_id]
+            if model_id != settings.anthropic_model:
+                candidate_models.append(settings.anthropic_model)
+
             try:
-                async with client.messages.stream(
-                    model=model_id,
-                    max_tokens=settings.anthropic_max_tokens,
-                    temperature=0.1,
-                    system=system_message,
-                    messages=_build_api_messages(history, message),
-                ) as stream:
-                    async for text in stream.text_stream:
-                        yield _sse("delta", {"text": text})
-                    final = await stream.get_final_message()
+                final = None
+                used_model = model_id
+                for attempt_index, attempt_model in enumerate(candidate_models):
+                    streamed_any = False
+                    try:
+                        async with client.messages.stream(
+                            model=attempt_model,
+                            max_tokens=settings.anthropic_max_tokens,
+                            temperature=0.1,
+                            system=system_message,
+                            messages=_build_api_messages(history, message),
+                        ) as stream:
+                            async for text in stream.text_stream:
+                                streamed_any = True
+                                yield _sse("delta", {"text": text})
+                            final = await stream.get_final_message()
+                        used_model = attempt_model
+                        break
+                    except AnthropicError:
+                        is_last = attempt_index + 1 >= len(candidate_models)
+                        if is_last or streamed_any:
+                            raise
+                        logger.warning(
+                            "Routed model %s failed; falling back to primary model",
+                            attempt_model,
+                        )
 
                 reply_text = "".join(
                     block.text for block in final.content if block.type == "text"
@@ -1587,11 +1629,11 @@ def build_app() -> FastAPI:
                 await _persist_chat(
                     store, settings, session_id, message, reply_text,
                     history_was_empty=not history, cache_key=cache_key,
-                    model_id=model_id, route_reason=route_reason,
+                    model_id=used_model, route_reason=route_reason,
                 )
                 yield _sse("done", {
                     "reply": reply_text, "used_rag": used_rag, "sources": sources,
-                    "session_id": session_id, "model": _model_short_label(model_id),
+                    "session_id": session_id, "model": _model_short_label(used_model),
                     "followups": followups, "quota_remaining": quota_remaining,
                 })
             except asyncio.CancelledError:

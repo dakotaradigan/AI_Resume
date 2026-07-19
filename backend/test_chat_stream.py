@@ -94,12 +94,14 @@ class FakeStreamingMessages:
         error_kind: str | None = None,
         error_at: int = 0,
         router_raises: bool = False,
+        fail_models: set[str] | None = None,
     ):
         self.chunks = chunks
         self.router_label = router_label
         self.error_kind = error_kind
         self.error_at = error_at
         self.router_raises = router_raises
+        self.fail_models = fail_models or set()
         self.create_calls: list[dict] = []
         self.stream_calls: list[dict] = []
 
@@ -113,6 +115,8 @@ class FakeStreamingMessages:
 
     def stream(self, **kwargs) -> FakeStreamContext:
         self.stream_calls.append(kwargs)
+        if kwargs.get("model") in self.fail_models:
+            raise AnthropicError(f"model {kwargs['model']} unavailable")
         return FakeStreamContext(self.chunks, self.error_kind, self.error_at)
 
 
@@ -287,6 +291,32 @@ class TestStarterCache(ChatStreamTestCase):
         cache_key = self.STARTER.lower().rstrip("?") + "?"
         self.assertIn(cache_key, main._starter_cache)
         self.assertNotIn(main.FOLLOWUPS_MARKER, main._starter_cache[cache_key])
+
+
+class TestModelFallback(ChatStreamTestCase):
+    def test_failed_routed_model_falls_back_to_primary(self) -> None:
+        # Fast-path routes SIMPLE_MESSAGE to test-sonnet; that model "fails"
+        # (e.g. the org's key lacks access) and the primary must rescue it.
+        FakeAnthropic.messages_api = FakeStreamingMessages(
+            ["Rescued answer."], fail_models={"test-sonnet"}
+        )
+        with self.build_client(make_settings()) as client:
+            events = self.stream_events(client, SIMPLE_MESSAGE)
+
+        done = events[-1]
+        self.assertEqual(done[0], "done")
+        self.assertEqual(done[1]["reply"], "Rescued answer.")
+        self.assertEqual(done[1]["model"], "Opus")
+        models_tried = [c["model"] for c in FakeAnthropic.messages_api.stream_calls]
+        self.assertEqual(models_tried, ["test-sonnet", "test-opus"])
+
+    def test_primary_model_failure_still_errors(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(
+            ["never"], fail_models={"test-sonnet", "test-opus"}
+        )
+        with self.build_client(make_settings()) as client:
+            events = self.stream_events(client, SIMPLE_MESSAGE)
+        self.assertEqual(events[-1][0], "error")
 
 
 class TestStreamErrors(ChatStreamTestCase):
