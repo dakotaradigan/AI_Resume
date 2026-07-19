@@ -139,10 +139,14 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
       <p>The content-security policy allows scripts from this origin only — no inline scripts, no CDNs. Quotas and unlocks are keyed to a server-minted HttpOnly cookie, not anything a client can forge. Pasted job descriptions are sanitized and firewalled as untrusted data, model spend is capped by atomic reserve-and-release budgets, and analytics store only HMAC-hashed identifiers.</p>
     </section>
 
-    <section class="hiw-section">
+    <section class="hiw-section" id="connect-mcp">
       <div class="section-header"><h2 class="section-title">Connect your own AI</h2></div>
-      <p>The resume is machine-readable too: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth, and an MCP endpoint exposes one data-only tool, <code>get_resume</code>. Point your Claude at it:</p>
+      <p>The resume is machine-readable: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth, and an MCP endpoint exposes one data-only tool, <code>get_resume</code>. Connect it and your own AI can read the full resume and answer questions with its own reasoning — no account, no API key, nothing to authorize.</p>
+      <p><strong>Claude (claude.ai or desktop):</strong> Settings → Connectors → <em>Add custom connector</em>, then paste this URL:</p>
+      <pre class="hiw-pre">https://www.dakotaradigan.io/mcp</pre>
+      <p><strong>Claude Code (terminal):</strong></p>
       <pre class="hiw-pre">claude mcp add --transport http resume https://www.dakotaradigan.io/mcp</pre>
+      <p>Then ask your assistant something like <em>"Using the resume tool, is Dakota a fit for this role?"</em> Any other MCP-capable client (ChatGPT, Cursor, etc.) works the same way — add a remote MCP server with the URL above, streamable-HTTP transport, no authentication.</p>
     </section>
 
     <section class="hiw-section">

@@ -151,13 +151,25 @@ class TestHybridRetrieval(unittest.TestCase):
         pipeline.embed_text.assert_not_called()
 
     @patch("rag.RAGPipeline")
-    def test_initialize_rebuilds_keywords_without_reindexing(
+    def test_initialize_skips_reindex_when_corpus_matches(
         self, pipeline_class: MagicMock
     ) -> None:
         pipeline = _offline_pipeline()
-        pipeline.qdrant_client.get_collection.return_value = SimpleNamespace(points_count=2)
+        # build_corpus resolves the patched rag.RAGPipeline; restore the real
+        # chunker BEFORE building the corpus so both this test and the drift
+        # comparison inside initialize see the actual chunks.
+        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
+        current_corpus = build_corpus(RESUME_PATH, BASE_DIR / "data" / "projects")
+        pipeline.qdrant_client.get_collection.return_value = SimpleNamespace(
+            points_count=len(current_corpus)
+        )
         pipeline._rebuild_keyword_index_from_qdrant = MagicMock()
+        # Simulate stored payloads identical to what the data files produce.
+        pipeline._keyword_documents = [
+            {"title": c.title, "text": c.text} for c in current_corpus
+        ]
         pipeline.index_chunks = MagicMock()
+        pipeline.reindex = MagicMock()
         pipeline_class.return_value = pipeline
 
         result = initialize_rag_pipeline(
@@ -170,6 +182,32 @@ class TestHybridRetrieval(unittest.TestCase):
         self.assertIs(result, pipeline)
         pipeline._rebuild_keyword_index_from_qdrant.assert_called_once_with()
         pipeline.index_chunks.assert_not_called()
+        pipeline.reindex.assert_not_called()
+
+    @patch("rag.RAGPipeline")
+    def test_initialize_auto_reindexes_on_corpus_drift(
+        self, pipeline_class: MagicMock
+    ) -> None:
+        pipeline = _offline_pipeline()
+        pipeline.qdrant_client.get_collection.return_value = SimpleNamespace(points_count=2)
+        pipeline._rebuild_keyword_index_from_qdrant = MagicMock()
+        # Stored payloads from an older corpus: content no longer matches.
+        pipeline._keyword_documents = [{"title": "Old Chunk", "text": "stale"}]
+        pipeline.reindex = MagicMock()
+        pipeline_class.return_value = pipeline
+        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
+
+        result = initialize_rag_pipeline(
+            openai_api_key="test",
+            resume_path=RESUME_PATH,
+            qdrant_url="https://qdrant.invalid",
+            projects_dir=BASE_DIR / "data" / "projects",
+        )
+
+        self.assertIs(result, pipeline)
+        pipeline.reindex.assert_called_once_with(
+            RESUME_PATH, BASE_DIR / "data" / "projects"
+        )
 
 
 @unittest.skipUnless(
