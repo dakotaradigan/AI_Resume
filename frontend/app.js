@@ -1132,7 +1132,7 @@ function renderFollowups(data) {
 }
 
 /** Free-limit wall: password unlock plus retry of the blocked message. */
-function renderUnlockForm(thinkingEl, detail, message) {
+function renderUnlockForm(thinkingEl, detail, message, onUnlocked) {
   const body = thinkingEl.querySelector(".msg-body");
   if (!body) return;
   thinkingEl.classList.remove("is-thinking");
@@ -1176,6 +1176,10 @@ function renderUnlockForm(thinkingEl, detail, message) {
 
       if (unlockData.success) {
         thinkingEl.remove();
+        if (onUnlocked) {
+          onUnlocked();
+          return;
+        }
         autoScrollEnabled = true;
         requestScrollToBottom();
         setTimeout(() => sendMessage(message, { isRetry: true }), 0);
@@ -1788,6 +1792,50 @@ if (jdInput && jdAnalyzeBtn) {
     sendJDMatch(text);
   });
 }
+
+// --- Resume PDF download (password-gated; unlocked with the chat password) ---
+
+async function downloadResumePdf() {
+  const btn = document.getElementById("pdf-download");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/resume.pdf", { credentials: "same-origin" });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = el("a", { href: url, download: "Dakota-Radigan-Resume.pdf" });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    let detail = "Unable to download the PDF right now.";
+    try {
+      detail = (await res.json()).detail || detail;
+    } catch (_) {
+      /* non-JSON error body */
+    }
+    // 403 = locked: reuse the chat unlock form inside a bot message, then
+    // retry the download once the password is accepted.
+    const host = addMessage(detail, "bot");
+    const reducedMotion =
+      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById("chat")?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+    if (res.status === 403) {
+      renderUnlockForm(host, detail, null, () => downloadResumePdf());
+    }
+  } catch (err) {
+    console.error("PDF download failed", err);
+    addMessage("Unable to download the PDF right now. Please try again soon.", "bot");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+document.getElementById("pdf-download")?.addEventListener("click", downloadResumePdf);
 
 // Render resume details below chat (Experience / Skills / Education).
 loadAndRenderResume();
