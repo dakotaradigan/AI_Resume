@@ -10,7 +10,6 @@ const certificationsGrid = document.getElementById("certifications-grid");
 
 const brandTitle = document.getElementById("brand-title");
 const heroName = document.getElementById("hero-name");
-const heroCredential = document.getElementById("hero-credential");
 const heroTagline = document.getElementById("hero-tagline");
 const heroEmail = document.getElementById("hero-email");
 const heroLocation = document.getElementById("hero-location");
@@ -22,7 +21,7 @@ const hamburger = document.getElementById("hamburger");
 
 // Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
 const HERO_TAGLINE =
-  "Turning product vision into reality with Python-driven AI solutions";
+  "Turning product vision into reality with Python-driven AI solutions.";
 
 const SESSION_STORAGE_KEY = "resume-assistant-session-id";
 
@@ -835,12 +834,9 @@ async function loadAndRenderResume() {
 
     const personal = data.personal || {};
     const name = (personal.name || "").trim();
-    const creds = (personal.credentials || "").trim();
-    const displayName = [name, creds].filter(Boolean).join(", ");
     const email = (personal.email || "").trim();
-    if (brandTitle && displayName) brandTitle.textContent = displayName.toUpperCase();
+    if (brandTitle && name) brandTitle.textContent = name.toUpperCase();
     if (heroName && name) heroName.textContent = name;
-    if (heroCredential && creds) heroCredential.textContent = creds;
     if (heroTagline) heroTagline.textContent = HERO_TAGLINE;
     if (heroEmail && email) {
       const t = heroEmail.querySelector(".hero-contact-text");
