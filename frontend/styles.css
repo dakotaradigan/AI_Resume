@@ -359,15 +359,6 @@ section[id],
   padding: 88px 16px 68px;
 }
 
-.hero-line {
-  width: 32px;
-  height: 3px;
-  border-radius: 980px;
-  background: var(--accent);
-  margin-bottom: 22px;
-  transform-origin: center;
-}
-
 .hero-kicker {
   font-family: var(--font-display);
   font-size: 12px;
@@ -380,22 +371,12 @@ section[id],
 
 .hero-name {
   font-family: var(--font-display);
-  font-size: clamp(48px, 6vw, 74px);
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: clamp(56px, 8vw, 88px);
+  font-weight: 700;
+  line-height: 0.96;
+  letter-spacing: -0.05em;
   color: var(--text);
-  margin: 0 0 4px;
-}
-
-.hero-credential {
-  font-family: var(--font-display);
-  font-size: clamp(20px, 2.5vw, 30px);
-  font-weight: 600;
-  font-style: normal;
-  letter-spacing: -0.03em;
-  color: var(--muted);
-  margin: 4px 0 18px;
+  margin: 0 0 18px;
 }
 
 .hero-tagline {
@@ -403,8 +384,8 @@ section[id],
   font-size: 18px;
   line-height: 1.5;
   color: var(--muted);
-  margin: 0 auto 20px;
-  max-width: 540px;
+  margin: 0 auto 32px;
+  max-width: 440px;
 }
 
 .hero-actions {
@@ -476,7 +457,7 @@ section[id],
   justify-content: center;
   flex-wrap: wrap;
   gap: 22px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--muted);
   margin-bottom: 0;
 }
@@ -485,28 +466,12 @@ section[id],
   color: inherit;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   letter-spacing: 0.02em;
 }
 
 .hero-contact a:hover {
   text-decoration: none;
   color: var(--accent-dk);
-}
-
-.hero-contact-icon {
-  width: 20px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-}
-
-.hero-contact-icon svg {
-  width: 18px;
-  height: 18px;
-  display: block;
 }
 
 .hero-contact-text {
@@ -542,11 +507,6 @@ section[id],
 }
 
 /* Hero animations */
-@keyframes heroLineIn {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
 @keyframes heroFadeUp {
   from {
     opacity: 0;
@@ -564,9 +524,6 @@ section[id],
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .hero-line {
-    animation: heroLineIn 0.6s ease-out 0.2s both;
-  }
   .hero-kicker {
     opacity: 0;
     animation: heroFadeUp 0.5s ease-out 0.3s both;
@@ -574,10 +531,6 @@ section[id],
   .hero-name {
     opacity: 0;
     animation: heroFadeUp 0.5s ease-out 0.4s both;
-  }
-  .hero-credential {
-    opacity: 0;
-    animation: heroFadeUp 0.5s ease-out 0.5s both;
   }
   .hero-tagline {
     opacity: 0;
@@ -601,10 +554,8 @@ section[id],
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-line,
   .hero-kicker,
   .hero-name,
-  .hero-credential,
   .hero-tagline,
   .hero-actions,
   .hero-contact,
@@ -625,13 +576,53 @@ section[id],
   opacity: 0.35;
 }
 
-/* ===== CHAT CARD ===== */
+/* ===== CHAT ===== */
+.chat-section {
+  width: calc(100% + 32px);
+  margin-inline: -16px;
+  padding: 56px 16px 64px;
+  border-radius: 24px;
+  background: var(--secondary);
+}
+
+.chat-intro {
+  padding: 0 16px;
+  text-align: center;
+}
+
+.chat-intro-kicker {
+  margin-bottom: 10px;
+  color: var(--accent-dk);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.chat-intro-title {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.chat-intro-subtitle {
+  max-width: 460px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
 .chat-card {
   position: relative;
   max-width: 980px;
-  margin: 0 auto;
+  margin: 28px auto 0;
   width: 100%;
-  margin-top: -32px;
   border: 1px solid var(--border);
   border-radius: 24px;
   background: var(--card);
@@ -2280,11 +2271,30 @@ section[id],
   }
 
   .hero-name {
-    font-size: clamp(40px, 12vw, 74px);
+    font-size: clamp(44px, 13.5vw, 64px);
+  }
+
+  .chat-section {
+    width: calc(100% + 24px);
+    margin-inline: -12px;
+    padding: 44px 12px 48px;
+    border-radius: 20px;
+  }
+
+  .chat-intro {
+    padding: 0 12px;
+  }
+
+  .chat-intro-title {
+    font-size: 30px;
+  }
+
+  .chat-intro-subtitle {
+    font-size: 15px;
   }
 
   .chat-card {
-    margin-top: -24px;
+    margin-top: 20px;
     border-radius: 20px;
   }
 
