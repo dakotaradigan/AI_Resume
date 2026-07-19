@@ -496,6 +496,7 @@ STARTER_QUESTIONS = frozenset({
     "what's dakota's background?",
     "tell me about dakota's ai projects?",
     "what can dakota do for my company?",
+    "how was this site built?",
 })
 
 
