@@ -6,6 +6,8 @@ The queries.jsonl file is gitignored to protect user privacy.
 """
 
 import fcntl
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -13,6 +15,17 @@ from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def anonymize_session_id(session_id: str, secret: str) -> str:
+    """HMAC-SHA256 of a session id, truncated to 16 hex chars.
+
+    Keeps analytics rows correlatable per session without ever storing the
+    live bearer id (see docs/security-assessment SEC-01). Callers pass the
+    configured SESSION_HASH_SECRET.
+    """
+    digest = hmac.new(secret.encode(), session_id.encode(), hashlib.sha256)
+    return digest.hexdigest()[:16]
 
 ANALYTICS_DIR = Path(os.getenv("ANALYTICS_DIR", str(Path(__file__).parent)))
 ANALYTICS_DIR.mkdir(parents=True, exist_ok=True)

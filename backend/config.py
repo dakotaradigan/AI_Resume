@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -42,6 +43,11 @@ class Settings:
     # JD fit analysis ("Paste a job description")
     max_jd_chars: int = 15000  # Job descriptions are much longer than chat messages
     jd_daily_limit: int = 2  # Analyses per visitor per day (separate from chat quota)
+
+    # Server-owned visitor identity (quota/unlock key; session_id is history-only)
+    visitor_cookie_name: str = "resume_assistant_visitor_id"
+    visitor_ttl_seconds: int = 2592000  # 30 days
+    session_hash_secret: str = ""  # HMAC key for anonymized analytics ids
 
     # RAG settings (Phase 3)
     openai_api_key: str = ""  # For embeddings
@@ -125,6 +131,11 @@ def get_settings() -> Settings:
         free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),
         max_jd_chars=_to_int(os.getenv("MAX_JD_CHARS"), 15000),
         jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 2),
+        visitor_cookie_name=os.getenv("VISITOR_COOKIE_NAME", "resume_assistant_visitor_id"),
+        visitor_ttl_seconds=_to_int(os.getenv("VISITOR_TTL_SECONDS"), 2592000),
+        # Unset in production breaks analytics-id correlation across restarts;
+        # a random per-process secret still keeps raw session ids out of logs.
+        session_hash_secret=os.getenv("SESSION_HASH_SECRET") or secrets.token_hex(16),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         qdrant_url=os.getenv("QDRANT_URL"),

@@ -112,12 +112,15 @@ class TestJDBudgets(JDMatchTestCase):
     def test_unlocked_identity_bypasses_jd_budget(self) -> None:
         settings = jd_settings(jd_daily_limit=0)
         with self.build_client(settings) as client:
+            # Unlock is keyed to the visitor cookie identity, not session_id.
+            visitor_id = "11111111-2222-4333-8444-555555555555"
+            client.cookies.set("resume_assistant_visitor_id", visitor_id)
             store = main.get_session_store()
             import asyncio
 
-            asyncio.run(store.update_metadata("vip"))
-            asyncio.run(store.set_unlimited("vip", True))
-            response = self.run_jd(client, REALISTIC_JD, "vip")
+            asyncio.run(store.update_metadata(visitor_id))
+            asyncio.run(store.set_unlimited(visitor_id, True))
+            response = self.run_jd(client, REALISTIC_JD, "any-session")
         self.assertEqual(response.status_code, 200)
 
     def test_jd_ip_rate_limit(self) -> None:

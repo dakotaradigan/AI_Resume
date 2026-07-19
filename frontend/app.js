@@ -205,6 +205,7 @@ async function submitFeedback(rating, comment, trigger) {
     await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({ session_id: sessionId, rating, comment, trigger }),
     });
   } catch (err) {
@@ -864,6 +865,9 @@ async function streamChat(url, body, handlers) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    // Explicit for clarity (it's the default): quota/unlock ride the HttpOnly
+    // visitor cookie; session_id in the body is history-only.
+    credentials: "same-origin",
     body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) return { ok: false, res };
@@ -1123,6 +1127,7 @@ function renderUnlockForm(thinkingEl, detail, message) {
       const unlockRes = await fetch("/api/unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ password, session_id: sessionId }),
       });
 
