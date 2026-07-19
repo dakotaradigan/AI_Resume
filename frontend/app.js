@@ -614,7 +614,10 @@ function highlightCitationTarget(targetId, sectionId, scrollId = targetId) {
 
 function buildAnswerCitations(data) {
   const reply = String(data?.reply || "");
-  const sources = new Set(safeArray(data?.sources).map((s) => String(s || "")));
+  // Sources arrive as bare titles (/api/chat) or {title, score} objects (SSE).
+  const sources = new Set(
+    safeArray(data?.sources).map((s) => String((s && s.title) ?? s ?? ""))
+  );
   const citations = [];
   const seenTargets = new Set();
 
@@ -813,15 +816,10 @@ function setSending(isSending) {
   }
 }
 
-function getThinkingMarkup(label = "Thinking") {
-  return `
-    <span class="thinking-label">${label}</span>
-    <span class="thinking-dots" aria-hidden="true">
-      <span class="thinking-dot"></span>
-      <span class="thinking-dot"></span>
-      <span class="thinking-dot"></span>
-    </span>
-  `;
+function scrollBehavior() {
+  const reduced =
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reduced ? "auto" : "smooth";
 }
 
 /**
@@ -843,24 +841,90 @@ function extractQueryTopic(message) {
 }
 
 /**
- * Start showing status steps in the thinking bubble while the fetch is in progress.
- * Returns a controller object so sendMessage can finalize/update steps when the response arrives.
+ * POST to an SSE endpoint and dispatch parsed events to handlers.
+ * Returns {ok:false, res} for non-2xx responses (callers reuse the existing
+ * 403/unlock and error branches); {ok:true} after the stream ends.
  */
-function startStatusSteps(container, message) {
+async function streamChat(url, body, handlers) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) return { ok: false, res };
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const dispatch = (frame) => {
+    let eventName = null;
+    let data = null;
+    for (const line of frame.split("\n")) {
+      if (line.startsWith("event: ")) eventName = line.slice(7);
+      else if (line.startsWith("data: ")) {
+        try {
+          data = JSON.parse(line.slice(6));
+        } catch {
+          data = null;
+        }
+      }
+    }
+    if (!eventName || data === null) return;
+    if (eventName === "session") handlers.onSession?.(data);
+    else if (eventName === "status") handlers.onStatus?.(data);
+    else if (eventName === "delta") handlers.onDelta?.(data);
+    else if (eventName === "done") handlers.onDone?.(data);
+    else if (eventName === "error") handlers.onError?.(data);
+  };
+
+  // Network reads split arbitrarily: buffer and only process complete
+  // "\n\n"-terminated frames, keeping the remainder for the next read.
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      dispatch(buffer.slice(0, sep));
+      buffer = buffer.slice(sep + 2);
+    }
+  }
+  return { ok: true, res };
+}
+
+/**
+ * Event-driven status steps. Real pipeline events can arrive faster than the
+ * entrance transition plays, so DOM insertion is paced through a short display
+ * queue (real data, gated presentation). The queue flushes the moment the
+ * first answer token arrives; the answer is never delayed.
+ */
+function createStatusSteps(container) {
   container.innerHTML = "";
   container.classList.add("has-steps");
   const announcer = document.getElementById("step-announcer");
-  const stepEls = [];
-  const topic = extractQueryTopic(message);
+  const prefersReduced =
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const MIN_STEP_INTERVAL_MS = 350;
 
-  function addStep(text) {
-    if (!container.isConnected) return null;
+  const stepsWrap = document.createElement("div");
+  stepsWrap.className = "status-steps";
+  container.appendChild(stepsWrap);
+
+  const queue = [];
+  const stepEls = [];
+  let lastRenderAt = 0;
+  let timer = null;
+  let flushed = false;
+
+  function renderStep({ text, items, announce }) {
+    if (!stepsWrap.isConnected) return;
     const step = document.createElement("div");
     step.className = "status-step";
     step.setAttribute("aria-hidden", "true");
     const icon = document.createElement("span");
     icon.className = "step-icon";
-    icon.textContent = "\u2713";
+    icon.textContent = "✓";
     step.appendChild(icon);
     const content = document.createElement("div");
     content.className = "step-content";
@@ -868,216 +932,382 @@ function startStatusSteps(container, message) {
     label.className = "step-label";
     label.textContent = text;
     content.appendChild(label);
+    if (items && items.length) {
+      const list = document.createElement("ul");
+      list.className = "step-items";
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        list.appendChild(li);
+      });
+      content.appendChild(list);
+    }
     step.appendChild(content);
-    container.appendChild(step);
+    stepsWrap.appendChild(step);
     requestAnimationFrame(() => step.classList.add("is-visible"));
-    if (announcer) announcer.textContent = text;
+    // Screen readers: announce stage completions only, never per-token.
+    if (announce && announcer) announcer.textContent = announce;
     stepEls.push(step);
-    return step;
+    lastRenderAt = Date.now();
   }
 
-  // Step 1 — reference the user's topic if we can extract one
-  const step1Text = topic
-    ? `Searching for "${topic}"...`
-    : "Searching resume data...";
-  addStep(step1Text);
-
-  // Step 2 appears after 800ms — generic until response arrives with real data
-  const step2Timer = setTimeout(() => addStep("Matching relevant experience..."), 800);
-  // Step 3 appears after 1800ms
-  const step3Timer = setTimeout(() => addStep("Composing answer..."), 1800);
+  function pump() {
+    if (timer || !queue.length) return;
+    const wait =
+      prefersReduced || flushed
+        ? 0
+        : Math.max(0, MIN_STEP_INTERVAL_MS - (Date.now() - lastRenderAt));
+    timer = setTimeout(() => {
+      timer = null;
+      const next = queue.shift();
+      if (next) renderStep(next);
+      pump();
+    }, wait);
+  }
 
   return {
-    /** Call when response arrives to update step 2 with real source data and finalize. */
-    finalize(data) {
-      clearTimeout(step2Timer);
-      clearTimeout(step3Timer);
-
-      // Ensure step 2 exists with real data
-      if (stepEls.length < 2) {
-        // Step 2 hasn't appeared yet — add it with real data
-        const text = (data.used_rag && data.sources?.length)
-          ? `Found ${data.sources.length} relevant section${data.sources.length > 1 ? "s" : ""}`
-          : data.used_rag ? "Using full resume context..." : "Found relevant sections";
-        const step2 = addStep(text);
-        if (step2 && data.used_rag && data.sources?.length) {
-          const contentDiv = step2.querySelector(".step-content");
-          if (contentDiv) {
-            const list = document.createElement("ul");
-            list.className = "step-items";
-            data.sources.forEach((title) => {
-              const li = document.createElement("li");
-              li.textContent = title;
-              list.appendChild(li);
-            });
-            contentDiv.appendChild(list);
-          }
-        }
-      } else if (data.used_rag && data.sources?.length) {
-        // Step 2 already visible — update its text and add source titles
-        const step2 = stepEls[1];
-        const label = step2.querySelector(".step-label");
-        if (label) label.textContent = `Found ${data.sources.length} relevant section${data.sources.length > 1 ? "s" : ""}`;
-        const contentDiv = step2.querySelector(".step-content");
-        if (contentDiv) {
-          const list = document.createElement("ul");
-          list.className = "step-items";
-          data.sources.forEach((title) => {
-            const li = document.createElement("li");
-            li.textContent = title;
-            list.appendChild(li);
-          });
-          contentDiv.appendChild(list);
-        }
-      }
-
-      // Ensure step 3 exists
-      if (stepEls.length < 3) addStep("Generating response...");
+    addStep(text, { items = null, announce = null } = {}) {
+      queue.push({ text, items, announce: announce ?? text });
+      pump();
     },
-
-    /** Cancel timers on error. */
-    cancel() {
-      clearTimeout(step2Timer);
-      clearTimeout(step3Timer);
+    /** First delta arrived: render all remaining queued steps in one frame. */
+    flush() {
+      flushed = true;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      while (queue.length) renderStep(queue.shift());
+    },
+    /** Replace the step stack with a single summary line (called on done). */
+    collapse(summaryText, sourceItems) {
+      this.flush();
+      if (!stepsWrap.isConnected) return;
+      stepEls.forEach((step) => step.remove());
+      stepEls.length = 0;
+      renderStep({
+        text: summaryText,
+        items: sourceItems && sourceItems.length ? sourceItems.slice(0, 4) : null,
+        announce: null,
+      });
     },
   };
 }
 
+/** Follow-up chips live only on the latest bot message. */
+function removePreviousFollowups() {
+  document.querySelectorAll(".msg-followups").forEach((node) => {
+    if (node.contains(document.activeElement)) chatInput?.focus();
+    node.remove();
+  });
+}
+
+function getContactEmail() {
+  const heroText = heroEmail?.querySelector(".hero-contact-text")?.textContent?.trim();
+  return heroText || "dakotaradigan@gmail.com";
+}
+
+/**
+ * Build the follow-up chip row for a completed answer. When the reply consumed
+ * the last free exchange, question chips would only lead to the unlock wall,
+ * so conversion chips are shown instead.
+ */
+function renderFollowups(data) {
+  const quotaExhausted = data.quota_remaining === 0;
+  let chips;
+  if (quotaExhausted) {
+    chips = [
+      {
+        label: "Email Dakota",
+        action: () => {
+          const subject = encodeURIComponent("Reaching out from your resume site");
+          window.location.href = `mailto:${getContactEmail()}?subject=${subject}`;
+        },
+      },
+      {
+        label: "See full resume",
+        action: () =>
+          document
+            .getElementById("resume")
+            ?.scrollIntoView({ behavior: scrollBehavior(), block: "start" }),
+      },
+    ];
+  } else {
+    const questions = safeArray(data.followups)
+      .map((q) => String(q || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (!questions.length) return null;
+    chips = questions.map((q) => ({
+      label: q.length > 60 ? `${q.slice(0, 59)}…` : q,
+      action: () => sendMessage(q),
+    }));
+  }
+
+  const chipsRow = el(
+    "div",
+    { class: "chips" },
+    chips.map((chip) => {
+      const btn = el("button", { class: "chip", type: "button", text: chip.label });
+      btn.addEventListener("click", chip.action);
+      return btn;
+    })
+  );
+  return el("div", { class: "msg-followups" }, [
+    el("span", {
+      class: "answer-citations-label",
+      text: quotaExhausted ? "Continue" : "Keep exploring",
+    }),
+    chipsRow,
+  ]);
+}
+
+/** Free-limit wall: password unlock plus retry of the blocked message. */
+function renderUnlockForm(thinkingEl, detail, message) {
+  const body = thinkingEl.querySelector(".msg-body");
+  if (!body) return;
+  thinkingEl.classList.remove("is-thinking");
+  body.textContent = "";
+
+  const prompt = el("p", { class: "unlock-prompt", text: detail || "You've hit the free chat limit." });
+  const passwordInput = el("input", {
+    type: "text",
+    class: "unlock-input",
+    placeholder: "Enter password",
+    autocomplete: "off",
+    "aria-label": "Chat unlock password",
+  });
+  const submitBtn = el("button", { type: "submit", class: "unlock-submit", text: "Unlock" });
+  const unlockForm = el("form", { class: "unlock-form" }, [passwordInput, submitBtn]);
+  const errorEl = el("p", { class: "unlock-error" });
+
+  body.append(prompt, unlockForm, errorEl);
+  passwordInput.focus();
+
+  unlockForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const password = passwordInput.value.trim();
+
+    if (!password) {
+      errorEl.textContent = "Please enter a password.";
+      errorEl.style.display = "block";
+      return;
+    }
+
+    try {
+      submitBtn.disabled = true;
+      const unlockRes = await fetch("/api/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, session_id: sessionId }),
+      });
+
+      const unlockData = await unlockRes.json();
+
+      if (unlockData.success) {
+        thinkingEl.remove();
+        autoScrollEnabled = true;
+        requestScrollToBottom();
+        setTimeout(() => sendMessage(message, { isRetry: true }), 0);
+        return;
+      }
+      errorEl.textContent = unlockData.message || "Incorrect password.";
+      errorEl.style.display = "block";
+      passwordInput.focus();
+    } catch (unlockErr) {
+      errorEl.textContent = "Failed to unlock. Please try again.";
+      errorEl.style.display = "block";
+      console.error(unlockErr);
+      passwordInput.focus();
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
+
 async function sendMessage(message, { isRetry = false } = {}) {
   suggestionsEl?.remove();
+  removePreviousFollowups();
   if (!isRetry) addMessage(message, "user");
   const thinkingEl = addMessage("Thinking...", "bot");
   const thinkingBody = thinkingEl.querySelector(".msg-body");
-  if (thinkingBody) {
-    thinkingEl.classList.add("is-thinking");
-    thinkingBody.innerHTML = getThinkingMarkup("Thinking");
-  }
+  thinkingEl.classList.add("is-thinking");
   setSending(true);
 
-  // Start status steps animation in parallel with the fetch
-  let stepCtrl = null;
-  if (thinkingBody) {
-    stepCtrl = startStatusSteps(thinkingBody, message);
+  const steps = thinkingBody ? createStatusSteps(thinkingBody) : null;
+  const topic = extractQueryTopic(message);
+  steps?.addStep(topic ? `Searching for "${topic}"...` : "Searching Dakota's experience...");
+
+  // Streaming render state: throttled re-parse of the accumulated markdown.
+  const FOLLOWUPS_MARKER = "FOLLOWUPS:";
+  const startedAt = Date.now();
+  let accumulated = "";
+  let answerDiv = null;
+  let renderPending = false;
+  let maxAnswerHeight = 0;
+  let finalData = null;
+  let streamError = null;
+
+  // Screen readers: never re-announce the growing answer, only completions.
+  chatLog?.setAttribute("aria-live", "off");
+  const announcer = document.getElementById("step-announcer");
+
+  function streamRenderText(text) {
+    // Hold back a marker-length tail so a FOLLOWUPS line split across SSE
+    // frames never flashes on screen; done.reply is the stripped final text.
+    let out = text.slice(0, Math.max(0, text.length - FOLLOWUPS_MARKER.length));
+    const markerIdx = out.lastIndexOf(`\n${FOLLOWUPS_MARKER}`);
+    if (markerIdx !== -1) {
+      out = out.slice(0, markerIdx);
+    } else {
+      const nl = out.lastIndexOf("\n");
+      const lastLine = out.slice(nl + 1).trimStart();
+      if (lastLine && FOLLOWUPS_MARKER.startsWith(lastLine)) {
+        out = nl === -1 ? "" : out.slice(0, nl);
+      }
+    }
+    // Trailing unpaired bold/italic markers would render as literal asterisks
+    // for a frame; trim them from the parse input only.
+    const sinceNl = out.slice(out.lastIndexOf("\n") + 1);
+    if ((sinceNl.match(/\*\*/g) || []).length % 2 === 1) {
+      out = out.slice(0, out.lastIndexOf("**"));
+    } else if ((sinceNl.replace(/\*\*/g, "").match(/\*/g) || []).length % 2 === 1) {
+      out = out.slice(0, out.lastIndexOf("*"));
+    }
+    return out;
+  }
+
+  function scheduleRender() {
+    if (renderPending || !answerDiv) return;
+    renderPending = true;
+    requestAnimationFrame(() => {
+      renderPending = false;
+      if (!answerDiv) return;
+      answerDiv.innerHTML = parseMarkdown(streamRenderText(accumulated));
+      // Height ratchet: rendered content only grows during streaming, so the
+      // bubble never bounces and autoscroll stays stable.
+      const height = answerDiv.offsetHeight;
+      if (height > maxAnswerHeight) {
+        maxAnswerHeight = height;
+        answerDiv.style.minHeight = `${height}px`;
+      }
+      requestScrollToBottom();
+    });
+  }
+
+  function sourceItemsFrom(sources) {
+    return safeArray(sources).map((s) => {
+      const title = String((s && s.title) ?? s ?? "");
+      return typeof s?.score === "number" ? `${title} · ${s.score.toFixed(2)}` : title;
+    });
+  }
+
+  function ensureAnswerDiv() {
+    if (answerDiv || !thinkingBody) return;
+    steps?.flush();
+    thinkingEl.classList.remove("is-thinking");
+    answerDiv = document.createElement("div");
+    answerDiv.className = "step-answer";
+    thinkingBody.appendChild(answerDiv);
   }
 
   try {
-    const fetchStart = Date.now();
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, session_id: sessionId }),
-    });
-
-    if (!res.ok) {
-      stepCtrl?.cancel();
-      // Ensure "Thinking..." shows for at least 1.5s on error paths
-      const elapsed = Date.now() - fetchStart;
-      const MIN_THINKING_MS = 1500;
-      if (elapsed < MIN_THINKING_MS) {
-        await new Promise((r) => setTimeout(r, MIN_THINKING_MS - elapsed));
+    const result = await streamChat(
+      "/api/chat/stream",
+      { message, session_id: sessionId },
+      {
+        onStatus(data) {
+          if (data.stage === "cached") {
+            steps?.addStep("Answered from cache");
+          } else if (data.stage === "rag_search" && data.state === "done") {
+            if (data.used_rag && data.sources?.length) {
+              const items = sourceItemsFrom(data.sources);
+              steps?.addStep(
+                `Found ${items.length} relevant section${items.length > 1 ? "s" : ""}`,
+                { items }
+              );
+            } else {
+              steps?.addStep("Using full resume context");
+            }
+          } else if (data.stage === "routing") {
+            steps?.addStep(`Routed to ${data.model}`);
+          } else if (data.stage === "generation" && data.state === "start") {
+            steps?.addStep("Generating answer...");
+          }
+        },
+        onDelta(data) {
+          ensureAnswerDiv();
+          accumulated += data.text || "";
+          scheduleRender();
+        },
+        onDone(data) {
+          finalData = data;
+        },
+        onError(data) {
+          streamError = data;
+        },
       }
-      // Handle chat limit (403)
-      if (res.status === 403) {
-        const errorData = await res.json().catch(() => ({}));
+    );
+
+    if (!result.ok) {
+      const errorData = await result.res.json().catch(() => ({}));
+      if (result.res.status === 403) {
+        renderUnlockForm(thinkingEl, errorData.detail, message);
+      } else {
         const body = thinkingEl.querySelector(".msg-body");
         if (body) {
           thinkingEl.classList.remove("is-thinking");
-          body.textContent = "";
-
-          const prompt = el("p", { class: "unlock-prompt", text: errorData.detail || "You've hit the free chat limit." });
-          const passwordInput = el("input", {
-            type: "text",
-            class: "unlock-input",
-            placeholder: "Enter password",
-            autocomplete: "off",
-            "aria-label": "Chat unlock password",
-          });
-          const submitBtn = el("button", { type: "submit", class: "unlock-submit", text: "Unlock" });
-          const unlockForm = el("form", { class: "unlock-form" }, [passwordInput, submitBtn]);
-          const errorEl = el("p", { class: "unlock-error" });
-
-          body.append(prompt, unlockForm, errorEl);
-          passwordInput.focus();
-
-          unlockForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const password = passwordInput.value.trim();
-
-            if (!password) {
-              errorEl.textContent = "Please enter a password.";
-              errorEl.style.display = "block";
-              return;
-            }
-
-            try {
-              submitBtn.disabled = true;
-              const unlockRes = await fetch("/api/unlock", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ password, session_id: sessionId }),
-              });
-
-              const unlockData = await unlockRes.json();
-
-              if (unlockData.success) {
-                thinkingEl.remove();
-                autoScrollEnabled = true;
-                requestScrollToBottom();
-                setTimeout(() => sendMessage(message, { isRetry: true }), 0);
-                return;
-              } else {
-                errorEl.textContent = unlockData.message || "Incorrect password.";
-                errorEl.style.display = "block";
-                passwordInput.focus();
-              }
-            } catch (unlockErr) {
-              errorEl.textContent = "Failed to unlock. Please try again.";
-              errorEl.style.display = "block";
-              console.error(unlockErr);
-              passwordInput.focus();
-            } finally {
-              submitBtn.disabled = false;
-            }
-          });
+          body.textContent =
+            errorData.detail || "Sorry, something went wrong. Please try again.";
         }
-        requestScrollToBottom();
-        return;
-      }
-
-      // Show API error message for any non-OK response
-      const errorData = await res.json().catch(() => ({}));
-      const body = thinkingEl.querySelector(".msg-body");
-      if (body) {
-        thinkingEl.classList.remove("is-thinking");
-        body.textContent = errorData.detail || "Sorry, something went wrong. Please try again.";
       }
       requestScrollToBottom();
       return;
     }
 
-    const data = await res.json();
-    const body = thinkingEl.querySelector(".msg-body");
-    if (body) {
-      // Ensure steps have time to animate before showing the answer
-      const MIN_STEPS_MS = 2400;
-      const elapsed = Date.now() - fetchStart;
-      if (elapsed < MIN_STEPS_MS) {
-        await new Promise((r) => setTimeout(r, MIN_STEPS_MS - elapsed));
+    if (streamError || !finalData) {
+      const body = thinkingEl.querySelector(".msg-body");
+      if (body) {
+        thinkingEl.classList.remove("is-thinking");
+        body.textContent =
+          streamError?.detail || "Sorry, something went wrong. Please try again.";
       }
-      stepCtrl?.finalize(data);
-      // Brief pause after finalize so the updated step 2 is visible
-      await new Promise((r) => setTimeout(r, 400));
-      thinkingEl.classList.remove("is-thinking");
-      // Append the answer below the steps
-      const answerDiv = document.createElement("div");
-      answerDiv.className = "step-answer";
-      answerDiv.innerHTML = parseMarkdown(data.reply ?? "No response received.");
-      body.appendChild(answerDiv);
-      const citations = renderAnswerCitations(data);
-      if (citations) body.appendChild(citations);
+      if (announcer) announcer.textContent = "Something went wrong.";
+      requestScrollToBottom();
+      return;
     }
 
-    // Show feedback UI on first successful response
+    // Finalize: authoritative render of the stripped reply, then the step
+    // summary, citations, follow-up chips, and feedback UI.
+    thinkingEl.classList.remove("is-thinking");
+    ensureAnswerDiv();
+    if (answerDiv) {
+      answerDiv.innerHTML = parseMarkdown(finalData.reply ?? "No response received.");
+      answerDiv.style.minHeight = "";
+    }
+
+    const sourceItems = sourceItemsFrom(finalData.sources);
+    const summaryParts = [
+      finalData.used_rag
+        ? `${sourceItems.length} source${sourceItems.length === 1 ? "" : "s"}`
+        : "Full resume context",
+    ];
+    if (finalData.model) summaryParts.push(finalData.model);
+    summaryParts.push(`${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+    steps?.collapse(summaryParts.join(" · "), finalData.used_rag ? sourceItems : null);
+
+    if (thinkingBody) {
+      const citations = renderAnswerCitations(finalData);
+      if (citations) thinkingBody.appendChild(citations);
+      const followups = renderFollowups(finalData);
+      if (followups) thinkingBody.appendChild(followups);
+    }
+
+    if (announcer) {
+      const firstSentence = String(finalData.reply || "").split(/(?<=[.!?])\s/)[0] || "";
+      announcer.textContent = `Answer ready. ${firstSentence.slice(0, 150)}`;
+    }
+
     if (!firstResponseFeedbackShown) {
       firstResponseFeedbackShown = true;
       addFeedbackUI(thinkingEl, "first_response");
@@ -1085,7 +1315,6 @@ async function sendMessage(message, { isRetry = false } = {}) {
 
     requestScrollToBottom();
   } catch (err) {
-    stepCtrl?.cancel();
     const body = thinkingEl.querySelector(".msg-body");
     if (body) {
       thinkingEl.classList.remove("is-thinking");
@@ -1094,6 +1323,7 @@ async function sendMessage(message, { isRetry = false } = {}) {
     requestScrollToBottom();
     console.error(err);
   } finally {
+    chatLog?.setAttribute("aria-live", "polite");
     thinkingEl?.classList?.remove("is-thinking");
     setSending(false);
     chatInput.focus();

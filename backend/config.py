@@ -20,6 +20,12 @@ class Settings:
     environment: str
     data_dir: Path
 
+    # Model routing: simple factual queries go to a faster/cheaper model,
+    # everything else stays on anthropic_model. The router itself uses a
+    # small classifier model.
+    anthropic_model_simple: str = "claude-sonnet-5"
+    anthropic_router_model: str = "claude-haiku-4-5-20251001"
+
     # Scalability settings (configurable via environment variables)
     rate_limit_requests_per_minute: int = 20  # Max requests per session per minute
     session_max_age_seconds: int = 3600  # 1 hour - sessions older than this are cleaned up
@@ -90,6 +96,14 @@ def get_settings() -> Settings:
             "claude-opus-4-5-20251101",
         ),
         anthropic_max_tokens=_to_int(os.getenv("ANTHROPIC_MAX_TOKENS"), 1024),
+        anthropic_model_simple=os.getenv(
+            "ANTHROPIC_MODEL_SIMPLE",
+            "claude-sonnet-5",
+        ),
+        anthropic_router_model=os.getenv(
+            "ANTHROPIC_ROUTER_MODEL",
+            "claude-haiku-4-5-20251001",
+        ),
         environment=os.getenv("ENVIRONMENT", "development"),
         data_dir=data_dir,
         # Scalability settings (use defaults if not set)

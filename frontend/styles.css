@@ -828,6 +828,22 @@ section[id],
   outline: none;
 }
 
+/* Follow-up question chips under the latest answer */
+.msg-followups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.msg-followups .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .msg.bot .msg-body code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.92em;
@@ -1785,6 +1801,85 @@ section[id],
 
   .chat-log {
     max-height: 35vh;
+  }
+}
+
+/* Phones: recruiters open this from LinkedIn on mobile */
+@media (max-width: 600px) {
+  .layout {
+    padding: 0 12px;
+  }
+
+  .hero-name {
+    font-size: clamp(40px, 12vw, 80px);
+  }
+
+  .chat-card {
+    border-radius: 0.6rem;
+  }
+
+  .chat-log {
+    /* dvh keeps the log visible when the software keyboard opens */
+    max-height: 50dvh;
+    min-height: 260px;
+  }
+
+  .chat-form input {
+    /* 16px floor prevents iOS focus auto-zoom */
+    font-size: 16px;
+  }
+
+  .send-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .chip {
+    min-height: 36px;
+  }
+
+  .chat-suggestions .chips,
+  .msg-followups .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  .msg {
+    max-width: 92%;
+    font-size: 15px;
+  }
+
+  .step-items {
+    margin-left: 20px;
+  }
+
+  .step-items li {
+    overflow-wrap: anywhere;
+  }
+
+  .experience-timeline {
+    padding-left: 22px;
+  }
+
+  .timeline-entry {
+    padding: 16px 14px;
+  }
+
+  .timeline-entry::before {
+    left: -27px;
+    top: 22px;
+  }
+
+  .footer-buttons {
+    flex-direction: column;
+  }
+
+  .footer-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
