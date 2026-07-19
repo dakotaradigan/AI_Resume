@@ -1804,6 +1804,232 @@ section[id],
   }
 }
 
+/* --- JD fit analysis card ("Hiring for a role?") --- */
+.jd-card {
+  position: relative;
+  max-width: 980px;
+  margin: 0 auto;
+  width: 100%;
+  border: 1px solid hsla(30, 20%, 70%, 0.35);
+  border-radius: 0.8rem;
+  background: var(--card);
+  box-shadow: 0 10px 50px hsla(25, 30%, 20%, 0.12), 0 2px 8px hsla(25, 30%, 20%, 0.06);
+  padding: 26px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jd-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+}
+
+.jd-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--text);
+  margin: 0;
+}
+
+.jd-subtitle {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+#jd-input {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, min-height 0.2s ease;
+}
+
+#jd-input:focus {
+  min-height: 200px;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--ring);
+  outline: none;
+}
+
+.jd-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.jd-counter {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.jd-counter.is-near-limit {
+  color: var(--gold-dark);
+}
+
+.jd-analyze {
+  border: none;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 40px;
+  padding: 8px 20px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.jd-analyze:hover:not(:disabled) {
+  background: var(--gold);
+}
+
+.jd-analyze:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jd-analyze:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+#jd-results {
+  margin-top: 14px;
+  outline: none;
+}
+
+.jd-results-heading {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  margin: 0 0 10px;
+}
+
+/* All four result headings get identical kicker treatment — equal typographic
+   dignity is what makes Honest Gaps read as credible, not damning. */
+#jd-results .step-answer h2 {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 20px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+#jd-results .step-answer h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+#jd-results .step-answer h2[data-jd]::before {
+  margin-right: 6px;
+}
+
+#jd-results .step-answer h2[data-jd="strong"]::before {
+  content: "✓";
+  color: var(--gold-dark);
+}
+
+#jd-results .step-answer h2[data-jd="partial"]::before {
+  content: "◐";
+  color: var(--muted);
+}
+
+#jd-results .step-answer h2[data-jd="gaps"]::before {
+  content: "○";
+  color: var(--muted);
+}
+
+.jd-summary-card {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.jd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.jd-brief-btn {
+  min-height: 40px;
+}
+
+.jd-copy-btn.is-copied {
+  color: var(--gold-dark);
+}
+
+.jd-email-btn {
+  text-decoration: none;
+}
+
+.jd-error {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+
+.jd-stream--brief {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.chip--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.chip--primary:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: white;
+}
+
+.chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jd-interstitial-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+
+.jd-interstitial-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 /* Phones: recruiters open this from LinkedIn on mobile */
 @media (max-width: 600px) {
   .layout {
@@ -1880,6 +2106,35 @@ section[id],
   .footer-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .jd-card {
+    border-radius: 0.6rem;
+    padding: 20px 16px 22px;
+  }
+
+  #jd-input {
+    font-size: 16px;
+  }
+
+  #jd-input:focus {
+    min-height: 140px;
+  }
+
+  .jd-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .jd-counter {
+    text-align: right;
+  }
+
+  .jd-analyze,
+  .jd-actions .chip {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
   }
 }
 

@@ -823,6 +823,21 @@ function scrollBehavior() {
 }
 
 /**
+ * Trailing unpaired bold/italic markers render as literal asterisks for a
+ * frame while streaming; trim them from the parse input only.
+ */
+function stripUnpairedEmphasis(text) {
+  let out = text;
+  const sinceNl = out.slice(out.lastIndexOf("\n") + 1);
+  if ((sinceNl.match(/\*\*/g) || []).length % 2 === 1) {
+    out = out.slice(0, out.lastIndexOf("**"));
+  } else if ((sinceNl.replace(/\*\*/g, "").match(/\*/g) || []).length % 2 === 1) {
+    out = out.slice(0, out.lastIndexOf("*"));
+  }
+  return out;
+}
+
+/**
  * Extract a short topic label from the user's query for dynamic step text.
  */
 function extractQueryTopic(message) {
@@ -1018,6 +1033,15 @@ function renderFollowups(data) {
   if (quotaExhausted) {
     chips = [
       {
+        label: "Run a fit analysis for your role",
+        action: () => {
+          document
+            .getElementById("jd-match")
+            ?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+          document.getElementById("jd-input")?.focus({ preventScroll: true });
+        },
+      },
+      {
         label: "Email Dakota",
         action: () => {
           const subject = encodeURIComponent("Reaching out from your resume site");
@@ -1166,15 +1190,7 @@ async function sendMessage(message, { isRetry = false } = {}) {
         out = nl === -1 ? "" : out.slice(0, nl);
       }
     }
-    // Trailing unpaired bold/italic markers would render as literal asterisks
-    // for a frame; trim them from the parse input only.
-    const sinceNl = out.slice(out.lastIndexOf("\n") + 1);
-    if ((sinceNl.match(/\*\*/g) || []).length % 2 === 1) {
-      out = out.slice(0, out.lastIndexOf("**"));
-    } else if ((sinceNl.replace(/\*\*/g, "").match(/\*/g) || []).length % 2 === 1) {
-      out = out.slice(0, out.lastIndexOf("*"));
-    }
-    return out;
+    return stripUnpairedEmphasis(out);
   }
 
   function scheduleRender() {
@@ -1335,6 +1351,12 @@ chatForm.addEventListener("submit", (e) => {
   const message = chatInput.value.trim();
   if (!message) return;
   chatInput.value = "";
+  // Detect pasted job descriptions BEFORE any fetch: chat caps at 2,000 chars,
+  // and the fit analysis is the better tool for a JD anyway.
+  if (looksLikeJD(message)) {
+    renderJDInterstitial(message);
+    return;
+  }
   sendMessage(message);
 });
 
@@ -1385,6 +1407,327 @@ if (feedbackDialog && feedbackOpenBtn) {
     const mailto = `mailto:dakotaradigan@gmail.com?subject=${encodeURIComponent("Resume Site Feedback")}&body=${encodeURIComponent(body)}`;
     window.open(mailto, "_blank");
     feedbackDialog.close();
+  });
+}
+
+// --- JD fit analysis ("Hiring for a role?") ---
+const jdInput = document.getElementById("jd-input");
+const jdCounter = document.getElementById("jd-counter");
+const jdAnalyzeBtn = document.getElementById("jd-analyze");
+const jdResults = document.getElementById("jd-results");
+const jdAnnouncer = document.getElementById("jd-announcer");
+const JD_MIN_CHARS = 200;
+const JD_MAX_CHARS = 15000;
+
+let jdBusy = false;
+let jdAnalysisMarkdown = ""; // raw markdown of the last completed analysis
+
+function updateJDControls() {
+  if (!jdInput || !jdCounter || !jdAnalyzeBtn) return;
+  const len = jdInput.value.length;
+  jdCounter.textContent = `${len.toLocaleString("en-US")} / 15,000`;
+  jdCounter.classList.toggle("is-near-limit", len >= JD_MAX_CHARS * 0.9);
+  jdAnalyzeBtn.disabled = jdBusy || len < JD_MIN_CHARS;
+}
+
+function looksLikeJD(text) {
+  if (text.length <= 800) return false;
+  const signals =
+    /responsibilit|qualificat|requirement|we are looking for|years of experience|preferred|about the role|equal opportunity|benefits/gi;
+  const hits = text.match(signals) || [];
+  return new Set(hits.map((h) => h.toLowerCase())).size >= 2;
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  return new Promise((resolve, reject) => {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    document.body.appendChild(helper);
+    helper.select();
+    const ok = document.execCommand("copy");
+    helper.remove();
+    if (ok) resolve();
+    else reject(new Error("copy failed"));
+  });
+}
+
+function makeCopyButton(label, getText, announceText) {
+  const btn = el("button", { class: "chip jd-copy-btn", type: "button", text: label });
+  btn.addEventListener("click", async () => {
+    try {
+      // Copy from the raw markdown kept in JS scope — never from innerHTML.
+      await copyToClipboard(getText());
+      const original = label;
+      btn.textContent = "✓ Copied";
+      btn.classList.add("is-copied");
+      if (jdAnnouncer) jdAnnouncer.textContent = announceText;
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove("is-copied");
+      }, 2000);
+    } catch {
+      btn.textContent = "Press Ctrl+C";
+    }
+  });
+  return btn;
+}
+
+function extractRecruiterSummary(markdown) {
+  const match = markdown.match(/##\s*Recruiter Summary\s*\n([\s\S]*?)(?=\n##\s|$)/i);
+  return (match ? match[1] : markdown).trim();
+}
+
+/** Tag headings for glyph styling; wrap the Recruiter Summary in a card. */
+function decorateJDResults(container) {
+  const kinds = [
+    [/strong matches/i, "strong"],
+    [/partial matches/i, "partial"],
+    [/honest gaps/i, "gaps"],
+    [/recruiter summary/i, "summary"],
+  ];
+  container.querySelectorAll("h2").forEach((h2) => {
+    const kind = kinds.find(([re]) => re.test(h2.textContent));
+    if (kind) h2.dataset.jd = kind[1];
+  });
+
+  const summaryHeading = container.querySelector('h2[data-jd="summary"]');
+  if (summaryHeading) {
+    const toWrap = [];
+    let node = summaryHeading.nextSibling;
+    while (node && !(node.nodeType === 1 && node.tagName === "H2")) {
+      toWrap.push(node);
+      node = node.nextSibling;
+    }
+    if (toWrap.length) {
+      const card = document.createElement("div");
+      card.className = "jd-summary-card";
+      summaryHeading.after(card);
+      toWrap.forEach((n) => card.appendChild(n));
+    }
+  }
+}
+
+function buildJDMailto() {
+  const roleLine =
+    (jdInput?.value || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .find(Boolean) || "your role";
+  const subject = `Re: ${roleLine.slice(0, 60)} — fit analysis from your site`;
+  return `mailto:${getContactEmail()}?subject=${encodeURIComponent(subject)}`;
+}
+
+function renderJDActions() {
+  if (!jdResults) return;
+  jdResults.querySelector(".jd-actions:not(.jd-actions--brief)")?.remove();
+
+  const briefBtn = el("button", {
+    class: "jd-analyze jd-brief-btn",
+    type: "button",
+    text: "Generate screening brief",
+  });
+  briefBtn.addEventListener("click", async () => {
+    if (jdBusy) return;
+    briefBtn.disabled = true;
+    briefBtn.textContent = "Writing brief…";
+    await sendJDMatch("Generate a screening brief", { mode: "brief" });
+    briefBtn.disabled = false;
+    briefBtn.textContent = "Regenerate brief";
+  });
+
+  const emailLink = el("a", {
+    class: "chip jd-email-btn",
+    href: buildJDMailto(),
+    text: "Email Dakota about this role",
+  });
+
+  const actions = el("div", { class: "jd-actions" }, [
+    makeCopyButton("Copy summary", () => extractRecruiterSummary(jdAnalysisMarkdown), "Recruiter summary copied"),
+    briefBtn,
+    emailLink,
+  ]);
+  jdResults.append(actions);
+}
+
+async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
+  if (jdBusy || !jdResults) return;
+  jdBusy = true;
+  updateJDControls();
+  if (jdAnalyzeBtn && mode === "analysis") jdAnalyzeBtn.textContent = "Analyzing…";
+
+  let streamHost;
+  if (mode === "analysis") {
+    jdResults.hidden = false;
+    jdResults.innerHTML = "";
+    jdResults.append(el("h3", { class: "jd-results-heading", text: "Fit analysis" }));
+    streamHost = el("div", { class: "jd-stream" });
+    jdResults.append(streamHost);
+    jdResults.focus({ preventScroll: true });
+  } else {
+    streamHost = el("div", { class: "jd-stream jd-stream--brief" });
+    jdResults.append(streamHost);
+  }
+
+  const steps = createStatusSteps(streamHost);
+  steps.addStep("Loading Dakota's full resume...");
+
+  let accumulated = "";
+  let answerDiv = null;
+  let renderPending = false;
+  let maxAnswerHeight = 0;
+  let finalData = null;
+  let streamError = null;
+
+  function ensureAnswerDiv() {
+    if (answerDiv) return;
+    steps.flush();
+    answerDiv = el("div", { class: "step-answer" });
+    streamHost.appendChild(answerDiv);
+  }
+
+  function scheduleRender() {
+    if (renderPending || !answerDiv) return;
+    renderPending = true;
+    requestAnimationFrame(() => {
+      renderPending = false;
+      if (!answerDiv) return;
+      answerDiv.innerHTML = parseMarkdown(stripUnpairedEmphasis(accumulated));
+      const height = answerDiv.offsetHeight;
+      if (height > maxAnswerHeight) {
+        maxAnswerHeight = height;
+        answerDiv.style.minHeight = `${height}px`;
+      }
+    });
+  }
+
+  try {
+    const result = await streamChat(
+      "/api/jd-match",
+      { jd_text: jdText, mode, session_id: sessionId },
+      {
+        onStatus(data) {
+          if (data.stage === "context_load" && data.state === "done") {
+            steps.addStep("Reviewing the job description...");
+          } else if (data.stage === "generation" && data.state === "start") {
+            steps.addStep(mode === "brief" ? "Writing screening brief..." : "Writing fit analysis...");
+          }
+        },
+        onDelta(data) {
+          ensureAnswerDiv();
+          accumulated += data.text || "";
+          scheduleRender();
+        },
+        onDone(data) {
+          finalData = data;
+        },
+        onError(data) {
+          streamError = data;
+        },
+      }
+    );
+
+    if (!result.ok || streamError || !finalData) {
+      let detail = streamError?.detail;
+      if (!result.ok) {
+        const errorData = await result.res.json().catch(() => ({}));
+        detail = errorData.detail;
+      }
+      steps.flush();
+      streamHost.append(
+        el("p", { class: "jd-error", text: detail || "Something went wrong. Please try again." })
+      );
+      if (jdAnnouncer) jdAnnouncer.textContent = "The analysis could not be completed.";
+      return;
+    }
+
+    ensureAnswerDiv();
+    answerDiv.innerHTML = parseMarkdown(finalData.reply ?? "");
+    answerDiv.style.minHeight = "";
+    steps.collapse(mode === "brief" ? "Screening brief ready" : "Analysis complete");
+    decorateJDResults(answerDiv);
+
+    if (mode === "analysis") {
+      jdAnalysisMarkdown = String(finalData.reply || "");
+      renderJDActions();
+      if (jdAnnouncer) jdAnnouncer.textContent = "Fit analysis ready.";
+    } else {
+      const briefMarkdown = String(finalData.reply || "");
+      streamHost.append(
+        el("div", { class: "jd-actions jd-actions--brief" }, [
+          makeCopyButton("Copy brief", () => briefMarkdown, "Screening brief copied"),
+        ])
+      );
+      if (jdAnnouncer) jdAnnouncer.textContent = "Screening brief ready.";
+    }
+  } catch (err) {
+    console.error(err);
+    steps.flush();
+    streamHost.append(
+      el("p", { class: "jd-error", text: "Something went wrong. Please try again." })
+    );
+  } finally {
+    jdBusy = false;
+    if (jdAnalyzeBtn) jdAnalyzeBtn.textContent = "Analyze fit";
+    updateJDControls();
+  }
+}
+
+/** Chat interstitial when a pasted message looks like a job description. */
+function renderJDInterstitial(text) {
+  removePreviousFollowups();
+  const msg = addMessage(
+    "This looks like a job description. I can run a structured fit analysis against Dakota's full resume instead of a chat reply.",
+    "bot"
+  );
+  const body = msg.querySelector(".msg-body");
+  const clipped = text.slice(0, JD_MAX_CHARS);
+
+  const analyzeChip = el("button", { class: "chip chip--primary", type: "button", text: "Analyze fit" });
+  analyzeChip.addEventListener("click", () => {
+    msg.remove();
+    if (jdInput) {
+      jdInput.value = clipped;
+      updateJDControls();
+    }
+    document.getElementById("jd-match")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+    sendJDMatch(clipped);
+  });
+
+  const justChat = el("button", { class: "chip", type: "button", text: "Just chat" });
+  if (text.length > 2000) {
+    justChat.disabled = true;
+    justChat.title = "Chat is limited to 2,000 characters";
+  } else {
+    justChat.addEventListener("click", () => {
+      msg.remove();
+      sendMessage(text);
+    });
+  }
+
+  body?.append(el("div", { class: "chips jd-interstitial-chips" }, [analyzeChip, justChat]));
+  if (text.length > 2000) {
+    body?.append(
+      el("p", {
+        class: "jd-interstitial-note",
+        text: "Chat is limited to 2,000 characters — use Analyze fit for full text.",
+      })
+    );
+  }
+  // The interstitial consumes no quota and sends nothing until a choice is made.
+  requestScrollToBottom();
+}
+
+if (jdInput && jdAnalyzeBtn) {
+  jdInput.addEventListener("input", updateJDControls);
+  updateJDControls();
+  jdAnalyzeBtn.addEventListener("click", () => {
+    const text = jdInput.value.trim();
+    if (text.length < JD_MIN_CHARS) return;
+    sendJDMatch(text);
   });
 }
 

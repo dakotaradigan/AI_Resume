@@ -39,6 +39,10 @@ class Settings:
     chat_password: str = ""  # Password to unlock unlimited chat access
     free_chat_limit: int = 2  # Number of exchanges before requiring password
 
+    # JD fit analysis ("Paste a job description")
+    max_jd_chars: int = 15000  # Job descriptions are much longer than chat messages
+    jd_daily_limit: int = 2  # Analyses per visitor per day (separate from chat quota)
+
     # RAG settings (Phase 3)
     openai_api_key: str = ""  # For embeddings
     qdrant_url: str | None = None  # Required when USE_RAG=true
@@ -119,6 +123,8 @@ def get_settings() -> Settings:
         # Chat limit protection
         chat_password=os.getenv("CHAT_PASSWORD", ""),
         free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),
+        max_jd_chars=_to_int(os.getenv("MAX_JD_CHARS"), 15000),
+        jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 2),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         qdrant_url=os.getenv("QDRANT_URL"),
