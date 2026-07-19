@@ -422,6 +422,32 @@ class TestRouterUnits(unittest.TestCase):
         self.assertEqual(reason, "simple")
 
 
+class TestModelIdGuard(unittest.TestCase):
+    def test_malformed_claude_ids_are_flagged(self) -> None:
+        import dataclasses
+        from test_chat_stream import make_settings as _ms  # self-import safe in unittest
+
+        bad = dataclasses.replace(_ms(), anthropic_model="Claude-Opus-4.8")
+        with self.assertLogs("resume-assistant", level="ERROR") as captured:
+            main._warn_on_suspicious_model_ids(bad)
+        self.assertTrue(any("ANTHROPIC_MODEL" in line for line in captured.output))
+
+    def test_valid_and_non_claude_ids_pass_silently(self) -> None:
+        import dataclasses
+
+        ok = dataclasses.replace(
+            make_settings(),
+            anthropic_model="claude-opus-4-8",
+            anthropic_model_simple="claude-sonnet-5",
+            anthropic_router_model="claude-haiku-4-5-20251001",
+        )
+        with self.assertNoLogs("resume-assistant", level="ERROR"):
+            main._warn_on_suspicious_model_ids(ok)
+        # Test fixtures like "test-opus" are not claude ids and must not warn.
+        with self.assertNoLogs("resume-assistant", level="ERROR"):
+            main._warn_on_suspicious_model_ids(make_settings())
+
+
 class TestFollowupsSplit(unittest.TestCase):
     def test_marker_line_is_split(self) -> None:
         reply, followups = main._split_followups("Answer.\nFOLLOWUPS: a | b | c")

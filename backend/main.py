@@ -1150,10 +1150,33 @@ def _initialize_rag(settings) -> RAGPipeline | None:
         return None
 
 
+# Anthropic model ids are lowercase words joined by hyphens (claude-opus-4-8).
+# Anything else — capitals, dots, spaces — 404s on every request, which
+# presents as "chat is down" while deploys look green.
+_MODEL_ID_RE = re.compile(r"^claude-[a-z0-9-]+$")
+
+
+def _warn_on_suspicious_model_ids(settings: Settings) -> None:
+    for env_name, value in (
+        ("ANTHROPIC_MODEL", settings.anthropic_model),
+        ("ANTHROPIC_MODEL_SIMPLE", settings.anthropic_model_simple),
+        ("ANTHROPIC_ROUTER_MODEL", settings.anthropic_router_model),
+    ):
+        looks_like_claude_id = value.lower().startswith("claude")
+        if looks_like_claude_id and not _MODEL_ID_RE.match(value):
+            logger.error(
+                "%s looks invalid: %r — model ids are lowercase with hyphens "
+                "(e.g. claude-opus-4-8); the API will reject every request.",
+                env_name,
+                value,
+            )
+
+
 def build_app() -> FastAPI:
     _configure_logging()
     app = FastAPI(title="Resume Assistant", docs_url=None, redoc_url=None, openapi_url=None)
     settings = get_settings()
+    _warn_on_suspicious_model_ids(settings)
 
     @app.on_event("shutdown")
     async def shutdown_event() -> None:
