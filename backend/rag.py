@@ -698,10 +698,33 @@ def initialize_rag_pipeline(
             logger.warning(f"Could not check collection status: {exc}. Will attempt to index...")
     else:
         if points_count > 0:
-            logger.info(
-                f"Collection already indexed with {points_count} points, skipping re-indexing"
-            )
             pipeline._rebuild_keyword_index_from_qdrant()
+            # Self-healing index: when the stored chunks differ from what the
+            # current data files produce (resume.json edited, project docs
+            # added), rebuild automatically instead of waiting for a manual
+            # /admin/rag/reindex that is easy to forget. The comparison uses
+            # local files only; embeddings are spent solely on real drift.
+            try:
+                chunks = build_corpus(resume_path, projects_dir)
+                current = {(c.title, c.text) for c in chunks if c.text and c.text.strip()}
+                stored = {
+                    (str(p.get("title", "")), str(p.get("text", "")))
+                    for p in pipeline._keyword_documents
+                }
+                if stored != current:
+                    logger.info(
+                        "Indexed content differs from current corpus "
+                        f"({len(stored)} stored vs {len(current)} current chunks); auto-reindexing"
+                    )
+                    pipeline.reindex(resume_path, projects_dir)
+                else:
+                    logger.info(
+                        f"Collection already indexed with {points_count} points, matches current corpus"
+                    )
+            except Exception:
+                logger.warning(
+                    "Corpus drift check failed; keeping existing index", exc_info=True
+                )
             return pipeline
 
     # Collection is empty or doesn't exist - index it

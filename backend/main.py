@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from anthropic import AsyncAnthropic, AnthropicError, RateLimitError
 from fastapi import FastAPI, HTTPException, Request, Header, Response
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from starlette.routing import Route as StarletteRoute
@@ -2285,8 +2285,31 @@ def build_app() -> FastAPI:
     # re-root it at /mcp directly — a Mount would 405 bare `POST /mcp`
     # (empty-remainder mounts can only slash-redirect GETs). Data-only —
     # see _build_mcp_server.
+    class _McpOrBrowser:
+        """ASGI wrapper (a class instance so Starlette treats it as an ASGI
+        app, not a GET-only request handler). A human opening /mcp in a
+        browser would get a bare JSON-RPC "Not Acceptable" error; send them
+        to the connect instructions instead. Real MCP clients GET with
+        Accept: text/event-stream."""
+
+        def __init__(self, endpoint: Any) -> None:
+            self.endpoint = endpoint
+
+        async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+            if scope["type"] == "http" and scope.get("method") == "GET":
+                accept = next(
+                    (v.decode() for k, v in scope.get("headers", []) if k == b"accept"), ""
+                )
+                if "text/event-stream" not in accept:
+                    redirect = RedirectResponse(
+                        "/how-it-works.html#connect-mcp", status_code=302
+                    )
+                    await redirect(scope, receive, send)
+                    return
+            await self.endpoint(scope, receive, send)
+
     app.router.routes.append(
-        StarletteRoute("/mcp", endpoint=mcp_asgi_app.routes[0].endpoint, name="mcp")
+        StarletteRoute("/mcp", endpoint=_McpOrBrowser(mcp_asgi_app.routes[0].endpoint), name="mcp")
     )
 
     # Serve the frontend files from ../frontend

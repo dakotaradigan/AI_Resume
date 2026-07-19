@@ -117,6 +117,16 @@ class TestMcpEndpoint(RenderCacheMixin, VisitorQuotaTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("dakota-resume", response.text)
 
+    def test_browser_get_redirects_to_connect_instructions(self) -> None:
+        with self.build_client(make_settings()) as client:
+            response = client.get(
+                "/mcp",
+                headers={"Accept": "text/html"},
+                follow_redirects=False,
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("connect-mcp", response.headers["location"])
+
 
 if __name__ == "__main__":
     unittest.main()

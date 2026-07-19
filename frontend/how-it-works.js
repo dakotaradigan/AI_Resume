@@ -2,7 +2,7 @@
 // before first paint; this wires the toggle, mirroring app.js applyTheme
 // (kept tiny and standalone so this page never loads the chat bundle).
 (function () {
-  const THEME_COLORS = { light: "#f9f8f6", dark: "#191714" };
+  const THEME_COLORS = { light: "#FBFDFF", dark: "#16171C" };
 
   function applyTheme(theme) {
     document.documentElement.dataset.theme = theme;
