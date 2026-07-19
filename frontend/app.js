@@ -423,7 +423,7 @@ function renderExperience(items, skillLookup = new Map()) {
     ]);
     askBtn.addEventListener("click", async () => {
       const chatSection = document.getElementById("chat");
-      chatSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      chatSection?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       if (chatInput?.disabled) return;
       const prompt = buildRoleAskPrompt(exp);
       await sendMessage(prompt);
@@ -605,7 +605,7 @@ function highlightCitationTarget(targetId, sectionId, scrollId = targetId) {
   const scrollTarget = document.getElementById(scrollId) || target;
   target.classList.add("is-visible");
   window.setTimeout(() => {
-    scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+    scrollTarget.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     target.classList.remove("is-cited");
     void target.offsetWidth;
     target.classList.add("is-cited");
@@ -693,7 +693,7 @@ if (heroCta) {
   heroCta.addEventListener("click", (e) => {
     e.preventDefault();
     const chatEl = document.getElementById("chat");
-    if (chatEl) chatEl.scrollIntoView({ behavior: "smooth" });
+    if (chatEl) chatEl.scrollIntoView({ behavior: scrollBehavior() });
     // Retry focus until the input is visible and focused
     let attempts = 0;
     const tryFocus = () => {
@@ -725,6 +725,47 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+// --- Theme (dark mode) ---
+// theme-init.js already stamped data-theme before first paint; this wires the
+// toggle, persists the choice, and keeps <meta name="theme-color"> in sync.
+const THEME_COLORS = { light: "#f9f8f6", dark: "#191714" };
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", THEME_COLORS[theme] || THEME_COLORS.light);
+  document
+    .getElementById("theme-toggle")
+    ?.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+}
+
+function initTheme() {
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+
+  document.getElementById("theme-toggle")?.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    try {
+      localStorage.setItem("theme", next);
+    } catch {
+      /* storage unavailable: theme still applies for this page view */
+    }
+    applyTheme(next);
+  });
+
+  // Follow live system changes only while no explicit choice is stored.
+  const mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+  mq?.addEventListener?.("change", (e) => {
+    let stored = null;
+    try {
+      stored = localStorage.getItem("theme");
+    } catch {
+      /* ignore */
+    }
+    if (!stored) applyTheme(e.matches ? "dark" : "light");
+  });
+}
 
 function initNavbar() {
   // Frosted glass on scroll
@@ -1374,6 +1415,9 @@ initChatAutoScroll();
 
 // Navbar: frosted glass on scroll + hamburger.
 initNavbar();
+
+// Theme toggle + persistence (initial theme applied by theme-init.js).
+initTheme();
 
 // Explore link: focus chat input after scroll completes.
 document.querySelector(".hero-explore")?.addEventListener("click", () => {

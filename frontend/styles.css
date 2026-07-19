@@ -58,10 +58,71 @@
   --cite-glow: rgba(213, 112, 36, 0.22);
   --cite-glow-soft: rgba(213, 112, 36, 0.16);
   --footer-copyright: hsl(220, 8%, 52%);
+
+  color-scheme: light;
 }
 
-html {
-  scroll-behavior: smooth;
+/* Dark theme: data-theme is stamped by theme-init.js before first paint
+   (stored choice, else system preference). Tokens only — component rules
+   never branch on theme. Warm dark, not blue-black; the filled-button
+   relationship inverts (light primary, dark on-primary text). */
+:root[data-theme="dark"] {
+  --bg: hsl(30, 8%, 9%);
+  --card: hsl(30, 7%, 13%);
+  --text: hsl(40, 20%, 91%);
+  --muted: hsl(35, 8%, 64%);
+  --primary: hsl(40, 15%, 88%);
+  --secondary: hsl(30, 6%, 17%);
+  --gold: hsl(30, 78%, 60%);
+  --gold-dark: hsl(32, 82%, 64%);
+  --hero-text: hsl(40, 20%, 91%);
+  --hero-muted: hsl(35, 8%, 64%);
+  --hero-gold: hsl(30, 78%, 60%);
+  --accent-warm: hsl(30, 78%, 60%);
+  --accent-warm-soft: hsla(30, 78%, 60%, 0.16);
+
+  --border: hsla(40, 20%, 90%, 0.10);
+  --border-strong: hsla(40, 20%, 90%, 0.17);
+  --ring: hsla(30, 78%, 60%, 0.30);
+  --surface-hover: hsla(40, 20%, 90%, 0.05);
+
+  /* Shadows are invisible on dark surfaces: swap for border-glow + depth */
+  --shadow-sm: 0 0 0 1px hsla(40, 15%, 90%, 0.07);
+  --shadow-md: 0 0 0 1px hsla(40, 15%, 90%, 0.07), 0 4px 20px hsla(0, 0%, 0%, 0.4);
+  --shadow-lg: 0 0 0 1px hsla(40, 15%, 90%, 0.07), 0 8px 32px hsla(0, 0%, 0%, 0.45);
+
+  --footer-bg: hsl(30, 7%, 11%);
+  --footer-text: hsl(40, 15%, 88%);
+  --footer-heading: hsl(40, 20%, 91%);
+  --footer-subtitle: hsl(35, 8%, 60%);
+  --footer-btn-border: hsla(40, 15%, 88%, 0.16);
+  --footer-btn-text: hsl(40, 15%, 88%);
+  --footer-separator: hsla(40, 20%, 90%, 0.10);
+  --footer-copyright: hsl(35, 8%, 64%);
+
+  --on-primary: hsl(220, 15%, 14%);
+  --input-bg: hsl(30, 7%, 16%);
+  --nav-glass: hsla(30, 8%, 9%, 0.85);
+  --nav-glass-solid: hsla(30, 8%, 9%, 0.96);
+  --scrollbar-thumb: hsla(40, 20%, 90%, 0.2);
+  --error-text: hsl(0, 65%, 70%);
+  --chat-card-shadow: 0 0 0 1px hsla(40, 15%, 90%, 0.07), 0 10px 50px hsla(0, 0%, 0%, 0.5);
+  /* Low-alpha gold washes out on dark — raise every citation alpha */
+  --cite-border: hsla(30, 78%, 60%, 0.45);
+  --cite-bg: hsla(30, 78%, 60%, 0.12);
+  --cite-bg-hover: hsla(30, 78%, 60%, 0.2);
+  --cite-border-hover: hsla(30, 78%, 60%, 0.7);
+  --cite-card-border: hsla(30, 78%, 60%, 0.8);
+  --cite-glow: hsla(30, 78%, 60%, 0.32);
+  --cite-glow-soft: hsla(30, 78%, 60%, 0.24);
+
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 * {
@@ -229,6 +290,45 @@ a:hover {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/* Theme toggle: persistent chrome at all widths, next to the hamburger */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+/* Icon shows the mode you'd switch to; no JS icon swapping */
+.theme-toggle .icon-sun {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-sun {
+  display: block;
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-moon {
+  display: none;
 }
 
 /* ===== LAYOUT ===== */
@@ -2074,6 +2174,11 @@ section[id],
   .send-button {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .theme-toggle {
+    width: 44px;
+    height: 44px;
   }
 
   .chip {
