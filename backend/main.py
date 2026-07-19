@@ -394,6 +394,31 @@ class SessionStore:
             self._scoped_counts[counter_key] = current + 1
             return True
 
+    async def release_scoped_limit(self, key: str, scope: str, day_key: str) -> None:
+        """Return a unit taken by check_and_increment_scoped_limit (floor 0).
+
+        Called when generation fails or is cancelled after the unit was
+        reserved — a visitor must never lose budget for an analysis that
+        was never delivered.
+        """
+        if self._redis is not None:
+            script = """
+            local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+            if current > 0 then
+                redis.call('DECR', KEYS[1])
+            end
+            return 0
+            """
+            redis_key = f"{self._redis_prefix}:quota:{scope}:{key}:{day_key}"
+            await self._redis.eval(script, 1, redis_key)
+            return
+
+        async with self._lock:
+            counter_key = (scope, key, day_key)
+            current = self._scoped_counts.get(counter_key, 0)
+            if current > 0:
+                self._scoped_counts[counter_key] = current - 1
+
     async def cleanup_expired(self, max_age_seconds: int) -> int:
         """
         Remove sessions older than max_age_seconds.
@@ -2100,7 +2125,8 @@ def build_app() -> FastAPI:
             )
             if not has_analysis:
                 await _reject(HTTPException(status_code=409, detail="Run a fit analysis first."))
-        else:
+        jd_unit_reserved = False
+        if payload.mode != "brief":
             # Unlimited (password-unlocked) identities bypass the JD budget.
             remaining = await store.get_remaining_quota(
                 ctx.visitor_id, settings.free_chat_limit
@@ -2111,6 +2137,15 @@ def build_app() -> FastAPI:
                 )
                 if not allowed:
                     await _reject(HTTPException(status_code=403, detail=JD_LIMIT_MESSAGE))
+                jd_unit_reserved = True
+
+        async def _release_budgets() -> None:
+            # A failed or cancelled generation must return BOTH budget units —
+            # the global daily reservation and, when one was taken, the
+            # visitor's JD unit. Nobody loses their free analysis to a 529.
+            await store.release_daily_conversation(today)
+            if jd_unit_reserved:
+                await store.release_scoped_limit(ctx.visitor_id, "jd", today)
 
         sanitized = _sanitize_jd_text(ctx.message)
         if payload.mode == "brief":
@@ -2138,7 +2173,7 @@ def build_app() -> FastAPI:
                 )
             except RuntimeError:
                 logger.exception("Failed to load prompt or resume data")
-                await store.release_daily_conversation(today)
+                await _release_budgets()
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
                 return
             yield _sse("status", {"stage": "context_load", "state": "done"})
@@ -2180,19 +2215,19 @@ def build_app() -> FastAPI:
                 })
             except asyncio.CancelledError:
                 logger.info("Client disconnected mid-analysis; skipping persistence")
-                await store.release_daily_conversation(today)
+                await _release_budgets()
                 raise
             except RateLimitError:
                 logger.warning("Anthropic rate limit or spending cap hit")
-                await store.release_daily_conversation(today)
+                await _release_budgets()
                 yield _sse("error", {"detail": BUSY_MESSAGE})
             except AnthropicError:
                 logger.exception("Anthropic API request failed after retries")
-                await store.release_daily_conversation(today)
+                await _release_budgets()
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
             except Exception:  # pragma: no cover - unexpected errors
                 logger.exception("Unexpected error during JD analysis")
-                await store.release_daily_conversation(today)
+                await _release_budgets()
                 yield _sse("error", {"detail": "An unexpected error occurred. Please try again."})
 
         streaming_response = StreamingResponse(

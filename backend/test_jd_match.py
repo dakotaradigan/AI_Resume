@@ -123,6 +123,26 @@ class TestJDBudgets(JDMatchTestCase):
             response = self.run_jd(client, REALISTIC_JD, "any-session")
         self.assertEqual(response.status_code, 200)
 
+    def test_failed_generation_releases_jd_unit(self) -> None:
+        # A visitor must never lose their free analysis to an upstream
+        # failure: with limit=1, a failed attempt is released and the retry
+        # succeeds instead of hitting the password wall.
+        settings = jd_settings(jd_daily_limit=1)
+        FakeAnthropic.messages_api = FakeStreamingMessages(
+            ["never"], error_kind="anthropic", error_at=0
+        )
+        with self.build_client(settings) as client:
+            failed = self.run_jd(client, REALISTIC_JD, "s1")
+            self.assertEqual(failed.status_code, 200)  # SSE error event
+            self.assertIn("event: error", failed.text)
+
+            FakeAnthropic.messages_api = FakeStreamingMessages(
+                ["## Strong Matches\n- Recovered"]
+            )
+            retry = self.run_jd(client, REALISTIC_JD, "s1")
+            self.assertEqual(retry.status_code, 200)
+            self.assertIn("event: done", retry.text)
+
     def test_jd_ip_rate_limit(self) -> None:
         settings = jd_settings(jd_daily_limit=50)
         with self.build_client(settings) as client:
