@@ -105,5 +105,10 @@ class TestRetrieveRagContext(unittest.TestCase):
         self.assertEqual(titles, [])
 
 
+class TestIntentionalCIVerification(unittest.TestCase):
+    def test_ci_rejects_a_broken_test(self) -> None:
+        self.fail("intentional D3 CI verification failure")
+
+
 if __name__ == "__main__":
     unittest.main()
