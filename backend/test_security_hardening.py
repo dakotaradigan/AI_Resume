@@ -124,7 +124,9 @@ class TestSecurityHardening(unittest.TestCase):
                 forwarded_for="192.0.2.1, 192.0.2.2",
             )
 
-            self.assertEqual(main._get_client_ip(request), "198.51.100.10")
+            self.assertEqual(
+                main._get_client_ip(request, main.get_settings()), "198.51.100.10"
+            )
 
     def test_client_ip_uses_forwarded_for_when_enabled(self) -> None:
         with configured_app(TRUST_PROXY_HEADERS="true") as (main, _):
@@ -135,7 +137,9 @@ class TestSecurityHardening(unittest.TestCase):
 
             # Right-most entry is the one appended by the trusted proxy;
             # left-most entries are client-supplied and spoofable.
-            self.assertEqual(main._get_client_ip(request), "192.0.2.2")
+            self.assertEqual(
+                main._get_client_ip(request, main.get_settings()), "192.0.2.2"
+            )
 
     def test_client_ip_falls_back_when_forwarded_for_is_not_an_ip(self) -> None:
         with configured_app(TRUST_PROXY_HEADERS="true") as (main, _):
@@ -144,7 +148,9 @@ class TestSecurityHardening(unittest.TestCase):
                 forwarded_for="spoofed-garbage",
             )
 
-            self.assertEqual(main._get_client_ip(request), "198.51.100.10")
+            self.assertEqual(
+                main._get_client_ip(request, main.get_settings()), "198.51.100.10"
+            )
 
     def test_compacted_history_uses_supported_roles(self) -> None:
         with configured_app() as (main, _):

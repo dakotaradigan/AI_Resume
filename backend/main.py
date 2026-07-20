@@ -81,6 +81,13 @@ CHAT_LIMIT_MESSAGE = (
     "found on Dakota's resume."
 )
 
+# 403 so the frontend shows the same password-unlock form as the free-chat wall:
+# once unlocked, the visitor is unlimited and bypasses this per-IP cap.
+IP_DAILY_LIMIT_MESSAGE = (
+    "This network has reached today's free limit. To keep going, enter the "
+    "password found on Dakota's resume."
+)
+
 BUSY_MESSAGE = (
     "Lots of interest today! The AI assistant is taking a quick break. "
     "Feel free to reach out directly at dakotaradigan@gmail.com or connect on LinkedIn. "
@@ -629,9 +636,8 @@ def get_reindex_lock() -> asyncio.Lock:
     return _reindex_lock
 
 
-def _get_client_ip(request: Request) -> str:
+def _get_client_ip(request: Request, settings: Settings) -> str:
     """Best-effort client IP extraction for rate limits."""
-    settings = get_settings()
     xff = request.headers.get("x-forwarded-for", "")
     if settings.trust_proxy_headers and xff:
         # Take the right-most IP: it was appended by the trusted proxy in front
@@ -1214,7 +1220,7 @@ async def _run_chat_guardrails(
     await store.update_metadata(visitor_id)
 
     # Rate limiting: prevent abuse (default key = client IP)
-    rate_limit_key = _get_client_ip(request)
+    rate_limit_key = _get_client_ip(request, settings)
     allowed = await store.check_rate_limit(
         rate_limit_key,
         max_requests=settings.rate_limit_requests_per_minute
@@ -1267,6 +1273,31 @@ async def _run_chat_guardrails(
         )
         if not allowed:
             await _reject(HTTPException(status_code=403, detail=reason))
+
+    # Hard per-IP daily cap on token-spending requests. Keyed to the client IP,
+    # so it survives dropping/rotating the visitor cookie — no single IP can
+    # drain the global daily budget. Password-unlocked (unlimited) visitors
+    # bypass it, so unrestricted token use requires the password. Only enforced
+    # when the real client IP is trusted (trust_proxy_headers); otherwise every
+    # visitor collapses to the proxy IP and the cap would lock out the whole
+    # site, so it fails open to the pre-existing behavior.
+    if settings.per_ip_daily_limit > 0 and settings.trust_proxy_headers:
+        unlimited = (
+            await store.get_remaining_quota(visitor_id, settings.free_chat_limit)
+            is None
+        )
+        if not unlimited:
+            within_ip_cap = await store.check_and_increment_scoped_limit(
+                rate_limit_key, "ip", settings.per_ip_daily_limit, today
+            )
+            if not within_ip_cap:
+                # Refund the chat unit just consumed so an IP-capped request
+                # charges neither the visitor's free quota nor the daily budget.
+                if consume_quota:
+                    await store.release_chat_limit(visitor_id)
+                await _reject(
+                    HTTPException(status_code=403, detail=IP_DAILY_LIMIT_MESSAGE)
+                )
 
     return ChatTurnContext(session_id=session_id, visitor_id=visitor_id, message=message)
 
@@ -1569,6 +1600,18 @@ def build_app() -> FastAPI:
             "staging, production); the Secure cookie flag, CORS credentials, and "
             "admin loopback fallback all key off the exact value 'production'.",
             settings.environment,
+        )
+
+    if settings.per_ip_daily_limit > 0 and not settings.trust_proxy_headers:
+        # The per-IP daily cap needs the real client IP; without a trusted proxy
+        # header every visitor collapses to the proxy IP, so the cap fails open
+        # (disabled) rather than locking out the whole site. Behind Railway, set
+        # TRUST_PROXY_HEADERS=true to activate it.
+        logger.warning(
+            "PER_IP_DAILY_LIMIT=%d is set but TRUST_PROXY_HEADERS is off, so the "
+            "per-IP cap is INACTIVE (no reliable client IP behind a proxy). Set "
+            "TRUST_PROXY_HEADERS=true to enforce it.",
+            settings.per_ip_daily_limit,
         )
 
     app.state.reindex_status = {
@@ -1911,7 +1954,7 @@ def build_app() -> FastAPI:
 
         # Keyed by IP, not visitor: locked visitors may have no cookie yet,
         # and a fresh-minted id every request would never accumulate.
-        if not await store.check_rate_limit(f"pdf:{_get_client_ip(request)}", max_requests=5, window=600.0):
+        if not await store.check_rate_limit(f"pdf:{_get_client_ip(request, settings)}", max_requests=5, window=600.0):
             raise HTTPException(
                 status_code=429,
                 detail="Too many download attempts. Please wait a few minutes.",
@@ -2231,7 +2274,7 @@ def build_app() -> FastAPI:
             raise exc
 
         # Token-heavy endpoint: extra per-IP limit on top of the global one
-        jd_rate_key = f"jd:{_get_client_ip(request)}"
+        jd_rate_key = f"jd:{_get_client_ip(request, settings)}"
         if not await store.check_rate_limit(jd_rate_key, max_requests=3, window=600.0):
             await _reject(HTTPException(
                 status_code=429,
@@ -2385,7 +2428,7 @@ def build_app() -> FastAPI:
         # Rate limit brute-force attempts per IP AND per visitor identity
         # (5 per minute each).
         ip_allowed = await store.check_rate_limit(
-            f"unlock:{_get_client_ip(request)}", max_requests=5, window=60.0
+            f"unlock:{_get_client_ip(request, settings)}", max_requests=5, window=60.0
         )
         visitor_allowed = await store.check_rate_limit(
             f"unlock:visitor:{visitor_id}", max_requests=5, window=60.0
@@ -2426,7 +2469,7 @@ def build_app() -> FastAPI:
         store = get_session_store()
 
         # Rate limit: prevent unbounded writes to the feedback log
-        rate_limit_key = f"feedback:{_get_client_ip(request)}"
+        rate_limit_key = f"feedback:{_get_client_ip(request, settings)}"
         allowed = await store.check_rate_limit(rate_limit_key, max_requests=10, window=60.0)
         if not allowed:
             raise HTTPException(
