@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import unittest
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -294,6 +295,18 @@ class TestStarterCache(ChatStreamTestCase):
         self.assertIn(cache_key, main._starter_cache)
         self.assertNotIn(main.FOLLOWUPS_MARKER, main._starter_cache[cache_key])
 
+    def test_cached_starter_hit_does_not_consume_daily_budget(self) -> None:
+        # A cache hit makes no model call, so it must return the daily unit
+        # reserved in the guardrails — otherwise free responses could drain the
+        # global budget and 503 every visitor for the day.
+        main._starter_cache[self.STARTER.lower().rstrip("?") + "?"] = "Cached answer."
+        FakeAnthropic.messages_api = FakeStreamingMessages(["unused"])
+        today = date.today().isoformat()
+        with self.build_client(make_settings()) as client:
+            for i in range(5):
+                self.stream_events(client, self.STARTER, session_id=f"cache-{i}")
+        self.assertEqual(main._daily_conversation_count.get(today, 0), 0)
+
 
 class TestModelFallback(ChatStreamTestCase):
     def test_failed_routed_model_falls_back_to_primary(self) -> None:
@@ -486,7 +499,14 @@ class TestModelsHealth(ChatStreamTestCase):
         self.addCleanup(lambda: setattr(FakeAnthropic, "models_api", None))
 
         with self.build_client(make_settings()) as client:
-            response = client.get("/health/models")
+            # Admin-gated: anonymous callers are rejected so the endpoint can't be
+            # used to amplify upstream Anthropic calls or enumerate model config.
+            unauth = client.get("/health/models")
+            self.assertEqual(unauth.status_code, 401)
+
+            response = client.get(
+                "/health/models", headers={"X-Admin-Token": "test-admin-token"}
+            )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
