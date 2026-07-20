@@ -11,8 +11,9 @@ Radigan's professional background using resume and project data.
 
 **Users:** Recruiters and hiring managers — busy, low patience, 2-5 questions max.
 
-**Architecture:** Conversational RAG — semantic search over chunked documents in
-Qdrant, retrieved context fed to Claude for response generation.
+**Architecture:** Conversational RAG — Qdrant dense-vector search and in-process
+BM25 over chunked resume/project documents, fused with reciprocal rank fusion;
+retrieved context is fed to Claude for response generation.
 
 **Error tolerance:** Conservative-flexible. Prioritize TNR (catch failures) over
 TPR. One hallucinated job title or fabricated skill could cost an interview. But
@@ -124,9 +125,14 @@ Eval the **retriever** and **generator** separately:
    skills/credentials cases hit; the four misses were experience-role
    disambiguation cases (`retrieval_007`, `010`, `012`, and `014`).
 
+   **Baseline freshness:** the source corpus later grew to 26 chunks. The
+   figures above remain the approved historical baseline, but must be rerun
+   against the current corpus before being cited as current retrieval quality.
+
 2. **Generator evals** (after retriever is solid):
    - Given correct context, does Claude produce a faithful answer?
-   - Is the response grounded in retrieved facts only?
+   - Is the response grounded in the permitted factual context (retrieved
+     chunks, system prompt, and relevant conversation history)?
    - Does it address the user's actual intent?
 
 ### Error Tolerance Stance
@@ -217,6 +223,7 @@ Dakota Radigan (solo project)
 | Tool              | Status   | Use Case                                    |
 |-------------------|----------|---------------------------------------------|
 | run_eval.py       | Live     | Run queries against bot, collect responses  |
+| run_retrieval_eval.py | Live | Measure hit-rate@k, recall@k, and MRR        |
 | build_review_xlsx | Live     | Generate Excel for human review             |
 | parse_review.py   | Live     | Parse human labels into JSONL               |
 | run_judges.py     | Live     | Run LLM judges on any eval data             |

@@ -47,6 +47,14 @@ Set `REDIS_URL` to use Railway Redis for shared sessions, rate limits, and daily
 
 ---
 
+## Learn the RAG System
+
+The [RAG technical learning handoff](docs/rag-learning-handoff.md) explains the
+complete implementation: corpus construction, Qdrant vectors, in-process BM25,
+RRF fusion, cold-start recovery, fallbacks, operations, tests, and evals.
+
+---
+
 ## Make It Yours
 
 1. Replace `data/resume.json` with your career data
