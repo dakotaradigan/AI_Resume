@@ -13,9 +13,10 @@ Built an AI-powered chatbot that serves as an interactive professional portfolio
 
 ## Tech Stack
 **Backend:** FastAPI, Python
-**AI/ML:** Anthropic Claude Opus 4.5, RAG Pipeline, Qdrant Vector Database, OpenAI Embeddings
-**Frontend:** JavaScript with custom CSS design system
-**Key Features:** Semantic search, session management, rate limiting, prompt injection protection, dark mode UI
+**AI/ML:** Anthropic Claude with model routing, hybrid RAG, Qdrant Vector Database, BM25 keyword search, OpenAI Embeddings
+**Frontend:** JavaScript with a custom CSS design system and real SSE streaming
+**Infrastructure:** Railway, Docker, optional Redis
+**Key Features:** Context search, session management, visitor quotas, rate limiting, prompt injection protection, dark mode UI
 
 ## Why It Matters
 
@@ -32,11 +33,11 @@ Built an AI-powered chatbot that serves as an interactive professional portfolio
 - **Conversation Starter**: Creates natural talking points for interviews
 
 ## Key Technical Highlights
-- **RAG Architecture**: Semantic search over resume documents with intelligent chunking and context retrieval
-- **Production-Ready**: Rate limiting, session management, hallucination prevention (temperature=0.1), security guardrails
+- **RAG Architecture**: Meaning-based and exact-word search over resume and project documents, combined to select the most relevant context
+- **Production-Ready**: Rate limiting, server-issued visitor quotas, input validation, prompt injection protection, and daily model-spend controls
 - **Full-Stack**: Backend (FastAPI), Frontend (JavaScript + CSS), Data Layer (Vector DB)
-- **Accessibility**: WCAG AA compliant with dark mode support
-- **Scalable**: Designed for concurrent users with pluggable state management
+- **Responsive Experience**: Mobile-friendly interface with keyboard support and dark mode
+- **Resilient**: Falls back to full-resume context if vector search is unavailable, with optional Redis-backed shared state
 
 ## The Impact
 This project transforms the traditional resume into an **interactive experience** that showcases both technical expertise and innovative thinking. It answers the question "Can you build AI products?" by providing working proof—a production-quality chatbot accessible 24/7 from a LinkedIn profile link.

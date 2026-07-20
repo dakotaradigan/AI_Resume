@@ -203,10 +203,13 @@
       "Investment Operations"
     ],
     "technical": [
-      "Generative AI (LLMs, RAG, Agent Management)",
-      "Python (PCAP-Certified)",
-      "SQL",
-      "CRM Tools"
+      "AI Product Development (LLMs, RAG, AI Agents)",
+      "Python & SQL",
+      "API & Backend Systems (FastAPI, REST, WebSockets)",
+      "Vector Databases & Search (Qdrant, Pinecone)",
+      "System Design & Application Architecture",
+      "Cloud & Web App Deployment (AWS, Railway, Vercel, Netlify)",
+      "Product Delivery & Collaboration (Jira, Confluence, Figma)"
     ],
     "leadership": [
       "Cross-Functional Team Leadership",
