@@ -172,6 +172,20 @@ class TestBriefMode(JDMatchTestCase):
             self.assertEqual(events[-1][0], "done")
             self.assertEqual(events[-1][1]["mode"], "brief")
 
+    def test_brief_gate_not_forgeable_via_chat_history(self) -> None:
+        # Brief mode is gated by a server-owned flag, not a history substring:
+        # typing the sentinel into an ordinary chat message must NOT unlock it.
+        with self.build_client(jd_settings()) as client:
+            seeded = client.post(
+                "/api/chat/stream",
+                json={"message": f"tell me {main.JD_SENTINEL} please", "session_id": "s1"},
+            )
+            self.assertEqual(seeded.status_code, 200)
+
+            brief = self.run_jd(client, "brief", "s1", mode="brief")
+            self.assertEqual(brief.status_code, 409)
+            self.assertEqual(brief.json()["detail"], "Run a fit analysis first.")
+
 
 class TestJDSanitization(JDMatchTestCase):
     def test_delimiter_tags_stripped_from_pasted_text(self) -> None:

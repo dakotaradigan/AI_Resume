@@ -100,7 +100,9 @@ PDF_LOCKED_MESSAGE = (
     "resume — the same one that unlocks unlimited chat."
 )
 
-# History sentinel marking a completed fit analysis; brief mode requires it.
+# Neutral placeholder stored in history for a completed fit analysis (the raw
+# JD is never persisted). Brief mode is gated by a server-owned metadata flag
+# (SessionStore.mark_jd_analysis), not by scanning history for this string.
 JD_SENTINEL = "[jd-analysis]"
 
 # Strip BOTH tag forms (opening and closing) case-insensitively so pasted
@@ -335,6 +337,31 @@ class SessionStore:
             self._metadata[session_id] = meta
             return True, ""
 
+    async def release_chat_limit(self, session_id: str) -> None:
+        """Return a chat-quota unit taken by check_and_increment_limit (floor 0).
+
+        Called when generation fails server-side so a visitor never loses one of
+        their few free exchanges to an upstream 5xx — mirrors the daily-budget
+        and JD-unit release paths ("nobody loses a turn to a 529").
+        """
+        if self._redis is not None:
+            script = """
+            local current = tonumber(redis.call('HGET', KEYS[1], 'user_message_count') or '0')
+            if current > 0 then
+                redis.call('HINCRBY', KEYS[1], 'user_message_count', -1)
+            end
+            return 0
+            """
+            await self._redis.eval(script, 1, self._meta_key(session_id))
+            return
+
+        async with self._lock:
+            meta = self._metadata.get(session_id)
+            if meta:
+                count = meta.get("user_message_count", 0)
+                if count > 0:
+                    meta["user_message_count"] = count - 1
+
     async def set_unlimited(self, session_id: str, value: bool) -> None:
         """Set unlimited access for a session."""
         if self._redis is not None:
@@ -369,6 +396,32 @@ class SessionStore:
         if unlimited:
             return None
         return max(0, limit - count)
+
+    async def mark_jd_analysis(self, session_id: str) -> None:
+        """Record that a real JD fit analysis completed for this session.
+
+        Server-owned so brief mode cannot be unlocked by a visitor typing a
+        sentinel string into ordinary chat history.
+        """
+        if self._redis is not None:
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.hset(self._meta_key(session_id), "jd_analysis_done", "1")
+                pipe.expire(self._meta_key(session_id), self._session_ttl)
+                await pipe.execute()
+            return
+
+        async with self._lock:
+            self._metadata.setdefault(session_id, {})["jd_analysis_done"] = True
+
+    async def has_jd_analysis(self, session_id: str) -> bool:
+        """Whether a real JD analysis has completed for this session."""
+        if self._redis is not None:
+            return await self._redis.hget(
+                self._meta_key(session_id), "jd_analysis_done"
+            ) == "1"
+
+        async with self._lock:
+            return bool(self._metadata.get(session_id, {}).get("jd_analysis_done", False))
 
     async def check_and_increment_scoped_limit(
         self, key: str, scope: str, limit: int, day_key: str
@@ -1505,15 +1558,16 @@ def build_app() -> FastAPI:
     )
     settings = get_settings()
     _warn_on_suspicious_model_ids(settings)
-    if settings.environment not in {"development", "production"}:
+    if settings.environment not in {"development", "test", "staging", "production"}:
         # The exact string "production" is load-bearing: it gates the cookie
         # Secure flag, CORS credentialed origins, and the admin loopback fallback.
-        # A typo (e.g. "prod") silently downgrades all three to their non-prod
-        # (less safe) behavior, so surface it loudly at startup.
+        # An unrecognized value (e.g. a "prod" typo meant to be production)
+        # silently downgrades all three to their non-prod (less safe) behavior,
+        # so surface it loudly at startup.
         logger.warning(
-            "ENVIRONMENT=%r is not 'development' or 'production'; the Secure "
-            "cookie flag, CORS credentials, and admin loopback fallback all key "
-            "off the exact value 'production' and are running in non-prod mode.",
+            "ENVIRONMENT=%r is not a recognized value (development, test, "
+            "staging, production); the Secure cookie flag, CORS credentials, and "
+            "admin loopback fallback all key off the exact value 'production'.",
             settings.environment,
         )
 
@@ -1893,6 +1947,13 @@ def build_app() -> FastAPI:
         today = date.today().isoformat()
         _set_visitor_cookie(response, ctx.visitor_id, settings)
 
+        async def _refund_on_error() -> None:
+            # The visitor got an error, not an answer: return the reserved daily
+            # budget unit AND the chat-quota unit consumed in the guardrails, so
+            # an upstream 5xx never burns one of their few free exchanges.
+            await store.release_daily_conversation(today)
+            await store.release_chat_limit(ctx.visitor_id)
+
         # Starter question cache: instant responses for suggestion chips.
         # Only used when it's the first message in a session (no history yet).
         cache_key = message.lower().strip().rstrip("?") + "?"
@@ -1919,7 +1980,7 @@ def build_app() -> FastAPI:
             )
         except RuntimeError as exc:
             logger.exception("Failed to load prompt or resume data")
-            await store.release_daily_conversation(today)
+            await _refund_on_error()
             raise HTTPException(status_code=500, detail=GENERIC_CHAT_ERROR) from exc
 
         # Same routed-model fallback as the streaming path: a failure on the
@@ -1953,15 +2014,15 @@ def build_app() -> FastAPI:
             )
         except RateLimitError as exc:
             logger.warning("Anthropic rate limit or spending cap hit")
-            await store.release_daily_conversation(today)
+            await _refund_on_error()
             raise HTTPException(status_code=503, detail=BUSY_MESSAGE) from exc
         except AnthropicError as exc:
             logger.exception("Anthropic API request failed after retries")
-            await store.release_daily_conversation(today)
+            await _refund_on_error()
             raise HTTPException(status_code=502, detail=GENERIC_CHAT_ERROR) from exc
         except Exception as exc:  # pragma: no cover - unexpected errors
             logger.exception("Unexpected error during chat request")
-            await store.release_daily_conversation(today)
+            await _refund_on_error()
             raise HTTPException(
                 status_code=500,
                 detail="An unexpected error occurred. Please try again.",
@@ -2007,6 +2068,13 @@ def build_app() -> FastAPI:
             ctx.visitor_id, settings.free_chat_limit
         )
 
+        async def _refund_on_error() -> None:
+            # Streamed an error, not an answer: return the reserved daily budget
+            # unit AND the chat-quota unit consumed in the guardrails. (Client
+            # disconnects keep the turn — they may have received partial content.)
+            await store.release_daily_conversation(today)
+            await store.release_chat_limit(ctx.visitor_id)
+
         async def event_gen() -> AsyncIterator[str]:
             yield _sse("session", {"session_id": session_id})
 
@@ -2040,7 +2108,7 @@ def build_app() -> FastAPI:
                 )
             except RuntimeError:
                 logger.exception("Failed to load prompt or resume data")
-                await store.release_daily_conversation(today)
+                await _refund_on_error()
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
                 return
             yield _sse("status", {
@@ -2120,15 +2188,15 @@ def build_app() -> FastAPI:
                 raise
             except RateLimitError:
                 logger.warning("Anthropic rate limit or spending cap hit")
-                await store.release_daily_conversation(today)
+                await _refund_on_error()
                 yield _sse("error", {"detail": BUSY_MESSAGE})
             except AnthropicError:
                 logger.exception("Anthropic API request failed after retries")
-                await store.release_daily_conversation(today)
+                await _refund_on_error()
                 yield _sse("error", {"detail": GENERIC_CHAT_ERROR})
             except Exception:  # pragma: no cover - unexpected errors
                 logger.exception("Unexpected error during streamed chat")
-                await store.release_daily_conversation(today)
+                await _refund_on_error()
                 yield _sse("error", {"detail": "An unexpected error occurred. Please try again."})
 
         streaming_response = StreamingResponse(
@@ -2173,14 +2241,10 @@ def build_app() -> FastAPI:
         history = await store.get_history(session_id)
 
         if payload.mode == "brief":
-            has_analysis = any(
-                JD_SENTINEL in block.get("text", "")
-                for msg in history
-                if msg.get("role") == "user"
-                for block in msg.get("content", [])
-                if isinstance(block, dict)
-            )
-            if not has_analysis:
+            # Server-owned flag, not a history substring: a visitor must not be
+            # able to unlock the quota-free brief by typing a sentinel into an
+            # ordinary chat message that shares this session's history.
+            if not await store.has_jd_analysis(session_id):
                 await _reject(HTTPException(status_code=409, detail="Run a fit analysis first."))
         jd_unit_reserved = False
         if payload.mode != "brief":
@@ -2218,7 +2282,11 @@ def build_app() -> FastAPI:
                 "Analyze Dakota's fit for this role.\n"
                 f"<job_description>\n{sanitized}\n</job_description>"
             )
-            stored_user_text = f"{JD_SENTINEL} {sanitized[:300]}"
+            # Persist only a neutral marker, never the raw pasted JD: without its
+            # <job_description> firewall wrapper the JD would otherwise replay as
+            # a plain user turn on later chat turns, stripped of the "untrusted
+            # data, not instructions" framing that is the JD defense.
+            stored_user_text = JD_SENTINEL
 
         async def event_gen() -> AsyncIterator[str]:
             yield _sse("session", {"session_id": session_id})
@@ -2265,6 +2333,9 @@ def build_app() -> FastAPI:
                     history_was_empty=False, cache_key="",
                     model_id=settings.anthropic_model, route_reason="jd-match",
                 )
+                if payload.mode != "brief":
+                    # Unlock brief mode for this session via a server-owned flag.
+                    await store.mark_jd_analysis(session_id)
                 yield _sse("done", {
                     "reply": reply_text, "mode": payload.mode,
                     "session_id": session_id, "used_rag": False, "sources": [],

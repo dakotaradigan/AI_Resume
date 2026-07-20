@@ -268,6 +268,29 @@ class TestGuardrailsBeforeStream(ChatStreamTestCase):
             events = self.stream_events(client, SIMPLE_MESSAGE, session_id="quota-session")
         self.assertEqual(events[-1][1]["quota_remaining"], 0)
 
+    def test_upstream_failure_refunds_chat_quota(self) -> None:
+        # With one free exchange, a failed generation must refund the turn so an
+        # upstream 5xx doesn't push a legitimate visitor to the password wall.
+        FakeAnthropic.messages_api = FakeStreamingMessages(
+            ["never"], error_kind="anthropic", error_at=0
+        )
+        with self.build_client(make_settings(free_chat_limit=1)) as client:
+            first = client.post(
+                "/api/chat/stream",
+                json={"message": COMPLEX_MESSAGE, "session_id": "s1"},
+            )
+            self.assertEqual(first.status_code, 200)
+            self.assertIn("event: error", first.text)
+
+            # Quota was refunded, so the retry is allowed (not the 403 wall).
+            FakeAnthropic.messages_api = FakeStreamingMessages(["Recovered."])
+            retry = client.post(
+                "/api/chat/stream",
+                json={"message": COMPLEX_MESSAGE, "session_id": "s1"},
+            )
+            self.assertEqual(retry.status_code, 200)
+            self.assertIn("event: done", retry.text)
+
 
 class TestStarterCache(ChatStreamTestCase):
     STARTER = "What's Dakota's background?"
