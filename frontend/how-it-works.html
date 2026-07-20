@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#FBFDFF" />
-  <meta name="description" content="How Dakota Radigan's AI resume works: real SSE streaming, model routing, hybrid retrieval, measured evals, and security hardening." />
+  <meta name="description" content="How Dakota Radigan's AI resume works: live responses, context search, human-reviewed evaluation, and safe fallbacks." />
   <title>How This Site Works | Dakota Radigan</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,25 +38,25 @@
     <section class="hiw-hero">
       <div class="section-label">UNDER THE HOOD</div>
       <h1 class="hiw-title">How this site works</h1>
-      <p class="hiw-subtitle">A production AI application, built and measured like one — every claim below is backed by code and committed eval results in the repo.</p>
+      <p class="hiw-subtitle">A plain-English look at how the assistant finds the right context, chooses an answer, checks its work, and handles failures.</p>
     </section>
 
     <section class="hiw-tldr" aria-label="Summary">
       <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Real streaming</h2>
-        <p>Hand-rolled server-sent events — session, status, token deltas, done — no fake typing animations.</p>
+        <h2 class="hiw-card-title">Responds in real time</h2>
+        <p>Answers appear as they are written, and the status reflects what the assistant is actually doing — not a fake typing animation.</p>
       </div>
       <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Hybrid retrieval</h2>
-        <p>Dense vectors + BM25 fused with reciprocal rank fusion over a 25-chunk corpus of resume and project docs.</p>
+        <h2 class="hiw-card-title">Finds the right context</h2>
+        <p>Searches for both exact words and related ideas, then combines the strongest matches before answering.</p>
       </div>
       <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Measured</h2>
-        <p>Retrieval and answer quality are scored against curated eval sets — quality here is a number, not a vibe.</p>
+        <h2 class="hiw-card-title">Human judgment first</h2>
+        <p>I review test answers first, then compare the AI judges against those human decisions.</p>
       </div>
       <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Hardened</h2>
-        <p>Production-grade guardrails on identity, input handling, and model spend.</p>
+        <h2 class="hiw-card-title">Built to fail safely</h2>
+        <p>If context search is unavailable, the assistant uses the full resume instead, so visitors can still get an answer.</p>
       </div>
     </section>
 
@@ -65,7 +65,7 @@
       <p>One FastAPI service serves the static frontend and the API. Guardrails (rate limits, quotas, validation) run before any model call; retrieval and model routing run concurrently; the answer streams back over SSE.</p>
       <svg class="hiw-diagram" viewBox="0 0 360 560" role="img" aria-labelledby="diag-title diag-desc">
         <title id="diag-title">Architecture diagram</title>
-        <desc id="diag-desc">Browser connects to a FastAPI gateway running guardrails and a model router, which branches to hybrid retrieval (Qdrant plus BM25) and Claude, streaming the answer back to the browser as server-sent events.</desc>
+        <desc id="diag-desc">The browser connects to the application, which searches for exact words and related ideas while choosing the right Claude model, then streams the answer back.</desc>
         <defs>
           <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0 0 L10 5 L0 10 z" class="hiw-arrowhead"/>
@@ -86,10 +86,10 @@
         <line x1="240" y1="186" x2="265" y2="240" class="hiw-line" marker-end="url(#arrow)"/>
 
         <rect x="20" y="242" width="155" height="88" rx="10" class="hiw-box"/>
-        <text x="97" y="270" text-anchor="middle" class="hiw-label">Hybrid retrieval</text>
-        <text x="97" y="288" text-anchor="middle" class="hiw-sublabel">Qdrant vectors + BM25</text>
-        <text x="97" y="304" text-anchor="middle" class="hiw-sublabel">RRF fusion · top 4</text>
-        <text x="97" y="320" text-anchor="middle" class="hiw-sublabel">resume + project docs</text>
+        <text x="97" y="270" text-anchor="middle" class="hiw-label">Context search</text>
+        <text x="97" y="288" text-anchor="middle" class="hiw-sublabel">exact words + meaning</text>
+        <text x="97" y="304" text-anchor="middle" class="hiw-sublabel">combines best matches</text>
+        <text x="97" y="320" text-anchor="middle" class="hiw-sublabel">resume + project notes</text>
 
         <rect x="195" y="242" width="145" height="88" rx="10" class="hiw-box"/>
         <text x="267" y="270" text-anchor="middle" class="hiw-label">Claude</text>
@@ -123,14 +123,14 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
     </section>
 
     <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">Retrieval</h2></div>
-      <p>Questions search a 25-chunk corpus built from the structured resume and full project write-ups. Retrieval is hybrid: OpenAI <code>text-embedding-3-small</code> vectors in Qdrant plus an in-process BM25 keyword index, fused with reciprocal rank fusion. Vector search catches paraphrases; BM25 catches exact terms like certification names that embeddings blur.</p>
-      <p>If retrieval is unavailable, the site degrades gracefully to full-resume context — it never fails a visitor because a vector database was down.</p>
+      <div class="section-header"><h2 class="section-title">How it finds the right context</h2></div>
+      <p>When someone asks a question, the assistant searches my resume and project notes in two ways: one looks for the exact words they used, and the other looks for ideas with a similar meaning. It combines the best matches and gives Claude the most relevant context before it answers.</p>
+      <p>If search is temporarily unavailable, the site uses the full resume instead, so visitors can still get an answer.</p>
     </section>
 
     <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">Measured &amp; hardened</h2></div>
-      <p>Retrieval and answer quality are evaluated against curated datasets and scored by LLM judges before changes ship — happy to walk through the eval methodology in an interview. The service runs standard production protections around identity, untrusted input, and model spend, with graceful degradation when any dependency is down.</p>
+      <div class="section-header"><h2 class="section-title">Human-judged LLM</h2></div>
+      <p>I reviewed a 100-question test set by hand, using pass/fail labels and written critiques to identify recurring problems. I then built three focused LLM graders and compare their verdicts with the human labels. The graders are still being tuned, so human judgment remains the standard. This workflow is inspired by <a href="https://hamel.dev/blog/posts/llm-judge/" target="_blank" rel="noopener noreferrer">Hamel Husain's human-first evaluation approach</a>.</p>
     </section>
 
     <section class="hiw-section" id="connect-mcp">
@@ -146,7 +146,7 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
     <section class="hiw-section">
       <aside class="hiw-aside">
         <h2 class="hiw-aside-title">Why no LangChain?</h2>
-        <p>The direct SDK calls here are about thirty lines, including retries and timeouts. Frameworks earn their keep when you're swapping providers or composing many chains — neither applies to this site. The effort went into measured retrieval, validated evals, and security hardening instead. Every abstraction here is one I can defend line by line.</p>
+        <p>The direct SDK calls here are about thirty lines, including retries and timeouts. Frameworks earn their keep when you're swapping providers or composing many chains — neither applies to this site. The effort went into making the answers useful, honest, and dependable instead. Every abstraction here is one I can defend line by line.</p>
       </aside>
     </section>
 
