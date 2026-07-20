@@ -33,6 +33,11 @@ rerun against the current corpus.
 The dataset remains gitignored and must not be committed; only this schema
 documentation is tracked.
 
+The retrieval runner defaults to `resume_eval_retrieval` and rejects the live
+`resume` collection. A custom collection must start with `resume_eval_`; use a
+non-production Qdrant target through `EVAL_QDRANT_URL` and
+`EVAL_QDRANT_API_KEY` even with that guard.
+
 ## Reminder
 These files are gitignored. They may contain real user data / PII.
 Do not commit without explicit approval and PII sanitization.

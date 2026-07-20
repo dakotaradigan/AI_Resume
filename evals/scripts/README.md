@@ -13,12 +13,13 @@ Eval runner scripts and code-based graders live here. See
 - `validate_judges.py` — Compare judge verdicts to human labels (TPR/TNR)
 - `eval_{criterion}.py` — Individual code-based graders (as needed)
 
-`run_retrieval_eval.py` is operationally stateful: it initializes the configured
-`resume` collection, may auto-reindex it on corpus drift, spends embedding
-calls, and writes an ignored result file. Run it only with owner approval for
-both the dataset revision and the intended Qdrant target. The script has no
-collection-name override: never use production Qdrant credentials; use an
-isolated non-production cluster.
+`run_retrieval_eval.py` is operationally stateful: it initializes an isolated
+eval-prefixed collection, may rewrite that collection on corpus drift, spends
+embedding calls, and writes an ignored result file. It refuses the production
+`resume` collection. Run it only with owner approval for the dataset revision
+and configure `EVAL_QDRANT_URL`/`EVAL_QDRANT_API_KEY` for a separate
+non-production target. The runner never falls back to the app's Qdrant
+credentials and rejects a matching app/eval URL.
 
 ## Output Format: JSONL
 

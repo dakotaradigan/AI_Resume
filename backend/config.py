@@ -60,6 +60,8 @@ class Settings:
     qdrant_url: str | None = None  # Required when USE_RAG=true
     qdrant_api_key: str = ""  # Qdrant Cloud API key (optional, depending on cluster)
     use_rag: bool = True  # Enable RAG retrieval (vs static context)
+    eval_qdrant_url: str | None = None  # Dedicated non-production retrieval-eval cluster
+    eval_qdrant_api_key: str = ""
 
 
 def _to_bool(value: str | None, default: bool = False) -> bool:
@@ -149,4 +151,6 @@ def get_settings() -> Settings:
         qdrant_url=os.getenv("QDRANT_URL"),
         qdrant_api_key=os.getenv("QDRANT_API_KEY", ""),
         use_rag=_to_bool(os.getenv("USE_RAG", "true"), default=True),
+        eval_qdrant_url=os.getenv("EVAL_QDRANT_URL"),
+        eval_qdrant_api_key=os.getenv("EVAL_QDRANT_API_KEY", ""),
     )

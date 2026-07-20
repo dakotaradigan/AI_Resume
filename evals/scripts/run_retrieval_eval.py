@@ -1,9 +1,11 @@
 """Evaluate hybrid retrieval against a user-approved golden dataset.
 
-Operational warning: pipeline initialization may auto-reindex the configured
-``resume`` collection on corpus drift. Confirm the approved dataset and intended
-Qdrant target before running. Never use production credentials; this script has
-no collection-name override, so use an isolated non-production cluster.
+Operational warning: pipeline initialization may rewrite the selected collection
+on corpus drift. The default eval collection is isolated from ``resume``, and the
+script refuses that production collection name. Still use a non-production
+Qdrant target through EVAL_QDRANT_URL/EVAL_QDRANT_API_KEY and confirm the
+approved dataset before running. The app's normal Qdrant credentials are never
+used by this script.
 
 Usage:
     python evals/scripts/run_retrieval_eval.py --k 4
@@ -35,6 +37,23 @@ from config import get_settings  # noqa: E402
 from rag import build_corpus, initialize_rag_pipeline  # noqa: E402
 
 VECTOR_SCORE_THRESHOLD = 0.30
+DEFAULT_EVAL_COLLECTION = "resume_eval_retrieval"
+PRODUCTION_COLLECTION = "resume"
+
+
+def validate_eval_collection(collection_name: str) -> str:
+    """Reject empty or production collection names before any client is created."""
+    normalized = collection_name.strip()
+    if not normalized:
+        raise ValueError("Eval collection name cannot be empty.")
+    if normalized == PRODUCTION_COLLECTION:
+        raise ValueError(
+            f"Refusing to run retrieval evals against production collection "
+            f"{PRODUCTION_COLLECTION!r}."
+        )
+    if not normalized.startswith("resume_eval_"):
+        raise ValueError("Eval collection name must start with 'resume_eval_'.")
+    return normalized
 
 
 def load_dataset(dataset_path: Path, corpus_titles: set[str]) -> list[dict[str, Any]]:
@@ -119,13 +138,27 @@ def print_summary(results: list[dict[str, Any]], output_path: Path, k: int) -> N
     print(f"\nResults: {output_path}")
 
 
-def run_retrieval_eval(dataset_path: Path, output_path: Path, k: int) -> None:
+def run_retrieval_eval(
+    dataset_path: Path,
+    output_path: Path,
+    k: int,
+    collection_name: str = DEFAULT_EVAL_COLLECTION,
+) -> None:
     """Run the configured retriever and write one scored JSON object per query."""
+    collection_name = validate_eval_collection(collection_name)
     settings = get_settings()
     if not settings.openai_api_key:
         raise RuntimeError("OPENAI_API_KEY is required for retrieval eval query embeddings.")
-    if not settings.qdrant_url:
-        raise RuntimeError("QDRANT_URL is required for retrieval evals.")
+    if not settings.eval_qdrant_url:
+        raise RuntimeError(
+            "EVAL_QDRANT_URL is required; retrieval evals never use the app's QDRANT_URL."
+        )
+    eval_qdrant_url = settings.eval_qdrant_url.strip().rstrip("/")
+    production_qdrant_url = (settings.qdrant_url or "").strip().rstrip("/")
+    if production_qdrant_url and eval_qdrant_url == production_qdrant_url:
+        raise RuntimeError("EVAL_QDRANT_URL must differ from the app's QDRANT_URL.")
+    if eval_qdrant_url.startswith("https://") and not settings.eval_qdrant_api_key:
+        raise RuntimeError("EVAL_QDRANT_API_KEY is required for an HTTPS eval target.")
 
     resume_path = settings.data_dir / "resume.json"
     projects_dir = settings.data_dir / "projects"
@@ -135,11 +168,13 @@ def run_retrieval_eval(dataset_path: Path, output_path: Path, k: int) -> None:
         openai_api_key=settings.openai_api_key,
         resume_path=resume_path,
         projects_dir=projects_dir,
-        qdrant_url=settings.qdrant_url,
-        qdrant_api_key=settings.qdrant_api_key,
+        qdrant_url=eval_qdrant_url,
+        qdrant_api_key=settings.eval_qdrant_api_key,
+        collection_name=collection_name,
     )
 
     print(f"Loaded {len(cases)} approved cases from {dataset_path.name}")
+    print(f"Using isolated collection {collection_name!r}")
     print(f"Writing incremental results to {output_path.name}")
 
     results: list[dict[str, Any]] = []
@@ -177,6 +212,11 @@ def parse_args() -> argparse.Namespace:
         help="Path to the user-approved retrieval golden dataset",
     )
     parser.add_argument("--k", type=int, default=4, help="Number of retrieved chunks to score")
+    parser.add_argument(
+        "--collection",
+        default=DEFAULT_EVAL_COLLECTION,
+        help=f"Isolated eval collection (default: {DEFAULT_EVAL_COLLECTION})",
+    )
     parser.add_argument("--output", type=Path, help="Optional results JSONL path")
     args = parser.parse_args()
     if args.k < 1:
@@ -186,6 +226,10 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     cli_args = parse_args()
+    try:
+        collection = validate_eval_collection(cli_args.collection)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     if not cli_args.dataset.exists():
         raise SystemExit(f"Dataset not found: {cli_args.dataset}")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -193,4 +237,4 @@ if __name__ == "__main__":
     result_path = cli_args.output or RESULTS_DIR / f"retrieval_run_{timestamp}.jsonl"
     if result_path.exists():
         raise SystemExit(f"Refusing to append to existing results file: {result_path}")
-    run_retrieval_eval(cli_args.dataset, result_path, cli_args.k)
+    run_retrieval_eval(cli_args.dataset, result_path, cli_args.k, collection)
