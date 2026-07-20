@@ -1,5 +1,9 @@
 # Redis Visitor Quota Plan
 
+> **Status: implemented.** This file preserves the original design rationale;
+> it is not an active implementation plan. Use `AGENTS.md`,
+> `docs/redis-integration.md`, and current source for shipped behavior.
+
 ## Goal
 
 Deploy Railway Redis and use it as the shared production state store for anonymous visitor quotas, password unlock state, rate limits, and daily cost controls. The main product goal is to prevent a visitor from bypassing the free chat limit by refreshing, starting a new chat, or changing the client-side `session_id`.

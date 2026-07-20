@@ -1,5 +1,9 @@
 # Work Packet — ChatGPT 5.6 sol (ultra)
 
+> **Status: completed historical work packet.** Phase C and D3 shipped. Do not
+> paste or execute this as a new assignment. Use
+> `docs/rag-learning-handoff.md` and current source for the implemented system.
+
 Paste everything below this line into ChatGPT (with repo access to `dakotaradigan/AI_Resume`), or hand it to a Codex session on that repo.
 
 ---

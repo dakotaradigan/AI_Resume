@@ -83,7 +83,7 @@
       "highlights": [
         "Reimagined professional discovery: shifted from passive document to interactive conversation",
         "Real token streaming over SSE with a live status timeline, plus a model router: a Haiku classifier sends simple lookups to Sonnet 5 and synthesis to Opus 4.8 with fail-safe fallback",
-        "Hybrid retrieval: dense vectors (Qdrant + OpenAI embeddings) fused with in-process BM25 via reciprocal rank fusion; measured against an owner-approved golden dataset (hit-rate@4 0.886, MRR 0.838)",
+        "Hybrid retrieval: dense vectors (Qdrant + OpenAI embeddings) fused with in-process BM25 via reciprocal rank fusion; initial owner-approved baseline (25-chunk corpus, 2026-07-19): hit-rate@4 0.886, MRR 0.838",
         "Recruiter tools: paste-a-job-description fit analysis with honest gaps, screening-brief generator, and a password-gated PDF resume download",
         "Production hardening: server-minted HttpOnly visitor identity for quotas, atomic daily budgets, prompt-injection firewall, strict CSP, HMAC-anonymized analytics, CI test gate, Docker deploy",
         "Open interfaces: /llms.txt rendered live from resume data and an MCP endpoint exposing a data-only get_resume tool",

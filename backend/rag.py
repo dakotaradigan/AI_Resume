@@ -2,10 +2,11 @@
 RAG Pipeline: Document chunking, embedding, and retrieval for Resume Assistant.
 
 This module handles:
-1. Chunking resume data into semantic units
+1. Chunking structured resume data and project documents into source-aligned units
 2. Generating embeddings with OpenAI text-embedding-3-small
-3. Indexing chunks into Qdrant
-4. Semantic search retrieval
+3. Indexing chunks and payloads into Qdrant
+4. Building an in-process BM25 keyword index
+5. Fusing semantic and lexical rankings with reciprocal rank fusion
 """
 
 from __future__ import annotations
@@ -37,10 +38,10 @@ _RRF_K = 60
 
 @dataclass
 class DocumentChunk:
-    """Represents a chunk of resume data with metadata."""
+    """Represents a chunk of resume or project source data with metadata."""
 
     text: str
-    chunk_type: str  # "personal", "experience", "project", "skills"
+    chunk_type: str  # e.g. personal, experience, project, project_doc, skills
     title: str
     timeframe: str | None = None
     tags: list[str] | None = None
@@ -478,7 +479,8 @@ Tech Stack: {', '.join(proj.get('tech_stack', []))}
         Args:
             query: User's question
             limit: Max number of results to return
-            score_threshold: Minimum similarity score (0-1)
+            score_threshold: Minimum Qdrant vector similarity accepted by the vector leg.
+                BM25 candidates are not filtered by this threshold.
 
         Returns:
             List of relevant chunks with metadata

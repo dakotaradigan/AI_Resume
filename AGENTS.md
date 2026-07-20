@@ -30,7 +30,7 @@ Frontend:
 Data and evals:
 - `data/resume.json`: structured public resume source data.
 - `data/system_prompt.txt`: system prompt used for chat responses.
-- `data/projects/*.md`: detailed project notes; verify whether they are wired into runtime before relying on them.
+- `data/projects/*.md`: detailed project notes indexed into the RAG corpus by `build_corpus`.
 - `evals/`: eval framework, judge prompts, scripts, datasets, and results.
 
 ## Local Run
@@ -107,7 +107,9 @@ Before assuming vector search is live:
 - Verify the `resume` collection exists and has points.
 - Confirm a chat response returns `used_rag=true` and source titles when relevant.
 
-Use `/admin/rag/reindex` after changing resume source data when persistent Qdrant data must be refreshed. Admin endpoints must stay protected.
+Startup performs a best-effort title/text drift check and auto-reindexes when a
+new process finds changed source data. Use `/admin/rag/reindex` when a running
+deployment must refresh immediately. Admin endpoints must stay protected.
 
 ## Update Workflow
 
@@ -160,6 +162,11 @@ The eval framework lives under `evals/`. For eval work, read:
 - Relevant docs in `evals/docs/`
 
 Judge prompts and eval scripts are code and should be included in commits/PRs. Dataset and result files may contain PII and are gitignored; never commit files in `evals/datasets/` or `evals/results/` without explicit approval.
+
+`evals/scripts/run_retrieval_eval.py` initializes the configured `resume`
+collection and may destructively auto-reindex it on drift. It has no collection
+override: never run it with production Qdrant credentials. Require owner
+approval for the dataset revision and use an isolated non-production cluster.
 
 To export production analytics for evals, use the admin header:
 

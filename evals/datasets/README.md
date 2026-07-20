@@ -24,8 +24,14 @@ streaming, and clean git diffs.
 - `expected_titles`: one or more exact titles printed by `build_corpus`
 - `category`: category used for per-category retrieval metrics
 
-The dataset requires Dakota's review and sign-off before use. It remains
-gitignored and must not be committed; only this schema documentation is tracked.
+Dakota reviewed and approved retrieval v1 on 2026-07-19 for its original
+25-chunk corpus. Any edit to v1 or any replacement dataset requires renewed
+review and sign-off before it is run. The source corpus has since grown to 26
+chunks, so the original results are historical until the approved dataset is
+rerun against the current corpus.
+
+The dataset remains gitignored and must not be committed; only this schema
+documentation is tracked.
 
 ## Reminder
 These files are gitignored. They may contain real user data / PII.

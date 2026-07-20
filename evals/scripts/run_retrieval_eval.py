@@ -1,5 +1,10 @@
 """Evaluate hybrid retrieval against a user-approved golden dataset.
 
+Operational warning: pipeline initialization may auto-reindex the configured
+``resume`` collection on corpus drift. Confirm the approved dataset and intended
+Qdrant target before running. Never use production credentials; this script has
+no collection-name override, so use an isolated non-production cluster.
+
 Usage:
     python evals/scripts/run_retrieval_eval.py --k 4
 

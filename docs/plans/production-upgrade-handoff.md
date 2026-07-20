@@ -1,5 +1,11 @@
 # AI_Resume Production Upgrade — Handoff Implementation Plan
 
+> **Status: historical implementation plan.** The planned work has been
+> implemented across subsequent PRs, and this file is no longer an active work
+> order. Do not execute its unchecked boxes or old code descriptions without
+> fresh user direction. `AGENTS.md`, current source, and
+> `docs/rag-learning-handoff.md` describe shipped behavior.
+
 **Audience of this document: an implementing AI model.** Every decision is already made. Do not re-derive, substitute, or "improve" decisions. Where this plan says "exact", copy it exactly. This plan was reviewed by senior-engineer, PM, and designer passes; deviations were already considered and rejected. Read in order: Context → Codebase orientation → Process contract → Global rules → your current phase (including its ⚠ Pitfalls section) → that phase's Definition of Done. When anything is impossible or contradictory, STOP and ask the user (Process contract rule 4) — an improvised redesign is the failure mode this document exists to prevent.
 
 ## Context
