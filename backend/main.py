@@ -1709,8 +1709,22 @@ def build_app() -> FastAPI:
         rag_pipeline = get_rag_pipeline()
         collection_exists: bool | None = None
         points_count: int | None = None
+        keyword_documents_count = 0
+        keyword_index_ready = False
+        corpus_current = False
+        dense_retrieval_status = "not_initialized"
 
         if rag_pipeline is not None:
+            keyword_documents_count = int(
+                getattr(rag_pipeline, "keyword_documents_count", 0) or 0
+            )
+            keyword_index_ready = bool(
+                getattr(rag_pipeline, "keyword_index_ready", False)
+            )
+            corpus_current = bool(getattr(rag_pipeline, "corpus_current", False))
+            dense_retrieval_status = str(
+                getattr(rag_pipeline, "dense_retrieval_status", "not_tested")
+            )
             try:
                 collection_exists = await asyncio.to_thread(
                     rag_pipeline.qdrant_client.collection_exists,
@@ -1729,6 +1743,15 @@ def build_app() -> FastAPI:
                 logger.exception("Failed to check RAG collection health")
 
         vector_db_live = bool(collection_exists and (points_count or 0) > 0)
+        indexes_ready = bool(
+            vector_db_live
+            and keyword_index_ready
+            and points_count == keyword_documents_count
+            and corpus_current
+        )
+        # A populated collection is not an end-to-end retrieval check. Report
+        # ready only after at least one dense query has actually succeeded.
+        retrieval_ready = indexes_ready and dense_retrieval_status == "healthy"
         return {
             "rag_enabled": settings.use_rag,
             "rag_initialized": rag_pipeline is not None,
@@ -1737,6 +1760,12 @@ def build_app() -> FastAPI:
             "collection_exists": collection_exists,
             "points_count": points_count,
             "vector_db_live": vector_db_live,
+            "keyword_documents_count": keyword_documents_count,
+            "keyword_index_ready": keyword_index_ready,
+            "corpus_current": corpus_current,
+            "indexes_ready": indexes_ready,
+            "dense_retrieval_status": dense_retrieval_status,
+            "retrieval_ready": retrieval_ready,
         }
 
     @app.get("/health/models")
@@ -1813,7 +1842,7 @@ def build_app() -> FastAPI:
         x_admin_token: str | None = Header(default=None),
     ) -> dict[str, Any]:
         """
-        Force re-index of RAG pipeline (deletes and recreates Qdrant collection).
+        Force a verified in-place refresh of the RAG collection.
 
         Use this endpoint after updating resume.json or other source data to
         refresh the vector search index without restarting the server.

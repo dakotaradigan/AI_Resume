@@ -74,6 +74,8 @@ Optional RAG:
 - `OPENAI_API_KEY`
 - `QDRANT_URL`
 - `QDRANT_API_KEY`
+- `EVAL_QDRANT_URL` / `EVAL_QDRANT_API_KEY` — dedicated non-production
+  retrieval-eval target; never inherited from the app's Qdrant settings
 
 Optional infrastructure and controls:
 - `REDIS_URL`
@@ -102,14 +104,24 @@ Do not print, copy, or commit real values from `backend/.env`.
 RAG is enabled only when `USE_RAG=true`, `OPENAI_API_KEY` is set, and `QDRANT_URL` is set. Startup attempts to initialize `RAGPipeline`; if that fails, the app logs the failure and falls back to static resume context.
 
 Before assuming vector search is live:
-- Check `/health/rag`.
+- Check `/health/rag`. `indexes_ready=true` confirms current dense/keyword index
+  generations with matching counts; `dense_retrieval_status` reports whether an
+  actual dense query has not yet been tested, most recently succeeded, or
+  degraded. A failed dense attempt makes `retrieval_ready=false` while BM25 can
+  continue serving informative exact-keyword queries.
 - Verify the configured Qdrant endpoint is reachable.
 - Verify the `resume` collection exists and has points.
 - Confirm a chat response returns `used_rag=true` and source titles when relevant.
 
-Startup performs a best-effort title/text drift check and auto-reindexes when a
-new process finds changed source data. Use `/admin/rag/reindex` when a running
-deployment must refresh immediately. Admin endpoints must stay protected.
+Startup performs a best-effort full-payload/index-version drift check and
+validates the collection's actual vector size/distance before auto-reindexing
+when a new process finds changed source data. Reindexing prepares all embeddings
+before updating points in place, verifies the stored generation, and never
+deletes the live collection. BM25 remains available if dense retrieval fails.
+Generation coordination is process-local; introduce distributed coordination
+and versioned collections before enabling multiple RAG-writing replicas. Use
+`/admin/rag/reindex` when a running deployment must refresh immediately. Admin
+endpoints must stay protected.
 
 ## Update Workflow
 
@@ -163,10 +175,12 @@ The eval framework lives under `evals/`. For eval work, read:
 
 Judge prompts and eval scripts are code and should be included in commits/PRs. Dataset and result files may contain PII and are gitignored; never commit files in `evals/datasets/` or `evals/results/` without explicit approval.
 
-`evals/scripts/run_retrieval_eval.py` initializes the configured `resume`
-collection and may destructively auto-reindex it on drift. It has no collection
-override: never run it with production Qdrant credentials. Require owner
-approval for the dataset revision and use an isolated non-production cluster.
+`evals/scripts/run_retrieval_eval.py` defaults to the isolated
+`resume_eval_retrieval` collection, requires eval-prefixed overrides, and
+refuses the production `resume` collection. It may rewrite the selected eval
+collection on drift. It requires `EVAL_QDRANT_URL`/`EVAL_QDRANT_API_KEY`, never
+falls back to the app's Qdrant credentials, and rejects an eval URL matching
+`QDRANT_URL`. Require owner approval for the dataset revision.
 
 To export production analytics for evals, use the admin header:
 
