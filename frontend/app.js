@@ -1813,6 +1813,13 @@ if (jdInput && jdAnalyzeBtn) {
 
 // --- Resume PDF download (password-gated; unlocked with the chat password) ---
 
+function clearPdfChatHelpers() {
+  suggestionsEl?.remove();
+  chatLog?.querySelector(".msg.intro")?.remove();
+  removePreviousFollowups();
+  autoScrollEnabled = true;
+}
+
 async function downloadResumePdf() {
   const btn = document.getElementById("pdf-download");
   if (btn) btn.disabled = true;
@@ -1834,20 +1841,29 @@ async function downloadResumePdf() {
     } catch (_) {
       /* non-JSON error body */
     }
+
+    // The starter helpers float over the bottom of the chat card. Once the
+    // PDF flow needs the chat, clear them so its status and unlock form stay
+    // visible—especially on narrow screens.
+    clearPdfChatHelpers();
+
     // 403 = locked: reuse the chat unlock form inside a bot message, then
     // retry the download once the password is accepted.
     const host = addMessage(detail, "bot");
-    const reducedMotion =
-      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    document.getElementById("chat")?.scrollIntoView({
-      behavior: reducedMotion ? "auto" : "smooth",
-    });
     if (res.status === 403) {
       renderUnlockForm(host, detail, null, () => downloadResumePdf());
     }
+    requestScrollToBottom();
+    (host.querySelector(".unlock-form") || host).scrollIntoView({
+      behavior: scrollBehavior(),
+      block: "center",
+    });
   } catch (err) {
     console.error("PDF download failed", err);
-    addMessage("Unable to download the PDF right now. Please try again soon.", "bot");
+    clearPdfChatHelpers();
+    const host = addMessage("Unable to download the PDF right now. Please try again soon.", "bot");
+    requestScrollToBottom();
+    host.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   } finally {
     if (btn) btn.disabled = false;
   }

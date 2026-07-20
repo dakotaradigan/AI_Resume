@@ -2309,6 +2309,12 @@ section[id],
     font-size: 16px;
   }
 
+  .unlock-input {
+    /* The PDF unlock field is focused immediately on iOS. */
+    min-width: 0;
+    font-size: 16px;
+  }
+
   .send-button {
     min-width: 44px;
     min-height: 44px;
