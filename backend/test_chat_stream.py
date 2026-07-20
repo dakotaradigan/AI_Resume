@@ -292,6 +292,68 @@ class TestGuardrailsBeforeStream(ChatStreamTestCase):
             self.assertIn("event: done", retry.text)
 
 
+class TestPerIpDailyCap(ChatStreamTestCase):
+    """The per-IP daily cap: no single IP can burn tokens past the cap; only the
+    password (unlimited) bypasses it. free_chat_limit is set high so the cap,
+    not the chat quota, is what rejects."""
+
+    def _settings(self, **over) -> Settings:
+        import dataclasses
+
+        fields = {"trust_proxy_headers": True, "per_ip_daily_limit": 2}
+        fields.update(over)
+        return dataclasses.replace(make_settings(free_chat_limit=100), **fields)
+
+    def _post(self, client: TestClient, session_id: str, ip: str):
+        return client.post(
+            "/api/chat/stream",
+            json={"message": SIMPLE_MESSAGE, "session_id": session_id},
+            headers={"X-Forwarded-For": ip},
+        )
+
+    def test_ip_cap_survives_cookie_rotation(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["ok"])
+        with self.build_client(self._settings()) as client:
+            ip = "203.0.113.9"
+            self.assertEqual(self._post(client, "a", ip).status_code, 200)
+            client.cookies.clear()  # drop the visitor cookie...
+            self.assertEqual(self._post(client, "b", ip).status_code, 200)
+            client.cookies.clear()  # ...again: fresh identity, same IP
+            blocked = self._post(client, "c", ip)
+            self.assertEqual(blocked.status_code, 403)
+            self.assertIn("password", blocked.json()["detail"].lower())
+
+    def test_cap_is_scoped_per_ip(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["ok"])
+        with self.build_client(self._settings()) as client:
+            for i in range(2):
+                self.assertEqual(self._post(client, f"a{i}", "198.51.100.1").status_code, 200)
+            self.assertEqual(self._post(client, "a2", "198.51.100.1").status_code, 403)
+            # A different client IP has its own budget.
+            self.assertEqual(self._post(client, "b0", "198.51.100.2").status_code, 200)
+
+    def test_unlocked_visitor_bypasses_ip_cap(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["ok"])
+        with self.build_client(self._settings()) as client:
+            visitor_id = "11111111-2222-4333-8444-555555555555"
+            client.cookies.set("resume_assistant_visitor_id", visitor_id)
+            store = main.get_session_store()
+            asyncio.run(store.update_metadata(visitor_id))
+            asyncio.run(store.set_unlimited(visitor_id, True))
+            ip = "203.0.113.50"
+            for i in range(5):  # well past per_ip_daily_limit=2
+                self.assertEqual(self._post(client, f"s{i}", ip).status_code, 200)
+
+    def test_cap_inactive_without_proxy_trust(self) -> None:
+        # Without trusted client IPs every visitor shares the proxy IP, so the
+        # cap fails open rather than locking out the whole site.
+        FakeAnthropic.messages_api = FakeStreamingMessages(["ok"])
+        with self.build_client(self._settings(trust_proxy_headers=False)) as client:
+            ip = "203.0.113.77"
+            for i in range(4):  # would be capped at 2 if active
+                self.assertEqual(self._post(client, f"s{i}", ip).status_code, 200)
+
+
 class TestStarterCache(ChatStreamTestCase):
     STARTER = "What's Dakota's background?"
 

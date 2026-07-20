@@ -80,6 +80,7 @@ Optional infrastructure and controls:
 - `ADMIN_TOKEN`
 - `CHAT_PASSWORD`
 - `FREE_CHAT_LIMIT`
+- `PER_IP_DAILY_LIMIT` (per-client-IP daily cap on token-spending requests; needs `TRUST_PROXY_HEADERS=true` to take effect)
 - `RATE_LIMIT_REQUESTS_PER_MINUTE`
 - `SESSION_MAX_AGE_SECONDS`
 - `API_TIMEOUT_SECONDS`
