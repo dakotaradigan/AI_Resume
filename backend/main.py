@@ -170,13 +170,19 @@ class SessionStore:
                 try:
                     history.append(json.loads(entry))
                 except json.JSONDecodeError:
-                    logger.warning("Skipping invalid Redis history entry for session %s", session_id)
+                    logger.warning(
+                        "Skipping invalid Redis history entry for session %s",
+                        anonymize_session_id(session_id, get_settings().session_hash_secret),
+                    )
             return history
 
         async with self._lock:
             if session_id not in self._messages:
                 self._messages[session_id] = []
-            return self._messages[session_id]
+            # Return a copy: callers must not mutate our internal list, and this
+            # keeps in-memory semantics aligned with the Redis path (which always
+            # returns a freshly-decoded list).
+            return list(self._messages[session_id])
 
     async def set_history(self, session_id: str, history: list[dict]) -> None:
         """Replace session history (used after compaction)."""
@@ -438,6 +444,15 @@ class SessionStore:
             for sid in expired:
                 self._messages.pop(sid, None)
                 self._metadata.pop(sid, None)
+
+            # Prune day-keyed counters from past days (the Redis path self-expires
+            # via EXPIRE; the in-memory path would otherwise grow one entry per
+            # day and per (scope, visitor, day) forever).
+            today = date.today().isoformat()
+            for counter_key in [k for k in self._scoped_counts if k[2] < today]:
+                self._scoped_counts.pop(counter_key, None)
+            for day_key in [d for d in _daily_conversation_count if d < today]:
+                _daily_conversation_count.pop(day_key, None)
 
             return len(expired)
 
@@ -1023,7 +1038,7 @@ def retrieve_rag_context(
 
         return "\n\n".join(context_parts), True, sources
 
-    except Exception as exc:
+    except Exception:
         logger.exception("RAG retrieval failed, falling back to static context")
         return load_resume_context(), False, []
 
@@ -1338,11 +1353,14 @@ async def _persist_chat(
     cache_key: str,
     model_id: str = "",
     route_reason: str = "",
+    cacheable: bool = True,
 ) -> None:
     """Post-generation bookkeeping. reply_text must already be FOLLOWUPS-stripped.
     (The daily budget was reserved up front in the guardrails.)"""
-    # Cache response for starter questions (populate lazily on first real answer)
-    if history_was_empty and cache_key in STARTER_QUESTIONS:
+    # Cache response for starter questions (populate lazily on first real answer).
+    # cacheable is False when reply_text is a canned error/empty-response fallback,
+    # so a transient blip on the first click never latches as the chip's answer.
+    if cacheable and history_was_empty and cache_key in STARTER_QUESTIONS:
         _starter_cache[cache_key] = reply_text
 
     await store.append_message(session_id, "user", message)
@@ -1401,7 +1419,7 @@ def _initialize_rag(settings) -> RAGPipeline | None:
         logger.info("✅ RAG pipeline initialized successfully")
         return pipeline
 
-    except Exception as exc:
+    except Exception:
         logger.exception("Failed to initialize RAG pipeline, falling back to static context")
         return None
 
@@ -1487,6 +1505,17 @@ def build_app() -> FastAPI:
     )
     settings = get_settings()
     _warn_on_suspicious_model_ids(settings)
+    if settings.environment not in {"development", "production"}:
+        # The exact string "production" is load-bearing: it gates the cookie
+        # Secure flag, CORS credentialed origins, and the admin loopback fallback.
+        # A typo (e.g. "prod") silently downgrades all three to their non-prod
+        # (less safe) behavior, so surface it loudly at startup.
+        logger.warning(
+            "ENVIRONMENT=%r is not 'development' or 'production'; the Secure "
+            "cookie flag, CORS credentials, and admin loopback fallback all key "
+            "off the exact value 'production' and are running in non-prod mode.",
+            settings.environment,
+        )
 
     app.state.reindex_status = {
         "running": False,
@@ -1539,6 +1568,12 @@ def build_app() -> FastAPI:
             response.headers["X-Frame-Options"] = "DENY"
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            # HSTS only in production: forcing HTTPS-only would break local http
+            # dev. Confirm the edge isn't already sending this before relying on it.
+            if settings.environment == "production":
+                response.headers["Strict-Transport-Security"] = (
+                    "max-age=63072000; includeSubDomains"
+                )
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 "script-src 'self'; "
@@ -1608,12 +1643,21 @@ def build_app() -> FastAPI:
         }
 
     @app.get("/health/models")
-    async def models_health() -> dict[str, Any]:
+    async def models_health(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
         """Live-check each configured model against the Anthropic API.
 
         'Deploy succeeded' says nothing about whether the account can call
         the configured models; this endpoint does, without spending tokens.
+
+        Admin-gated: each call issues live upstream Anthropic requests and
+        reflects provider error detail, so it is an operator diagnostic, not a
+        public endpoint (anonymous callers could otherwise use it to amplify
+        upstream calls and enumerate model/config).
         """
+        _require_admin(x_admin_token, request)
         client = _make_anthropic_client(settings)
         results: dict[str, Any] = {}
         for env_name, model_id in (
@@ -1787,7 +1831,9 @@ def build_app() -> FastAPI:
             return load_resume_json_public()
         except RuntimeError as exc:
             logger.exception("Failed to load resume JSON for frontend")
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=500, detail="Unable to load resume data."
+            ) from exc
 
     @app.get("/llms.txt")
     async def llms_txt() -> PlainTextResponse:
@@ -1852,6 +1898,9 @@ def build_app() -> FastAPI:
         cache_key = message.lower().strip().rstrip("?") + "?"
         history = await store.get_history(session_id)
         if not history and cache_key in _starter_cache:
+            # Cache hit makes no model call, so return the daily unit reserved in
+            # the guardrails — a free response must not consume the model budget.
+            await store.release_daily_conversation(today)
             reply_text = _starter_cache[cache_key]
             await store.append_message(session_id, "user", message)
             await store.append_message(session_id, "assistant", reply_text)
@@ -1871,7 +1920,7 @@ def build_app() -> FastAPI:
         except RuntimeError as exc:
             logger.exception("Failed to load prompt or resume data")
             await store.release_daily_conversation(today)
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
+            raise HTTPException(status_code=500, detail=GENERIC_CHAT_ERROR) from exc
 
         # Same routed-model fallback as the streaming path: a failure on the
         # cheaper model retries once on the known-good primary model.
@@ -1918,6 +1967,7 @@ def build_app() -> FastAPI:
                 detail="An unexpected error occurred. Please try again.",
             ) from exc
 
+        had_text = bool(reply_text)
         if not reply_text:
             reply_text = (
                 "I couldn't generate a response just now. "
@@ -1929,6 +1979,7 @@ def build_app() -> FastAPI:
             store, settings, session_id, message, reply_text,
             history_was_empty=not history, cache_key=cache_key,
             model_id=model_id, route_reason=route_reason,
+            cacheable=had_text,
         )
 
         return ChatResponse(
@@ -1960,6 +2011,10 @@ def build_app() -> FastAPI:
             yield _sse("session", {"session_id": session_id})
 
             if cached_reply is not None:
+                # Cache hit makes no model call, so return the daily unit
+                # reserved in the guardrails — a free response must not consume
+                # the model budget.
+                await store.release_daily_conversation(today)
                 yield _sse("status", {"stage": "cached", "state": "done"})
                 yield _sse("delta", {"text": cached_reply})
                 await store.append_message(session_id, "user", message)
@@ -2037,6 +2092,7 @@ def build_app() -> FastAPI:
                 reply_text = "".join(
                     block.text for block in final.content if block.type == "text"
                 )
+                had_text = bool(reply_text)
                 if not reply_text:
                     reply_text = (
                         "I couldn't generate a response just now. "
@@ -2048,6 +2104,7 @@ def build_app() -> FastAPI:
                     store, settings, session_id, message, reply_text,
                     history_was_empty=not history, cache_key=cache_key,
                     model_id=used_model, route_reason=route_reason,
+                    cacheable=had_text,
                 )
                 yield _sse("done", {
                     "reply": reply_text, "used_rag": used_rag, "sources": sources,

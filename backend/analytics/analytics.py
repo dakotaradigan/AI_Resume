@@ -11,7 +11,7 @@ import hmac
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def log_query(
         route_reason: Why the router picked that model (router evals)
     """
     entry = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "session_id": session_id,
         "query": query,
         "response": response,
@@ -83,7 +83,7 @@ def log_feedback(session_id: str, rating: str, comment: str = "", trigger: str =
         trigger: What triggered the feedback prompt ("first_response" or "password_unlock")
     """
     entry = {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "session_id": session_id,
         "rating": rating,
         "comment": comment,
