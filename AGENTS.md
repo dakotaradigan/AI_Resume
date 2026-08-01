@@ -15,12 +15,21 @@ Primary goals:
 
 ## Architecture
 
-Backend:
-- `backend/main.py`: FastAPI app, routes, session storage, rate limits, chat flow, admin endpoints, static frontend mount.
-- `backend/config.py`: environment-backed settings.
-- `backend/rag.py`: Qdrant/OpenAI embedding pipeline.
-- `backend/analytics/analytics.py`: local/Redis analytics logging and export helpers.
-- `backend/test_rag.py`: unit tests plus optional Qdrant integration test.
+Backend (`backend/`):
+- `app/main.py`: application factory (`build_app`) and ASGI entrypoint (`uvicorn app.main:app`); wires middleware, routers, the MCP route, and the static frontend mount.
+- `app/config.py`: environment-backed settings (`Settings`, `get_settings`).
+- `app/routes/`: one module per endpoint group — `chat` (`/api/chat`, `/api/chat/stream`), `jd_match` (`/api/jd-match`), `resume` (`/api/resume`, `/llms.txt`, `/api/resume.pdf`), `unlock`, `feedback`, `health`, `admin`.
+- `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing.
+- `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
+- `app/llm.py`: Anthropic client construction, model routing, sampling params, model-id checks.
+- `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
+- `app/identity.py`: visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
+- `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
+- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tool, JSON logging, app-state accessors.
+- `rag/`: retrieval library — `chunking.py` (resume/project chunking), `keyword_index.py` (BM25), `pipeline.py` (`RAGPipeline`, Qdrant + embeddings + rank fusion).
+- `analytics/analytics.py`: local analytics logging and export helpers.
+- `tests/`: unittest suite (`test_*.py`), including an optional Qdrant integration test.
+- `main.py`: thin compatibility shim so `uvicorn main:app` still works for existing deploy configs.
 
 Frontend:
 - `frontend/index.html`: static page shell.
@@ -39,23 +48,23 @@ Data and evals:
 pip install -r requirements.txt
 cp backend/.env.example backend/.env
 cd backend
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 
 Open http://localhost:8000.
 
 ## Tests
 
-Run backend tests:
+Run backend tests from the repo root:
 
 ```bash
-./venv/bin/python -m unittest discover -s backend -p 'test*.py'
+USE_RAG=false PYTHONPATH=backend ./venv/bin/python -m unittest discover -s backend/tests -t backend -p 'test*.py'
 ```
 
 Run the Qdrant integration test only when a reachable vector database is configured:
 
 ```bash
-RUN_INTEGRATION=1 QDRANT_URL="$QDRANT_URL" ./venv/bin/python -m unittest backend.test_rag
+RUN_INTEGRATION=1 QDRANT_URL="$QDRANT_URL" PYTHONPATH=backend ./venv/bin/python -m unittest tests.test_rag
 ```
 
 ## Environment

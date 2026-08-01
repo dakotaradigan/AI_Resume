@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from dataclasses import dataclass
@@ -8,8 +9,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Repository root (this file lives at backend/app/config.py).
+BASE_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_DIR = BASE_DIR / "data"
 
 
@@ -77,10 +81,7 @@ def _to_int(value: str | None, default: int) -> int:
     try:
         return int(value.strip())
     except ValueError:
-        import logging
-        logging.getLogger(__name__).warning(
-            f"Invalid int value '{value}', using default: {default}"
-        )
+        logger.warning(f"Invalid int value '{value}', using default: {default}")
         return default
 
 
@@ -91,10 +92,7 @@ def _to_float(value: str | None, default: float) -> float:
     try:
         return float(value.strip())
     except ValueError:
-        import logging
-        logging.getLogger(__name__).warning(
-            f"Invalid float value '{value}', using default: {default}"
-        )
+        logger.warning(f"Invalid float value '{value}', using default: {default}")
         return default
 
 

@@ -33,7 +33,7 @@ RESULTS_DIR = EVALS_DIR / "results"
 
 sys.path.insert(0, str(BACKEND_DIR))
 
-from config import get_settings  # noqa: E402
+from app.config import get_settings  # noqa: E402
 from rag import build_corpus, initialize_rag_pipeline  # noqa: E402
 
 VECTOR_SCORE_THRESHOLD = 0.30

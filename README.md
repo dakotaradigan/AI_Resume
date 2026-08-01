@@ -36,7 +36,7 @@ cd AI_Resume
 pip install -r requirements.txt
 cp backend/.env.example backend/.env
 # Add your ANTHROPIC_API_KEY to backend/.env
-cd backend && uvicorn main:app --reload
+cd backend && uvicorn app.main:app --reload
 ```
 
 Open http://localhost:8000
