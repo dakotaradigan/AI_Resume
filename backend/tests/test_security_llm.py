@@ -1,8 +1,8 @@
 """Opt-in local integration tests for model-dependent security behavior.
 
-Run with:
-    RUN_LLM_SECURITY=1 PYTHONPATH=backend USE_RAG=false \
-        venv/bin/python -m unittest backend.test_security_llm -v
+Run from the repo root with:
+    RUN_LLM_SECURITY=1 USE_RAG=false PYTHONPATH=backend \
+        venv/bin/python -m unittest tests.test_security_llm -v
 
 The app is exercised in-process and RAG is disabled. The configured Anthropic
 test API key is used, so these tests are skipped unless explicitly enabled.
@@ -20,30 +20,35 @@ from unittest.mock import patch
 
 os.environ["USE_RAG"] = "false"
 
-import main
+from app import chat_service, content, session_store
+from app import main as app_main
+from app.config import get_settings
 
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 SYSTEM_PROMPT_CANARY = "SYSTEM-PROMPT-CANARY-7D1A9E4C"
 PRIVATE_PHONE_CANARY = "PRIVATE-PHONE-CANARY-8B2F6D3A"
 CROSS_SESSION_CANARY = "CROSS-SESSION-CANARY-4C9E1A7B"
 
 
+def _clear_content_caches() -> None:
+    content.load_system_prompt.cache_clear()
+    content.load_jd_match_prompt.cache_clear()
+    content.load_resume_context.cache_clear()
+    content.load_resume_json_public.cache_clear()
+
+
 @unittest.skipUnless(
     os.getenv("RUN_LLM_SECURITY") == "1"
-    and bool(main.get_settings().anthropic_api_key),
+    and bool(get_settings().anthropic_api_key),
     "LLM security integration disabled. Set RUN_LLM_SECURITY=1 to enable.",
 )
 class TestModelSecurityIntegration(unittest.TestCase):
     def setUp(self) -> None:
-        main._session_store = None
-        main._starter_cache.clear()
-        main._daily_conversation_count.clear()
-        main.load_system_prompt.cache_clear()
-        main.load_jd_match_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        chat_service.clear_starter_cache()
+        session_store._daily_conversation_count.clear()
+        _clear_content_caches()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.data_dir = Path(self.temp_dir.name)
 
@@ -69,7 +74,7 @@ class TestModelSecurityIntegration(unittest.TestCase):
             encoding="utf-8",
         )
 
-        base = main.get_settings()
+        base = get_settings()
         self.settings = replace(
             base,
             anthropic_max_tokens=300,
@@ -84,27 +89,32 @@ class TestModelSecurityIntegration(unittest.TestCase):
             use_rag=False,
         )
 
+        # The content loaders read get_settings() at first cache fill, so the
+        # canary data_dir must stay patched for the lifetime of the client.
+        self.settings_patch = patch.object(
+            content, "get_settings", return_value=self.settings
+        )
+        self.settings_patch.start()
+
         with (
-            patch.object(main, "get_settings", return_value=self.settings),
-            patch.object(main, "_initialize_rag", return_value=None),
+            patch.object(app_main, "get_settings", return_value=self.settings),
+            patch.object(app_main, "initialize_rag", return_value=None),
         ):
             from fastapi.testclient import TestClient
 
-            self.client = TestClient(main.build_app())
+            self.client = TestClient(app_main.build_app())
             self.client.__enter__()
 
-        self.log_query_patch = patch.object(main, "log_query")
+        self.log_query_patch = patch.object(chat_service, "log_query")
         self.log_query_patch.start()
 
     def tearDown(self) -> None:
         self.log_query_patch.stop()
         self.client.__exit__(None, None, None)
+        self.settings_patch.stop()
         self.temp_dir.cleanup()
-        main._session_store = None
-        main.load_system_prompt.cache_clear()
-        main.load_jd_match_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        _clear_content_caches()
 
     def chat(self, message: str, session_id: str) -> str:
         response = self.client.post(
@@ -160,7 +170,7 @@ class TestModelSecurityIntegration(unittest.TestCase):
                 self.assert_no_sensitive_disclosure(response)
 
     def jd_match(self, jd_text: str, session_id: str) -> str:
-        from test_chat_stream import parse_sse
+        from tests.test_chat_stream import parse_sse
 
         response = self.client.post(
             "/api/jd-match",

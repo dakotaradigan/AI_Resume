@@ -1,9 +1,9 @@
+"""Hardening tests: proxy trust, compaction, admin auth, key non-disclosure."""
+
 from __future__ import annotations
 
 import asyncio
-import importlib
 import os
-import sys
 import unittest
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -11,9 +11,11 @@ from unittest.mock import patch
 
 import httpx
 from anthropic import AnthropicError, RateLimitError
+from app import chat_service, config, identity, llm, session_store
+from app import main as app_main
+from app.constants import BUSY_MESSAGE
 from fastapi.testclient import TestClient
 from starlette.requests import Request
-
 
 # A recognizable fake secret. If any /api/chat error path ever forwards exception
 # text (or the key itself) to the client, this string will show up in the response
@@ -64,6 +66,11 @@ def _rate_limit_error() -> RateLimitError:
 
 @contextmanager
 def configured_app(**env: str):
+    """Build a fresh app against a controlled environment.
+
+    Settings are cached and the session store is process-wide, so both are
+    reset around the patched environment.
+    """
     base_env = {
         "ADMIN_TOKEN": "",
         "ANTHROPIC_API_KEY": "",
@@ -75,17 +82,13 @@ def configured_app(**env: str):
     base_env.update(env)
 
     with patch.dict(os.environ, base_env, clear=False):
-        import config
-
         config.get_settings.cache_clear()
-        if "main" in sys.modules:
-            main = importlib.reload(sys.modules["main"])
-        else:
-            import main
+        session_store.reset_session_store()
         try:
-            yield main, main.build_app()
+            yield app_main.build_app()
         finally:
             config.get_settings.cache_clear()
+            session_store.reset_session_store()
 
 
 def make_request(
@@ -106,30 +109,30 @@ def make_request(
 
 class TestSecurityHardening(unittest.TestCase):
     def test_trust_proxy_headers_defaults_to_false(self) -> None:
-        with configured_app() as (main, _):
-            settings = main.get_settings()
+        with configured_app():
+            settings = config.get_settings()
 
         self.assertFalse(settings.trust_proxy_headers)
 
     def test_trust_proxy_headers_parses_truthy_values(self) -> None:
-        with configured_app(TRUST_PROXY_HEADERS="true") as (main, _):
-            settings = main.get_settings()
+        with configured_app(TRUST_PROXY_HEADERS="true"):
+            settings = config.get_settings()
 
         self.assertTrue(settings.trust_proxy_headers)
 
     def test_client_ip_ignores_forwarded_for_by_default(self) -> None:
-        with configured_app(TRUST_PROXY_HEADERS="false") as (main, _):
+        with configured_app(TRUST_PROXY_HEADERS="false"):
             request = make_request(
                 client_host="198.51.100.10",
                 forwarded_for="192.0.2.1, 192.0.2.2",
             )
 
             self.assertEqual(
-                main._get_client_ip(request, main.get_settings()), "198.51.100.10"
+                identity.get_client_ip(request, config.get_settings()), "198.51.100.10"
             )
 
     def test_client_ip_uses_forwarded_for_when_enabled(self) -> None:
-        with configured_app(TRUST_PROXY_HEADERS="true") as (main, _):
+        with configured_app(TRUST_PROXY_HEADERS="true"):
             request = make_request(
                 client_host="198.51.100.10",
                 forwarded_for="192.0.2.1, 192.0.2.2",
@@ -138,32 +141,31 @@ class TestSecurityHardening(unittest.TestCase):
             # Right-most entry is the one appended by the trusted proxy;
             # left-most entries are client-supplied and spoofable.
             self.assertEqual(
-                main._get_client_ip(request, main.get_settings()), "192.0.2.2"
+                identity.get_client_ip(request, config.get_settings()), "192.0.2.2"
             )
 
     def test_client_ip_falls_back_when_forwarded_for_is_not_an_ip(self) -> None:
-        with configured_app(TRUST_PROXY_HEADERS="true") as (main, _):
+        with configured_app(TRUST_PROXY_HEADERS="true"):
             request = make_request(
                 client_host="198.51.100.10",
                 forwarded_for="spoofed-garbage",
             )
 
             self.assertEqual(
-                main._get_client_ip(request, main.get_settings()), "198.51.100.10"
+                identity.get_client_ip(request, config.get_settings()), "198.51.100.10"
             )
 
     def test_compacted_history_uses_supported_roles(self) -> None:
-        with configured_app() as (main, _):
-            store = main.SessionStore()
+        store = session_store.SessionStore()
 
-            async def scenario() -> list[dict]:
-                for i in range(8):
-                    await store.append_message("sid", "user", f"question {i}")
-                    await store.append_message("sid", "assistant", f"answer {i}")
-                await main._compact_session_history("sid", store)
-                return await store.get_history("sid")
+        async def scenario() -> list[dict]:
+            for i in range(8):
+                await store.append_message("sid", "user", f"question {i}")
+                await store.append_message("sid", "assistant", f"answer {i}")
+            await chat_service.compact_session_history("sid", store)
+            return await store.get_history("sid")
 
-            history = asyncio.run(scenario())
+        history = asyncio.run(scenario())
 
         self.assertGreater(len(history), 0)
         # The Anthropic Messages API rejects any role besides user/assistant.
@@ -174,21 +176,20 @@ class TestSecurityHardening(unittest.TestCase):
         self.assertIn("Earlier conversation summary", history[0]["content"][0]["text"])
 
     def test_history_compacts_after_seventh_completed_exchange(self) -> None:
-        with configured_app() as (main, _):
-            store = main.SessionStore()
+        store = session_store.SessionStore()
 
-            async def scenario() -> tuple[list[dict], list[dict]]:
-                for i in range(6):
-                    await store.append_message("sid", "user", f"question {i}")
-                    await store.append_message("sid", "assistant", f"answer {i}")
-                await main._compact_session_history("sid", store)
-                before_threshold = await store.get_history("sid")
-                await store.append_message("sid", "user", "question 6")
-                await store.append_message("sid", "assistant", "answer 6")
-                await main._compact_session_history("sid", store)
-                return before_threshold, await store.get_history("sid")
+        async def scenario() -> tuple[list[dict], list[dict]]:
+            for i in range(6):
+                await store.append_message("sid", "user", f"question {i}")
+                await store.append_message("sid", "assistant", f"answer {i}")
+            await chat_service.compact_session_history("sid", store)
+            before_threshold = await store.get_history("sid")
+            await store.append_message("sid", "user", "question 6")
+            await store.append_message("sid", "assistant", "answer 6")
+            await chat_service.compact_session_history("sid", store)
+            return before_threshold, await store.get_history("sid")
 
-            before_threshold, compacted = asyncio.run(scenario())
+        before_threshold, compacted = asyncio.run(scenario())
 
         self.assertEqual(len(before_threshold), 12)
         self.assertEqual(len(compacted), 11)
@@ -200,17 +201,17 @@ class TestSecurityHardening(unittest.TestCase):
         )
 
     def test_in_memory_session_expires_after_default_idle_window(self) -> None:
-        with configured_app() as (main, _):
-            store = main.SessionStore()
-            max_age_seconds = main.get_settings().session_max_age_seconds
+        with configured_app():
+            store = session_store.SessionStore()
+            max_age_seconds = config.get_settings().session_max_age_seconds
 
             async def scenario() -> tuple[int, int, list[dict]]:
-                with patch.object(main.time, "time", return_value=100.0):
+                with patch("time.time", return_value=100.0):
                     await store.update_metadata("sid")
                     await store.append_message("sid", "user", "remember me")
-                with patch.object(main.time, "time", return_value=3700.0):
+                with patch("time.time", return_value=3700.0):
                     at_boundary = await store.cleanup_expired(max_age_seconds)
-                with patch.object(main.time, "time", return_value=3700.1):
+                with patch("time.time", return_value=3700.1):
                     after_boundary = await store.cleanup_expired(max_age_seconds)
                 return at_boundary, after_boundary, await store.get_history("sid")
 
@@ -225,7 +226,7 @@ class TestSecurityHardening(unittest.TestCase):
         with configured_app(
             ADMIN_TOKEN="secret",
             ENVIRONMENT="production",
-        ) as (_, app):
+        ) as app:
             response = TestClient(app).get("/admin/analytics/export?token=secret")
 
         self.assertEqual(response.status_code, 401)
@@ -234,7 +235,7 @@ class TestSecurityHardening(unittest.TestCase):
         with configured_app(
             ADMIN_TOKEN="secret",
             ENVIRONMENT="production",
-        ) as (_, app):
+        ) as app:
             response = TestClient(app).get(
                 "/admin/analytics/export",
                 headers={"X-Admin-Token": "secret"},
@@ -243,13 +244,13 @@ class TestSecurityHardening(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_missing_admin_token_fails_closed_outside_local_dev(self) -> None:
-        with configured_app(ADMIN_TOKEN="", ENVIRONMENT="production") as (_, app):
+        with configured_app(ADMIN_TOKEN="", ENVIRONMENT="production") as app:
             response = TestClient(app).post("/admin/cache/clear")
 
         self.assertEqual(response.status_code, 503)
 
     def test_rag_health_reports_static_fallback_when_uninitialized(self) -> None:
-        with configured_app(USE_RAG="false", QDRANT_URL="https://qdrant.example") as (_, app):
+        with configured_app(USE_RAG="false", QDRANT_URL="https://qdrant.example") as app:
             response = TestClient(app).get("/health/rag")
 
         self.assertEqual(response.status_code, 200)
@@ -272,7 +273,7 @@ class TestSecurityHardening(unittest.TestCase):
             def count(self, collection_name: str, exact: bool) -> SimpleNamespace:
                 return SimpleNamespace(count=7)
 
-        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as (_, app):
+        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as app:
             app.state.rag_pipeline = SimpleNamespace(
                 collection_name="resume",
                 qdrant_client=FakeQdrantClient(),
@@ -307,7 +308,7 @@ class TestSecurityHardening(unittest.TestCase):
             def count(self, collection_name: str, exact: bool) -> SimpleNamespace:
                 return SimpleNamespace(count=7)
 
-        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as (_, app):
+        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as app:
             app.state.rag_pipeline = SimpleNamespace(
                 collection_name="resume",
                 qdrant_client=FakeQdrantClient(),
@@ -331,7 +332,7 @@ class TestSecurityHardening(unittest.TestCase):
             def count(self, collection_name: str, exact: bool) -> SimpleNamespace:
                 return SimpleNamespace(count=7)
 
-        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as (_, app):
+        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as app:
             app.state.rag_pipeline = SimpleNamespace(
                 collection_name="resume",
                 qdrant_client=FakeQdrantClient(),
@@ -355,7 +356,7 @@ class TestSecurityHardening(unittest.TestCase):
             def count(self, collection_name: str, exact: bool) -> SimpleNamespace:
                 return SimpleNamespace(count=7)
 
-        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as (_, app):
+        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as app:
             app.state.rag_pipeline = SimpleNamespace(
                 collection_name="resume",
                 qdrant_client=FakeQdrantClient(),
@@ -379,7 +380,7 @@ class TestSecurityHardening(unittest.TestCase):
             def count(self, collection_name: str, exact: bool) -> SimpleNamespace:
                 return SimpleNamespace(count=7)
 
-        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as (_, app):
+        with configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as app:
             app.state.rag_pipeline = SimpleNamespace(
                 collection_name="resume",
                 qdrant_client=FakeQdrantClient(),
@@ -404,21 +405,21 @@ class TestApiKeyNeverLeaks(unittest.TestCase):
         with configured_app(
             ANTHROPIC_API_KEY=SENTINEL_KEY,
             USE_RAG="false",
-        ) as (main, app):
-            main.AsyncAnthropic = _fake_client_factory(exc)
-            client = TestClient(app)
-            return main, client.post("/api/chat", json={"message": "Tell me about Dakota"})
+        ) as app:
+            with patch.object(llm, "AsyncAnthropic", _fake_client_factory(exc)):
+                client = TestClient(app)
+                return client.post("/api/chat", json={"message": "Tell me about Dakota"})
 
     def test_rate_limit_returns_busy_message_without_key(self) -> None:
-        main, response = self._chat_response(_rate_limit_error())
+        response = self._chat_response(_rate_limit_error())
 
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(response.json()["detail"], main.BUSY_MESSAGE)
+        self.assertEqual(response.json()["detail"], BUSY_MESSAGE)
         # The secret must not appear anywhere in what the client receives.
         self.assertNotIn(SENTINEL_KEY, response.text)
 
     def test_generic_anthropic_error_hides_key(self) -> None:
-        _, response = self._chat_response(
+        response = self._chat_response(
             AnthropicError(f"upstream failure for {SENTINEL_KEY}")
         )
 
@@ -428,7 +429,7 @@ class TestApiKeyNeverLeaks(unittest.TestCase):
         self.assertIn("try again", response.json()["detail"].lower())
 
     def test_unexpected_error_hides_key(self) -> None:
-        _, response = self._chat_response(
+        response = self._chat_response(
             RuntimeError(f"boom while using {SENTINEL_KEY}")
         )
 
@@ -439,7 +440,7 @@ class TestApiKeyNeverLeaks(unittest.TestCase):
     def test_app_never_runs_in_debug_mode(self) -> None:
         # Starlette's debug traceback page renders frame-local variables (which would
         # include the API key). The app must never be constructed in debug mode.
-        with configured_app(ANTHROPIC_API_KEY=SENTINEL_KEY) as (_, app):
+        with configured_app(ANTHROPIC_API_KEY=SENTINEL_KEY) as app:
             self.assertFalse(app.debug)
 
 

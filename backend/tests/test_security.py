@@ -11,15 +11,15 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-# Prevent importing backend.main from initializing an external RAG connection.
+# Prevent importing app.main from initializing an external RAG connection.
 os.environ["USE_RAG"] = "false"
 
-import main
-from config import Settings
+from app import chat_service, content, llm, security, session_store
+from app import main as app_main
+from app.config import Settings
 from rag import RAGPipeline
 
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 
 
@@ -88,26 +88,26 @@ class FakeAnthropic:
 
 class SecurityTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        main._session_store = None
-        main._starter_cache.clear()
-        main._daily_conversation_count.clear()
-        main.load_system_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        chat_service.clear_starter_cache()
+        session_store._daily_conversation_count.clear()
+        content.load_system_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
         FakeAnthropic.messages_api = FakeMessages()
 
     def tearDown(self) -> None:
-        main._session_store = None
-        main.load_system_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        content.load_system_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
 
     def build_client(self, settings: Settings) -> TestClient:
         with (
-            patch.object(main, "get_settings", return_value=settings),
-            patch.object(main, "_initialize_rag", return_value=None),
+            patch.object(app_main, "get_settings", return_value=settings),
+            patch.object(app_main, "initialize_rag", return_value=None),
         ):
-            return TestClient(main.build_app())
+            return TestClient(app_main.build_app())
 
 
 class TestAdminAuthentication(SecurityTestCase):
@@ -194,7 +194,7 @@ class TestAdminAuthentication(SecurityTestCase):
             with (
                 patch("analytics.analytics.ANALYTICS_FILE", queries),
                 patch("analytics.analytics.FEEDBACK_FILE", feedback),
-                patch.object(main, "_is_loopback_host", return_value=True),
+                patch.object(security, "is_loopback_host", return_value=True),
                 self.build_client(settings) as loopback_client,
             ):
                 loopback_response = loopback_client.get("/admin/analytics/export")
@@ -229,8 +229,8 @@ class TestSensitiveDataBoundaries(SecurityTestCase):
             settings = make_settings(data_dir=data_dir)
 
             with (
-                patch.object(main, "AsyncAnthropic", FakeAnthropic),
-                patch.object(main, "log_query"),
+                patch.object(llm, "AsyncAnthropic", FakeAnthropic),
+                patch.object(chat_service, "log_query"),
                 self.build_client(settings) as client,
             ):
                 resume_response = client.get("/api/resume")
@@ -264,8 +264,7 @@ class TestSensitiveDataBoundaries(SecurityTestCase):
                 encoding="utf-8",
             )
 
-            pipeline = object.__new__(RAGPipeline)
-            chunks = pipeline.chunk_resume_data(resume_path)
+            chunks = RAGPipeline.chunk_resume_data(resume_path)
 
         chunk_text = "\n".join(chunk.text for chunk in chunks)
         self.assertNotIn("PRIVATE-PHONE-SENTINEL", chunk_text)
@@ -278,8 +277,8 @@ class TestSensitiveDataBoundaries(SecurityTestCase):
         settings = make_settings()
 
         with (
-            patch.object(main, "AsyncAnthropic", FakeAnthropic),
-            patch.object(main, "log_query"),
+            patch.object(llm, "AsyncAnthropic", FakeAnthropic),
+            patch.object(chat_service, "log_query"),
             self.build_client(settings) as client,
         ):
             response = client.post(
@@ -301,8 +300,8 @@ class TestSessionIsolation(SecurityTestCase):
     def test_distinct_session_id_does_not_receive_other_history(self) -> None:
         settings = make_settings()
         with (
-            patch.object(main, "AsyncAnthropic", FakeAnthropic),
-            patch.object(main, "log_query"),
+            patch.object(llm, "AsyncAnthropic", FakeAnthropic),
+            patch.object(chat_service, "log_query"),
             self.build_client(settings) as client,
         ):
             client.post(
@@ -327,8 +326,8 @@ class TestSessionIsolation(SecurityTestCase):
         """Characterize session IDs as unbound bearer credentials."""
         settings = make_settings()
         with (
-            patch.object(main, "AsyncAnthropic", FakeAnthropic),
-            patch.object(main, "log_query"),
+            patch.object(llm, "AsyncAnthropic", FakeAnthropic),
+            patch.object(chat_service, "log_query"),
             self.build_client(settings) as client,
         ):
             client.post(

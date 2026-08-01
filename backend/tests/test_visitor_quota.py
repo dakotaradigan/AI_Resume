@@ -9,45 +9,48 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-# Prevent importing backend.main from initializing an external RAG connection.
+# Prevent importing app.main from initializing an external RAG connection.
 os.environ["USE_RAG"] = "false"
 
-import main
 from analytics.analytics import anonymize_session_id
-from config import Settings
-from test_chat_stream import FakeAnthropic, FakeStreamingMessages, make_settings
+from app import chat_service, content, llm, session_store
+from app import main as app_main
+from app.config import Settings
+from app.constants import JD_LIMIT_MESSAGE
+from app.session_store import SessionStore
 
+from tests.test_chat_stream import FakeAnthropic, FakeStreamingMessages, make_settings
 
 COOKIE = "resume_assistant_visitor_id"
 
 
 class VisitorQuotaTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        main._session_store = None
-        main._starter_cache.clear()
-        main._daily_conversation_count.clear()
-        main.load_system_prompt.cache_clear()
-        main.load_jd_match_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        chat_service.clear_starter_cache()
+        session_store._daily_conversation_count.clear()
+        content.load_system_prompt.cache_clear()
+        content.load_jd_match_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
         FakeAnthropic.messages_api = FakeStreamingMessages(["Hello."])
-        patcher = patch.object(main, "AsyncAnthropic", FakeAnthropic)
+        patcher = patch.object(llm, "AsyncAnthropic", FakeAnthropic)
         patcher.start()
         self.addCleanup(patcher.stop)
 
     def tearDown(self) -> None:
-        main._session_store = None
-        main.load_system_prompt.cache_clear()
-        main.load_jd_match_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        content.load_system_prompt.cache_clear()
+        content.load_jd_match_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
 
     def build_client(self, settings: Settings) -> TestClient:
         with (
-            patch.object(main, "get_settings", return_value=settings),
-            patch.object(main, "_initialize_rag", return_value=None),
+            patch.object(app_main, "get_settings", return_value=settings),
+            patch.object(app_main, "initialize_rag", return_value=None),
         ):
-            return TestClient(main.build_app())
+            return TestClient(app_main.build_app())
 
     def chat(self, client: TestClient, session_id: str, message: str = "Does Dakota know Python?"):
         return client.post(
@@ -59,7 +62,7 @@ class TestVisitorCookie(VisitorQuotaTestCase):
     def test_cookie_minted_when_absent(self) -> None:
         with (
             self.build_client(make_settings()) as client,
-            patch.object(main, "log_query"),
+            patch.object(chat_service, "log_query"),
         ):
             response = self.chat(client, "s1")
         self.assertEqual(response.status_code, 200)
@@ -73,7 +76,7 @@ class TestVisitorCookie(VisitorQuotaTestCase):
     def test_valid_cookie_is_reused_and_malformed_replaced(self) -> None:
         with (
             self.build_client(make_settings()) as client,
-            patch.object(main, "log_query"),
+            patch.object(chat_service, "log_query"),
         ):
             first = self.chat(client, "s1")
             minted = first.cookies.get(COOKIE)
@@ -95,7 +98,7 @@ class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):
         """The old bypass: clear localStorage -> new session_id -> fresh quota."""
         with (
             self.build_client(make_settings(free_chat_limit=1)) as client,
-            patch.object(main, "log_query"),
+            patch.object(chat_service, "log_query"),
         ):
             self.assertEqual(self.chat(client, "session-A").status_code, 200)
             # Same visitor cookie, brand-new session id: still blocked.
@@ -106,7 +109,7 @@ class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):
         settings = make_settings(free_chat_limit=1)
         with (
             self.build_client(settings) as client,
-            patch.object(main, "log_query"),
+            patch.object(chat_service, "log_query"),
         ):
             # Unlock FIRST (no prior cookie): must mint one and key unlock to it.
             unlock = client.post(
@@ -124,7 +127,7 @@ class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):
         jd = "Requirements: 5+ years of experience in product management, SQL. " * 5
         with (
             self.build_client(make_settings()) as client,
-            patch.object(main, "log_query"),
+            patch.object(chat_service, "log_query"),
         ):
             # Default budget: ONE free analysis per visitor per day.
             self.assertEqual(
@@ -135,12 +138,12 @@ class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):
             # the budget follows the cookie, not the session id.
             second = client.post("/api/jd-match", json={"jd_text": jd, "session_id": "b"})
             self.assertEqual(second.status_code, 403)
-            self.assertEqual(second.json()["detail"], main.JD_LIMIT_MESSAGE)
+            self.assertEqual(second.json()["detail"], JD_LIMIT_MESSAGE)
 
 
 class TestDailyBudgetReserveRelease(VisitorQuotaTestCase):
     def test_reserve_blocks_at_limit_and_release_returns_unit(self) -> None:
-        store = main.SessionStore()
+        store = SessionStore()
 
         async def scenario() -> tuple[bool, bool, bool]:
             first = await store.reserve_daily_conversation("2026-07-19", 1)
@@ -155,7 +158,7 @@ class TestDailyBudgetReserveRelease(VisitorQuotaTestCase):
         self.assertTrue(third)
 
     def test_reserve_is_atomic_under_concurrency(self) -> None:
-        store = main.SessionStore()
+        store = SessionStore()
 
         async def scenario() -> int:
             results = await asyncio.gather(
@@ -175,7 +178,7 @@ class TestDailyBudgetReserveRelease(VisitorQuotaTestCase):
             self.build_client(
                 dataclasses.replace(make_settings(), daily_conversation_limit=1)
             ) as client,
-            patch.object(main, "log_query"),
+            patch.object(chat_service, "log_query"),
         ):
             failed = self.chat(client, "s1")
             self.assertEqual(failed.status_code, 200)  # SSE error event, budget released
@@ -192,7 +195,7 @@ class TestDailyBudgetReserveRelease(VisitorQuotaTestCase):
             self.build_client(
                 dataclasses.replace(make_settings(), daily_conversation_limit=1)
             ) as client,
-            patch.object(main, "log_query"),
+            patch.object(chat_service, "log_query"),
         ):
             too_long = self.chat(client, "s1", message="x" * 5000)
             self.assertEqual(too_long.status_code, 413)
@@ -209,7 +212,7 @@ class TestAnalyticsAnonymization(VisitorQuotaTestCase):
 
         with (
             self.build_client(make_settings()) as client,
-            patch.object(main, "log_query", side_effect=capture),
+            patch.object(chat_service, "log_query", side_effect=capture),
         ):
             self.chat(client, "raw-session-id-12345")
 

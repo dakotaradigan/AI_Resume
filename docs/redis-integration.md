@@ -19,7 +19,7 @@ into the service environment automatically. Nothing else to configure.
 
 ## Where the connection is made
 
-`backend/main.py`, `get_session_store()`:
+`backend/app/session_store.py`, `get_session_store()`:
 
 ```python
 redis_client = redis_asyncio.from_url(
@@ -85,7 +85,7 @@ return 1
 See `check_and_increment_limit` (per-visitor chat quota, on a HASH),
 `check_and_increment_scoped_limit` (JD daily budget), and
 `reserve_daily_conversation`/`release_daily_conversation` (global daily cap,
-reserve-before-call with release on failure) in `backend/main.py`.
+reserve-before-call with release on failure) in `backend/app/session_store.py`.
 
 ## Key design habits worth copying
 
@@ -103,7 +103,7 @@ reserve-before-call with release on failure) in `backend/main.py`.
 
 ```bash
 # 1. Point at Redis and boot
-REDIS_URL=redis://... uvicorn main:app
+REDIS_URL=redis://... uvicorn app.main:app
 # 2. Chat once, then inspect state
 redis-cli --scan --pattern 'resume-assistant:*'
 redis-cli HGETALL 'resume-assistant:session:<visitor-uuid>:meta'

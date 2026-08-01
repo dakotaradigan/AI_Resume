@@ -9,18 +9,20 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-# Prevent importing backend.main from initializing an external RAG connection.
+# Prevent importing app.main from initializing an external RAG connection.
 os.environ["USE_RAG"] = "false"
 
-import main
-from config import Settings
-from test_chat_stream import (
+from app import chat_service, content, llm, session_store
+from app import main as app_main
+from app.config import Settings
+from app.constants import JD_LIMIT_MESSAGE, JD_SENTINEL
+
+from tests.test_chat_stream import (
     FakeAnthropic,
     FakeStreamingMessages,
     make_settings,
     parse_sse,
 )
-
 
 REALISTIC_JD = (
     "Senior Product Manager, AI Platform\n"
@@ -39,34 +41,34 @@ def jd_settings(**overrides) -> Settings:
 
 class JDMatchTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        main._session_store = None
-        main._starter_cache.clear()
-        main._daily_conversation_count.clear()
-        main.load_system_prompt.cache_clear()
-        main.load_jd_match_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        chat_service.clear_starter_cache()
+        session_store._daily_conversation_count.clear()
+        content.load_system_prompt.cache_clear()
+        content.load_jd_match_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
         FakeAnthropic.messages_api = FakeStreamingMessages(["## Strong Matches\n- Yes"])
-        patcher = patch.object(main, "AsyncAnthropic", FakeAnthropic)
+        patcher = patch.object(llm, "AsyncAnthropic", FakeAnthropic)
         patcher.start()
         self.addCleanup(patcher.stop)
-        log_patcher = patch.object(main, "log_query")
+        log_patcher = patch.object(chat_service, "log_query")
         log_patcher.start()
         self.addCleanup(log_patcher.stop)
 
     def tearDown(self) -> None:
-        main._session_store = None
-        main.load_system_prompt.cache_clear()
-        main.load_jd_match_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        content.load_system_prompt.cache_clear()
+        content.load_jd_match_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
 
     def build_client(self, settings: Settings) -> TestClient:
         with (
-            patch.object(main, "get_settings", return_value=settings),
-            patch.object(main, "_initialize_rag", return_value=None),
+            patch.object(app_main, "get_settings", return_value=settings),
+            patch.object(app_main, "initialize_rag", return_value=None),
         ):
-            return TestClient(main.build_app())
+            return TestClient(app_main.build_app())
 
     def run_jd(self, client: TestClient, jd_text: str, session_id: str, mode: str = "analysis"):
         return client.post(
@@ -107,7 +109,7 @@ class TestJDBudgets(JDMatchTestCase):
             self.assertEqual(self.run_jd(client, REALISTIC_JD, "s1").status_code, 200)
             third = self.run_jd(client, REALISTIC_JD, "s1")
             self.assertEqual(third.status_code, 403)
-            self.assertEqual(third.json()["detail"], main.JD_LIMIT_MESSAGE)
+            self.assertEqual(third.json()["detail"], JD_LIMIT_MESSAGE)
 
     def test_unlocked_identity_bypasses_jd_budget(self) -> None:
         settings = jd_settings(jd_daily_limit=0)
@@ -115,7 +117,7 @@ class TestJDBudgets(JDMatchTestCase):
             # Unlock is keyed to the visitor cookie identity, not session_id.
             visitor_id = "11111111-2222-4333-8444-555555555555"
             client.cookies.set("resume_assistant_visitor_id", visitor_id)
-            store = main.get_session_store()
+            store = session_store.get_session_store()
             import asyncio
 
             asyncio.run(store.update_metadata(visitor_id))
@@ -178,7 +180,7 @@ class TestBriefMode(JDMatchTestCase):
         with self.build_client(jd_settings()) as client:
             seeded = client.post(
                 "/api/chat/stream",
-                json={"message": f"tell me {main.JD_SENTINEL} please", "session_id": "s1"},
+                json={"message": f"tell me {JD_SENTINEL} please", "session_id": "s1"},
             )
             self.assertEqual(seeded.status_code, 200)
 

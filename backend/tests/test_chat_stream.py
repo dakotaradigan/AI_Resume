@@ -13,15 +13,16 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-# Prevent importing backend.main from initializing an external RAG connection.
+# Prevent importing app.main from initializing an external RAG connection.
 os.environ["USE_RAG"] = "false"
 
-import main
 from anthropic import AnthropicError
-from config import Settings
+from app import chat_service, content, llm, session_store
+from app import main as app_main
+from app.config import Settings
+from app.constants import GENERIC_CHAT_ERROR
 
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 
 SIMPLE_MESSAGE = "Does Dakota know Python?"  # short, no multi-part markers -> fast-path
@@ -147,31 +148,31 @@ def parse_sse(raw: str) -> list[tuple[str, dict]]:
 
 class ChatStreamTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        main._session_store = None
-        main._starter_cache.clear()
-        main._daily_conversation_count.clear()
-        main.load_system_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
-        patcher = patch.object(main, "AsyncAnthropic", FakeAnthropic)
+        session_store.reset_session_store()
+        chat_service.clear_starter_cache()
+        session_store._daily_conversation_count.clear()
+        content.load_system_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
+        patcher = patch.object(llm, "AsyncAnthropic", FakeAnthropic)
         patcher.start()
         self.addCleanup(patcher.stop)
-        log_patcher = patch.object(main, "log_query")
+        log_patcher = patch.object(chat_service, "log_query")
         log_patcher.start()
         self.addCleanup(log_patcher.stop)
 
     def tearDown(self) -> None:
-        main._session_store = None
-        main.load_system_prompt.cache_clear()
-        main.load_resume_context.cache_clear()
-        main.load_resume_json_public.cache_clear()
+        session_store.reset_session_store()
+        content.load_system_prompt.cache_clear()
+        content.load_resume_context.cache_clear()
+        content.load_resume_json_public.cache_clear()
 
     def build_client(self, settings: Settings) -> TestClient:
         with (
-            patch.object(main, "get_settings", return_value=settings),
-            patch.object(main, "_initialize_rag", return_value=None),
+            patch.object(app_main, "get_settings", return_value=settings),
+            patch.object(app_main, "initialize_rag", return_value=None),
         ):
-            return TestClient(main.build_app())
+            return TestClient(app_main.build_app())
 
     def stream_events(self, client: TestClient, message: str, session_id: str | None = None) -> list[tuple[str, dict]]:
         payload = {"message": message}
@@ -213,7 +214,7 @@ class TestEventOrdering(ChatStreamTestCase):
         self.assertEqual(done["reply"], "Dakota is PCAP-certified.")
         self.assertTrue(deltas.startswith(done["reply"]))
         self.assertEqual(done["followups"], ["q1", "q2", "q3"])
-        self.assertNotIn(main.FOLLOWUPS_MARKER, done["reply"])
+        self.assertNotIn(chat_service.FOLLOWUPS_MARKER, done["reply"])
         self.assertIsInstance(done["quota_remaining"], int)
 
     def test_fast_path_routes_to_simple_model_without_classifier(self) -> None:
@@ -337,7 +338,7 @@ class TestPerIpDailyCap(ChatStreamTestCase):
         with self.build_client(self._settings()) as client:
             visitor_id = "11111111-2222-4333-8444-555555555555"
             client.cookies.set("resume_assistant_visitor_id", visitor_id)
-            store = main.get_session_store()
+            store = session_store.get_session_store()
             asyncio.run(store.update_metadata(visitor_id))
             asyncio.run(store.set_unlimited(visitor_id, True))
             ip = "203.0.113.50"
@@ -358,7 +359,7 @@ class TestStarterCache(ChatStreamTestCase):
     STARTER = "What's Dakota's background?"
 
     def test_cached_starter_streams_single_delta(self) -> None:
-        main._starter_cache[self.STARTER.lower().rstrip("?") + "?"] = "Cached answer."
+        chat_service._starter_cache[self.STARTER.lower().rstrip("?") + "?"] = "Cached answer."
         FakeAnthropic.messages_api = FakeStreamingMessages(["should not be used"])
         with self.build_client(make_settings()) as client:
             events = self.stream_events(client, self.STARTER, session_id="fresh-1")
@@ -377,20 +378,22 @@ class TestStarterCache(ChatStreamTestCase):
             self.stream_events(client, self.STARTER, session_id="fresh-2")
 
         cache_key = self.STARTER.lower().rstrip("?") + "?"
-        self.assertIn(cache_key, main._starter_cache)
-        self.assertNotIn(main.FOLLOWUPS_MARKER, main._starter_cache[cache_key])
+        self.assertIn(cache_key, chat_service._starter_cache)
+        self.assertNotIn(
+            chat_service.FOLLOWUPS_MARKER, chat_service._starter_cache[cache_key]
+        )
 
     def test_cached_starter_hit_does_not_consume_daily_budget(self) -> None:
         # A cache hit makes no model call, so it must return the daily unit
         # reserved in the guardrails — otherwise free responses could drain the
         # global budget and 503 every visitor for the day.
-        main._starter_cache[self.STARTER.lower().rstrip("?") + "?"] = "Cached answer."
+        chat_service._starter_cache[self.STARTER.lower().rstrip("?") + "?"] = "Cached answer."
         FakeAnthropic.messages_api = FakeStreamingMessages(["unused"])
         today = date.today().isoformat()
         with self.build_client(make_settings()) as client:
             for i in range(5):
                 self.stream_events(client, self.STARTER, session_id=f"cache-{i}")
-        self.assertEqual(main._daily_conversation_count.get(today, 0), 0)
+        self.assertEqual(session_store._daily_conversation_count.get(today, 0), 0)
 
 
 class TestModelFallback(ChatStreamTestCase):
@@ -430,7 +433,7 @@ class TestStreamErrors(ChatStreamTestCase):
         names = [name for name, _ in events]
         self.assertEqual(names[-1], "error")
         self.assertNotIn("done", names)
-        self.assertEqual(events[-1][1]["detail"], main.GENERIC_CHAT_ERROR)
+        self.assertEqual(events[-1][1]["detail"], GENERIC_CHAT_ERROR)
 
     def test_cancelled_stream_does_not_persist_history(self) -> None:
         FakeAnthropic.messages_api = FakeStreamingMessages(
@@ -447,7 +450,7 @@ class TestStreamErrors(ChatStreamTestCase):
             except Exception:
                 pass  # cancellation may surface as a transport error; that's fine
 
-            store = main.get_session_store()
+            store = session_store.get_session_store()
             history = asyncio.run(store.get_history("cancelled-session"))
             roles = [msg.get("role") for msg in history]
             self.assertNotIn("assistant", roles)
@@ -495,17 +498,17 @@ class TestNonStreamingContract(ChatStreamTestCase):
 
 class TestRouterUnits(unittest.TestCase):
     def test_fast_path_rules(self) -> None:
-        self.assertTrue(main._is_fast_path_simple("Does Dakota know Python?"))
-        self.assertFalse(main._is_fast_path_simple("Python, SQL?"))  # comma
-        self.assertFalse(main._is_fast_path_simple("Python and SQL?"))  # " and "
-        self.assertFalse(main._is_fast_path_simple("What? Why?"))  # two questions
-        self.assertFalse(main._is_fast_path_simple("x" * 120))  # long
+        self.assertTrue(llm.is_fast_path_simple("Does Dakota know Python?"))
+        self.assertFalse(llm.is_fast_path_simple("Python, SQL?"))  # comma
+        self.assertFalse(llm.is_fast_path_simple("Python and SQL?"))  # " and "
+        self.assertFalse(llm.is_fast_path_simple("What? Why?"))  # two questions
+        self.assertFalse(llm.is_fast_path_simple("x" * 120))  # long
 
     def test_router_error_fails_safe_to_primary_model(self) -> None:
         settings = make_settings()
         client = SimpleNamespace(messages=FakeStreamingMessages([], router_raises=True))
         model, reason = asyncio.run(
-            main._route_model(COMPLEX_MESSAGE, client, settings)
+            llm.route_model(COMPLEX_MESSAGE, client, settings)
         )
         self.assertEqual(model, "test-opus")
         self.assertEqual(reason, "router-error")
@@ -516,7 +519,7 @@ class TestRouterUnits(unittest.TestCase):
             messages=FakeStreamingMessages([], router_label="simple")
         )
         model, reason = asyncio.run(
-            main._route_model(COMPLEX_MESSAGE, client, settings)
+            llm.route_model(COMPLEX_MESSAGE, client, settings)
         )
         self.assertEqual(model, "test-sonnet")
         self.assertEqual(reason, "simple")
@@ -531,7 +534,7 @@ class TestSamplingParams(unittest.TestCase):
             "claude-fable-5",
             "claude-mythos-5",
         ):
-            self.assertEqual(main._sampling_kwargs(model, 0.1), {}, model)
+            self.assertEqual(llm.sampling_kwargs(model, 0.1), {}, model)
 
     def test_temperature_kept_for_older_models(self) -> None:
         for model in (
@@ -541,18 +544,17 @@ class TestSamplingParams(unittest.TestCase):
             "test-opus",
         ):
             self.assertEqual(
-                main._sampling_kwargs(model, 0.1), {"temperature": 0.1}, model
+                llm.sampling_kwargs(model, 0.1), {"temperature": 0.1}, model
             )
 
 
 class TestModelIdGuard(unittest.TestCase):
     def test_malformed_claude_ids_are_flagged(self) -> None:
         import dataclasses
-        from test_chat_stream import make_settings as _ms  # self-import safe in unittest
 
-        bad = dataclasses.replace(_ms(), anthropic_model="Claude-Opus-4.8")
-        with self.assertLogs("resume-assistant", level="ERROR") as captured:
-            main._warn_on_suspicious_model_ids(bad)
+        bad = dataclasses.replace(make_settings(), anthropic_model="Claude-Opus-4.8")
+        with self.assertLogs("app.llm", level="ERROR") as captured:
+            llm.warn_on_suspicious_model_ids(bad)
         self.assertTrue(any("ANTHROPIC_MODEL" in line for line in captured.output))
 
     def test_valid_and_non_claude_ids_pass_silently(self) -> None:
@@ -564,11 +566,11 @@ class TestModelIdGuard(unittest.TestCase):
             anthropic_model_simple="claude-sonnet-5",
             anthropic_router_model="claude-haiku-4-5-20251001",
         )
-        with self.assertNoLogs("resume-assistant", level="ERROR"):
-            main._warn_on_suspicious_model_ids(ok)
+        with self.assertNoLogs("app.llm", level="ERROR"):
+            llm.warn_on_suspicious_model_ids(ok)
         # Test fixtures like "test-opus" are not claude ids and must not warn.
-        with self.assertNoLogs("resume-assistant", level="ERROR"):
-            main._warn_on_suspicious_model_ids(make_settings())
+        with self.assertNoLogs("app.llm", level="ERROR"):
+            llm.warn_on_suspicious_model_ids(make_settings())
 
 
 class TestModelsHealth(ChatStreamTestCase):
@@ -603,22 +605,22 @@ class TestModelsHealth(ChatStreamTestCase):
 
 class TestFollowupsSplit(unittest.TestCase):
     def test_marker_line_is_split(self) -> None:
-        reply, followups = main._split_followups("Answer.\nFOLLOWUPS: a | b | c")
+        reply, followups = chat_service.split_followups("Answer.\nFOLLOWUPS: a | b | c")
         self.assertEqual(reply, "Answer.")
         self.assertEqual(followups, ["a", "b", "c"])
 
     def test_no_marker_returns_reply_unchanged(self) -> None:
-        reply, followups = main._split_followups("Answer with no marker.")
+        reply, followups = chat_service.split_followups("Answer with no marker.")
         self.assertEqual(reply, "Answer with no marker.")
         self.assertEqual(followups, [])
 
     def test_followups_capped_at_three(self) -> None:
-        _, followups = main._split_followups("A.\nFOLLOWUPS: a | b | c | d | e")
+        _, followups = chat_service.split_followups("A.\nFOLLOWUPS: a | b | c | d | e")
         self.assertEqual(followups, ["a", "b", "c"])
 
     def test_marker_mid_text_is_not_split(self) -> None:
         text = "The FOLLOWUPS: feature emits chips.\nMore prose."
-        reply, followups = main._split_followups(text)
+        reply, followups = chat_service.split_followups(text)
         self.assertEqual(reply, text)
         self.assertEqual(followups, [])
 

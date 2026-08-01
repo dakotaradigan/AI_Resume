@@ -18,15 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-# Importing main builds the application. Force its supported static mode so this
-# module stays offline even when a developer has live credentials in backend/.env.
-os.environ["USE_RAG"] = "false"
-
-from evals.scripts.run_retrieval_eval import (
-    DEFAULT_EVAL_COLLECTION,
-    run_retrieval_eval,
-    validate_eval_collection,
-)
+from app.retrieval import retrieve_rag_context
 from rag import (
     DocumentChunk,
     RAGPipeline,
@@ -35,9 +27,15 @@ from rag import (
     initialize_rag_pipeline,
 )
 
+from evals.scripts.run_retrieval_eval import (
+    DEFAULT_EVAL_COLLECTION,
+    run_retrieval_eval,
+    validate_eval_collection,
+)
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-RESUME_PATH = BASE_DIR / "data" / "resume.json"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RESUME_PATH = PROJECT_ROOT / "data" / "resume.json"
+PROJECTS_DIR = PROJECT_ROOT / "data" / "projects"
 
 
 def _zero_embedding(_: str) -> list[float]:
@@ -327,7 +325,7 @@ class TestHybridRetrieval(unittest.TestCase):
 
         def run_reindex() -> None:
             try:
-                with patch("rag.build_corpus", return_value=chunks):
+                with patch("rag.pipeline.build_corpus", return_value=chunks):
                     pipeline.reindex(RESUME_PATH)
             except BaseException as exc:  # pragma: no cover - assertion reports it
                 failures.append(exc)
@@ -382,16 +380,12 @@ class TestHybridRetrieval(unittest.TestCase):
         )
         pipeline.embed_text.assert_not_called()
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_skips_reindex_when_corpus_matches(
         self, pipeline_class: MagicMock
     ) -> None:
         pipeline = _offline_pipeline()
-        # build_corpus resolves the patched rag.RAGPipeline; restore the real
-        # chunker BEFORE building the corpus so both this test and the drift
-        # comparison inside initialize see the actual chunks.
-        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
-        current_corpus = build_corpus(RESUME_PATH, BASE_DIR / "data" / "projects")
+        current_corpus = build_corpus(RESUME_PATH, PROJECTS_DIR)
         pipeline.qdrant_client.get_collection.return_value = _collection_info(
             len(current_corpus)
         )
@@ -417,7 +411,7 @@ class TestHybridRetrieval(unittest.TestCase):
             openai_api_key="test",
             resume_path=RESUME_PATH,
             qdrant_url="https://qdrant.invalid",
-            projects_dir=BASE_DIR / "data" / "projects",
+            projects_dir=PROJECTS_DIR,
         )
 
         self.assertIs(result, pipeline)
@@ -427,7 +421,7 @@ class TestHybridRetrieval(unittest.TestCase):
         pipeline.index_chunks.assert_not_called()
         pipeline.reindex.assert_not_called()
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_auto_reindexes_on_corpus_drift(
         self, pipeline_class: MagicMock
     ) -> None:
@@ -438,21 +432,18 @@ class TestHybridRetrieval(unittest.TestCase):
         pipeline._build_keyword_index([{"title": "Old Chunk", "text": "stale"}])
         pipeline.reindex = MagicMock()
         pipeline_class.return_value = pipeline
-        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
 
         result = initialize_rag_pipeline(
             openai_api_key="test",
             resume_path=RESUME_PATH,
             qdrant_url="https://qdrant.invalid",
-            projects_dir=BASE_DIR / "data" / "projects",
+            projects_dir=PROJECTS_DIR,
         )
 
         self.assertIs(result, pipeline)
-        pipeline.reindex.assert_called_once_with(
-            RESUME_PATH, BASE_DIR / "data" / "projects"
-        )
+        pipeline.reindex.assert_called_once_with(RESUME_PATH, PROJECTS_DIR)
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_marks_pipeline_degraded_when_auto_reindex_fails(
         self, pipeline_class: MagicMock
     ) -> None:
@@ -463,13 +454,12 @@ class TestHybridRetrieval(unittest.TestCase):
         pipeline.reindex = MagicMock()
         pipeline.reindex.side_effect = RuntimeError("verification failed")
         pipeline_class.return_value = pipeline
-        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
 
         result = initialize_rag_pipeline(
             openai_api_key="test",
             resume_path=RESUME_PATH,
             qdrant_url="https://qdrant.invalid",
-            projects_dir=BASE_DIR / "data" / "projects",
+            projects_dir=PROJECTS_DIR,
         )
 
         self.assertIs(result, pipeline)
@@ -477,13 +467,12 @@ class TestHybridRetrieval(unittest.TestCase):
         self.assertEqual(result.search("qdrant"), [])
         pipeline.qdrant_client.query_points.assert_not_called()
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_reindexes_on_embedding_model_drift(
         self, pipeline_class: MagicMock
     ) -> None:
         pipeline = _offline_pipeline()
-        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
-        current_corpus = build_corpus(RESUME_PATH, BASE_DIR / "data" / "projects")
+        current_corpus = build_corpus(RESUME_PATH, PROJECTS_DIR)
         stored_payloads = [pipeline._chunk_payload(chunk) for chunk in current_corpus]
         stored_payloads[0] = stored_payloads[0] | {"embedding_model": "old-model"}
         pipeline._build_keyword_index(stored_payloads)
@@ -498,20 +487,17 @@ class TestHybridRetrieval(unittest.TestCase):
             openai_api_key="test",
             resume_path=RESUME_PATH,
             qdrant_url="https://qdrant.invalid",
-            projects_dir=BASE_DIR / "data" / "projects",
+            projects_dir=PROJECTS_DIR,
         )
 
-        pipeline.reindex.assert_called_once_with(
-            RESUME_PATH, BASE_DIR / "data" / "projects"
-        )
+        pipeline.reindex.assert_called_once_with(RESUME_PATH, PROJECTS_DIR)
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_reindexes_when_duplicate_count_differs(
         self, pipeline_class: MagicMock
     ) -> None:
         pipeline = _offline_pipeline()
-        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
-        current_corpus = build_corpus(RESUME_PATH, BASE_DIR / "data" / "projects")
+        current_corpus = build_corpus(RESUME_PATH, PROJECTS_DIR)
         stored_payloads = [pipeline._chunk_payload(chunk) for chunk in current_corpus]
         stored_payloads.append(dict(stored_payloads[0]))
         pipeline._build_keyword_index(stored_payloads)
@@ -526,14 +512,12 @@ class TestHybridRetrieval(unittest.TestCase):
             openai_api_key="test",
             resume_path=RESUME_PATH,
             qdrant_url="https://qdrant.invalid",
-            projects_dir=BASE_DIR / "data" / "projects",
+            projects_dir=PROJECTS_DIR,
         )
 
-        pipeline.reindex.assert_called_once_with(
-            RESUME_PATH, BASE_DIR / "data" / "projects"
-        )
+        pipeline.reindex.assert_called_once_with(RESUME_PATH, PROJECTS_DIR)
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_passes_explicit_collection_name(
         self, pipeline_class: MagicMock
     ) -> None:
@@ -542,13 +526,12 @@ class TestHybridRetrieval(unittest.TestCase):
         pipeline.qdrant_client.get_collection.return_value = _collection_info(0)
         pipeline.index_chunks = MagicMock()
         pipeline_class.return_value = pipeline
-        pipeline_class.chunk_resume_data = RAGPipeline.chunk_resume_data
 
         initialize_rag_pipeline(
             openai_api_key="test",
             resume_path=RESUME_PATH,
             qdrant_url="https://qdrant.invalid",
-            projects_dir=BASE_DIR / "data" / "projects",
+            projects_dir=PROJECTS_DIR,
             collection_name="resume_eval_retrieval",
         )
 
@@ -557,7 +540,7 @@ class TestHybridRetrieval(unittest.TestCase):
             "resume_eval_retrieval",
         )
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_aborts_on_unexpected_collection_status_error(
         self, pipeline_class: MagicMock
     ) -> None:
@@ -575,7 +558,7 @@ class TestHybridRetrieval(unittest.TestCase):
 
         pipeline.index_chunks.assert_not_called()
 
-    @patch("rag.RAGPipeline")
+    @patch("rag.pipeline.RAGPipeline")
     def test_initialize_refuses_wrong_collection_distance(
         self, pipeline_class: MagicMock
     ) -> None:
@@ -627,7 +610,7 @@ class TestIndexingSafety(unittest.TestCase):
         old_keyword_documents = list(pipeline.keyword_documents)
         pipeline.embed_text.side_effect = [_zero_embedding(""), RuntimeError("failed")]
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(RuntimeError, "failed"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -640,7 +623,7 @@ class TestIndexingSafety(unittest.TestCase):
     def test_empty_corpus_leaves_collection_untouched(self) -> None:
         pipeline = _offline_pipeline()
 
-        with patch("rag.build_corpus", return_value=[]):
+        with patch("rag.pipeline.build_corpus", return_value=[]):
             with self.assertRaisesRegex(ValueError, "empty RAG corpus"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -651,7 +634,7 @@ class TestIndexingSafety(unittest.TestCase):
         pipeline = _offline_pipeline()
         pipeline.embed_text.return_value = [0.0]
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(ValueError, "expected 1536"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -686,7 +669,7 @@ class TestIndexingSafety(unittest.TestCase):
         )
         pipeline._initialize_collection = MagicMock()
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             result = pipeline.reindex(RESUME_PATH)
 
         self.assertEqual(
@@ -725,7 +708,7 @@ class TestIndexingSafety(unittest.TestCase):
         pipeline.qdrant_client.count.return_value = SimpleNamespace(count=2)
         pipeline._initialize_collection = MagicMock()
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             result = pipeline.reindex(RESUME_PATH)
 
         self.assertEqual(result["old_points_count"], 0)
@@ -742,7 +725,7 @@ class TestIndexingSafety(unittest.TestCase):
         pipeline.qdrant_client.scroll.return_value = ([SimpleNamespace(id=0)], None)
         pipeline.qdrant_client.upsert.side_effect = RuntimeError("upsert failed")
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(RuntimeError, "upsert failed"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -762,7 +745,7 @@ class TestIndexingSafety(unittest.TestCase):
         )
         pipeline.qdrant_client.delete.side_effect = RuntimeError("delete failed")
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(RuntimeError, "delete failed"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -778,7 +761,7 @@ class TestIndexingSafety(unittest.TestCase):
         pipeline.qdrant_client.scroll.return_value = ([SimpleNamespace(id=0)], None)
         pipeline.qdrant_client.count.return_value = SimpleNamespace(count=1)
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(RuntimeError, "expected 2 points, found 1"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -799,7 +782,7 @@ class TestIndexingSafety(unittest.TestCase):
         pipeline.qdrant_client.scroll.side_effect = scroll
         pipeline.qdrant_client.count.return_value = SimpleNamespace(count=2)
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(RuntimeError, "payloads do not match"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -820,7 +803,7 @@ class TestIndexingSafety(unittest.TestCase):
         pipeline.qdrant_client.scroll.side_effect = scroll
         pipeline.qdrant_client.count.return_value = SimpleNamespace(count=2)
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(RuntimeError, "verification unavailable"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -833,7 +816,7 @@ class TestIndexingSafety(unittest.TestCase):
         )
         pipeline.qdrant_client.scroll.side_effect = RuntimeError("qdrant unavailable")
 
-        with patch("rag.build_corpus", return_value=self.chunks):
+        with patch("rag.pipeline.build_corpus", return_value=self.chunks):
             with self.assertRaisesRegex(RuntimeError, "Could not inspect collection"):
                 pipeline.reindex(RESUME_PATH)
 
@@ -1032,9 +1015,6 @@ class TestRetrieveRagContext(unittest.TestCase):
     """Unit tests for retrieve_rag_context (no Qdrant needed)."""
 
     def test_returns_sources_on_success(self) -> None:
-        from main import retrieve_rag_context
-        from unittest.mock import MagicMock
-
         mock_pipeline = MagicMock()
         mock_pipeline.search.return_value = [
             {"text": "chunk 1 text", "title": "Ben AI", "type": "project", "score": 0.9, "timeframe": ""},
@@ -1052,9 +1032,6 @@ class TestRetrieveRagContext(unittest.TestCase):
         self.assertIn("Ben AI", context)
 
     def test_returns_empty_on_no_results(self) -> None:
-        from main import retrieve_rag_context
-        from unittest.mock import MagicMock
-
         mock_pipeline = MagicMock()
         mock_pipeline.search.return_value = []
         context, used_rag, titles = retrieve_rag_context(mock_pipeline, "something obscure")
@@ -1062,14 +1039,11 @@ class TestRetrieveRagContext(unittest.TestCase):
         self.assertEqual(titles, [])
 
     def test_returns_empty_on_none_pipeline(self) -> None:
-        from main import retrieve_rag_context
         context, used_rag, titles = retrieve_rag_context(None, "any query")
         self.assertFalse(used_rag)
         self.assertEqual(titles, [])
 
     def test_uses_static_fallback_without_dense_query_when_corpus_is_degraded(self) -> None:
-        from main import retrieve_rag_context
-
         pipeline = _offline_pipeline(
             [{"title": "Old", "type": "project", "text": "qdrant old"}]
         )
