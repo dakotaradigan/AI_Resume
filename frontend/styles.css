@@ -29,16 +29,17 @@
   --shadow-md: 0 10px 36px rgba(42, 42, 51, 0.08);
   --shadow-lg: 0 20px 60px rgba(42, 42, 51, 0.10);
 
-  /* Footer */
-  --footer-bg: #2a2a33;
-  --footer-text: #d3d3db;
-  --footer-heading: #ffffff;
-  --footer-subtitle: #b7b7c2;
-  --footer-btn-border: rgba(255, 255, 255, 0.16);
-  --footer-btn-bg: rgba(255, 255, 255, 0.03);
-  --footer-btn-text: #d3d3db;
-  --footer-accent: var(--accent);
-  --footer-separator: rgba(255, 255, 255, 0.12);
+  /* Footer: light treatment mirroring the hero, bubble backdrop behind it */
+  --footer-bg: var(--bg);
+  --footer-gradient: radial-gradient(130% 90% at 50% 120%, #d4e8f7 0%, #eaf3fb 34%, var(--bg) 68%);
+  --footer-text: var(--text);
+  --footer-heading: var(--text);
+  --footer-subtitle: var(--muted);
+  --footer-btn-border: rgba(42, 42, 51, 0.14);
+  --footer-btn-bg: rgba(255, 255, 255, 0.55);
+  --footer-btn-text: var(--text);
+  --footer-accent: var(--accent-dk);
+  --footer-separator: rgba(42, 42, 51, 0.10);
 
   /* Component tokens */
   --on-primary: #ffffff;
@@ -57,7 +58,7 @@
   --cite-card-border: rgba(74, 151, 210, 0.72);
   --cite-glow: rgba(74, 151, 210, 0.20);
   --cite-glow-soft: rgba(74, 151, 210, 0.14);
-  --footer-copyright: #b7b7c2;
+  --footer-copyright: var(--muted);
 
   color-scheme: light;
 }
@@ -85,16 +86,17 @@
   --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 10px 36px rgba(0, 0, 0, 0.36);
   --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 20px 60px rgba(0, 0, 0, 0.46);
 
-  --footer-bg: #111216;
-  --footer-text: #d3d3db;
+  --footer-bg: var(--bg);
+  --footer-gradient: radial-gradient(130% 90% at 50% 120%, rgba(111, 179, 230, 0.20) 0%, #1b2028 34%, var(--bg) 68%);
+  --footer-text: var(--text);
   --footer-heading: #ffffff;
-  --footer-subtitle: #b7b7c2;
+  --footer-subtitle: var(--muted);
   --footer-btn-border: rgba(255, 255, 255, 0.16);
   --footer-btn-bg: rgba(255, 255, 255, 0.03);
   --footer-btn-text: #d3d3db;
   --footer-accent: #6fb3e6;
   --footer-separator: rgba(255, 255, 255, 0.12);
-  --footer-copyright: #b7b7c2;
+  --footer-copyright: var(--muted);
 
   --on-primary: #ffffff;
   --on-primary-hover: #ffffff;
@@ -1764,7 +1766,10 @@ section[id],
 
 /* ===== FOOTER ===== */
 .site-footer {
-  background: var(--footer-bg);
+  position: relative;
+  overflow: hidden;
+  background-color: var(--footer-bg);
+  background-image: var(--footer-gradient);
   color: var(--footer-text);
   margin-top: 0;
   padding: 80px 24px 48px;
@@ -1772,6 +1777,24 @@ section[id],
   flex-direction: column;
   align-items: center;
   border-top: 1px solid var(--footer-separator);
+}
+
+/* Animated metaball backdrop, mounted by bubble-background.js — same shader
+   as .hero-bubbles, fading out toward the footer's top edge instead. */
+.footer-bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.6;
+  -webkit-mask-image: linear-gradient(to top, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 62%, transparent 100%);
+}
+
+.site-footer > :not(.footer-bubbles) {
+  position: relative;
+  z-index: 1;
 }
 
 .footer-content {
