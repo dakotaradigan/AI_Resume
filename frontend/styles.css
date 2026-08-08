@@ -359,6 +359,25 @@ section[id],
   padding: 88px 16px 68px;
 }
 
+/* Animated metaball backdrop, mounted by bubble-background.js. The blobs
+   sit behind the hero content and fade out toward the section's bottom
+   edge so they blend into the page background. */
+.hero-bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.6;
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+}
+
+.hero > :not(.hero-bubbles) {
+  position: relative;
+  z-index: 1;
+}
+
 .hero-kicker {
   font-family: var(--font-display);
   font-size: 12px;
