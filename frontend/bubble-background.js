@@ -1,4 +1,4 @@
-// Animated metaball "bubble" background for the hero section.
+// Animated metaball "bubble" backgrounds for the hero and footer sections.
 //
 // Vanilla adaptation of a Paper (paper.design) export that used
 // <Metaballs /> from @paper-design/shaders-react. Since this site has no
@@ -7,7 +7,7 @@
 // (@paper-design/shaders, Apache-2.0).
 //
 // Progressive enhancement: if WebGL2 is unavailable or anything throws,
-// the container is removed and the existing CSS hero gradient stands alone.
+// the containers are removed and the CSS section gradients stand alone.
 
 import {
   ShaderMount,
@@ -31,6 +31,11 @@ const BALL_SIZE = 0.78;
 // timestamp so they get a composed arrangement instead of the t=0 state.
 const STATIC_FRAME = 61750;
 
+const HOSTS = [
+  { selector: ".hero", className: "hero-bubbles" },
+  { selector: ".site-footer", className: "footer-bubbles" },
+];
+
 function currentTheme() {
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
@@ -43,25 +48,11 @@ function colorUniforms(theme) {
   };
 }
 
-async function init() {
-  const hero = document.querySelector(".hero");
-  if (!hero || typeof WebGL2RenderingContext === "undefined") return;
-
-  const noiseTexture = getShaderNoiseTexture();
-  if (!noiseTexture) return;
-  try {
-    // ShaderMount requires texture images to be fully loaded up front.
-    await noiseTexture.decode();
-  } catch {
-    return;
-  }
-
+function mountInto(section, className, noiseTexture, animate) {
   const host = document.createElement("div");
-  host.className = "hero-bubbles";
+  host.className = className;
   host.setAttribute("aria-hidden", "true");
-  hero.prepend(host);
-
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  section.prepend(host);
 
   const uniforms = {
     ...colorUniforms(currentTheme()),
@@ -80,36 +71,61 @@ async function init() {
     u_worldHeight: 0,
   };
 
-  let mount;
   try {
-    mount = new ShaderMount(
+    return new ShaderMount(
       host,
       metaballsFragmentShader,
       uniforms,
       undefined,
-      reducedMotion.matches ? 0 : 1,
-      reducedMotion.matches ? STATIC_FRAME : 0,
+      animate ? 1 : 0,
+      animate ? 0 : STATIC_FRAME,
     );
   } catch {
     host.remove();
+    return null;
+  }
+}
+
+async function init() {
+  if (typeof WebGL2RenderingContext === "undefined") return;
+
+  const noiseTexture = getShaderNoiseTexture();
+  if (!noiseTexture) return;
+  try {
+    // ShaderMount requires texture images to be fully loaded up front.
+    await noiseTexture.decode();
+  } catch {
     return;
   }
 
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  const mounts = HOSTS.flatMap(({ selector, className }) => {
+    const section = document.querySelector(selector);
+    if (!section) return [];
+    const mount = mountInto(section, className, noiseTexture, !reducedMotion.matches);
+    return mount ? [mount] : [];
+  });
+  if (!mounts.length) return;
+
   // Follow the site theme toggle (app.js stamps data-theme on <html>).
   new MutationObserver(() => {
-    mount.setUniforms(colorUniforms(currentTheme()));
+    const colors = colorUniforms(currentTheme());
+    mounts.forEach((mount) => mount.setUniforms(colors));
   }).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["data-theme"],
   });
 
   reducedMotion.addEventListener("change", () => {
-    if (reducedMotion.matches) {
-      mount.setFrame(STATIC_FRAME);
-      mount.setSpeed(0);
-    } else {
-      mount.setSpeed(1);
-    }
+    mounts.forEach((mount) => {
+      if (reducedMotion.matches) {
+        mount.setFrame(STATIC_FRAME);
+        mount.setSpeed(0);
+      } else {
+        mount.setSpeed(1);
+      }
+    });
   });
 }
 
