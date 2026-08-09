@@ -440,6 +440,7 @@ section[id],
 }
 
 .hero-action--primary {
+  gap: 10px;
   background: var(--accent);
   border: 1px solid var(--accent);
   color: var(--on-primary);
@@ -662,18 +663,75 @@ section[id],
   font-weight: 600;
 }
 
-.chat-header-icon {
-  display: inline-flex;
-  width: 30px;
-  height: 30px;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 980px;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--on-primary);
+/* ===== AI ORB ===== */
+/* Animated "AI presence" indicator shared by every LLM feature: the chat
+   header, the hero CTA, and live thinking/analyzing states. Pure CSS —
+   a blurred conic swirl spins behind a fixed glassy highlight, so many
+   instances stay cheap (no WebGL contexts). */
+.ai-orb {
+  --orb-size: 30px;
+  --orb-speed: 7s;
+  position: relative;
+  flex-shrink: 0;
+  display: inline-block;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border-radius: 50%;
+  overflow: hidden;
   background: var(--accent);
+  box-shadow: 0 0 calc(var(--orb-size) * 0.5) var(--ring);
+  isolation: isolate;
+}
+
+.ai-orb::before {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 40deg,
+    var(--accent-dk),
+    var(--accent) 25%,
+    #cbe6fa 45%,
+    #ffffff 55%,
+    #9ad0f5 70%,
+    var(--accent-dk)
+  );
+  filter: blur(calc(var(--orb-size) * 0.14));
+  animation: orbSwirl var(--orb-speed) linear infinite;
+}
+
+.ai-orb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle at 72% 82%, rgba(47, 124, 179, 0.5), rgba(47, 124, 179, 0) 58%);
+}
+
+/* Working states spin fast; idle orbs drift. */
+.ai-orb--thinking {
+  --orb-size: 22px;
+  --orb-speed: 2.2s;
+}
+
+.ai-orb--cta {
+  --orb-size: 18px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+@keyframes orbSwirl {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb::before {
+    animation: none;
+  }
 }
 
 .chat-header-title {
