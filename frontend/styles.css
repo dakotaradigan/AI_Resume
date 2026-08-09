@@ -673,8 +673,16 @@ section[id],
   flex-shrink: 0;
 }
 
+/* Live status row: active orb + one line that updates in place. */
+.status-live {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+
 .thinking-orb {
-  margin-bottom: 2px;
+  flex-shrink: 0;
 }
 
 .chat-header-title {

@@ -986,12 +986,15 @@ async function streamChat(url, body, handlers) {
 function createStatusSteps(container, orbState = "working") {
   container.innerHTML = "";
   container.classList.add("has-steps");
-  // Thinking orb (vendor/thinking-orbs.js): animates while steps stream,
-  // removed on collapse. Null when the engine failed to load — fine.
+  // One live status row — active orb + a single line that updates in
+  // place — rather than a stacked checklist. The orb is removed on
+  // collapse; motion means "working right now".
+  const live = document.createElement("div");
+  live.className = "status-live";
   const orb = window.createThinkingOrb?.(orbState, 20) ?? null;
   if (orb) {
     orb.classList.add("thinking-orb");
-    container.appendChild(orb);
+    live.appendChild(orb);
   }
   const announcer = document.getElementById("step-announcer");
   const prefersReduced =
@@ -1000,7 +1003,9 @@ function createStatusSteps(container, orbState = "working") {
 
   const stepsWrap = document.createElement("div");
   stepsWrap.className = "status-steps";
-  container.appendChild(stepsWrap);
+  live.appendChild(stepsWrap);
+  container.appendChild(live);
+  let collapsed = false;
 
   const queue = [];
   const stepEls = [];
@@ -1010,13 +1015,19 @@ function createStatusSteps(container, orbState = "working") {
 
   function renderStep({ text, items, announce }) {
     if (!stepsWrap.isConnected) return;
+    // Single-line mode: each stage replaces the previous one; only the
+    // final collapsed summary keeps a checkmark.
+    stepEls.forEach((el) => el.remove());
+    stepEls.length = 0;
     const step = document.createElement("div");
     step.className = "status-step";
     step.setAttribute("aria-hidden", "true");
-    const icon = document.createElement("span");
-    icon.className = "step-icon";
-    icon.textContent = "✓";
-    step.appendChild(icon);
+    if (collapsed) {
+      const icon = document.createElement("span");
+      icon.className = "step-icon";
+      icon.textContent = "✓";
+      step.appendChild(icon);
+    }
     const content = document.createElement("div");
     content.className = "step-content";
     const label = document.createElement("span");
@@ -1072,6 +1083,7 @@ function createStatusSteps(container, orbState = "working") {
     },
     /** Replace the step stack with a single summary line (called on done). */
     collapse(summaryText, sourceItems) {
+      collapsed = true;
       this.flush();
       orb?.remove();
       if (!stepsWrap.isConnected) return;
