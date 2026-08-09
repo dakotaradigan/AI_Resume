@@ -125,10 +125,12 @@
   window.createThinkingOrb = createThinkingOrb;
 
   // Idle "presence" orb in the chat header, mounted once on load.
+  // 'working' (particles on tilted orbits) — 'connecting' was considered
+  // but its thin web lines nearly disappear at 20px on the light theme.
   window.addEventListener("DOMContentLoaded", () => {
     const slot = document.querySelector(".chat-header-icon");
     if (!slot) return;
-    const orb = createThinkingOrb("breathing", 20);
+    const orb = createThinkingOrb("working", 20);
     if (orb) {
       orb.setAttribute("aria-hidden", "true");
       orb.removeAttribute("role");
