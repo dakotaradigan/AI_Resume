@@ -29,11 +29,13 @@
     return document.documentElement.dataset.theme === "dark";
   }
 
-  // `size` is the rendered CSS size; `tuning` picks which of the two
-  // hand-tuned density presets (64 or 20) drives the drawing. The 20
-  // tuning is an inline-text spinner — at avatar sizes it reads as a
-  // few stray dots, so anything 32px+ defaults to the denser 64 tuning.
-  function createThinkingOrb(state, size, tuning) {
+  // `size` is the rendered CSS size. Options:
+  // - `tuning`: which hand-tuned density preset (64 or 20) drives the
+  //   drawing. The 20 tuning is an inline-text spinner — at avatar sizes
+  //   it reads as a few stray dots, so 32px+ defaults to the 64 tuning.
+  // - `still`: render a single static frame (a mark, not an animation) —
+  //   used by the chat header so only working states ever move.
+  function createThinkingOrb(state, size, { tuning, still = false } = {}) {
     if (typeof ThinkingOrbs === "undefined") return null;
     const { MODE_DRAWS, resolvePreset } = ThinkingOrbs;
     const tuned = tuning === 64 || tuning === 20 ? tuning : size >= 32 ? 64 : 20;
@@ -60,9 +62,9 @@
       draw(ctx, size, tSec, isDark(), opts);
     };
 
-    // Reduced motion: one static, deterministic frame — but keep it in
-    // sync with theme flips.
-    if (reducedMotion.matches) {
+    // Still marks and reduced motion: one static, deterministic frame —
+    // but keep it in sync with theme flips.
+    if (still || reducedMotion.matches) {
       frame(0.6);
       const themeObserver = new MutationObserver(() => {
         if (canvas.isConnected) frame(0.6);
@@ -128,19 +130,4 @@
   }
 
   window.createThinkingOrb = createThinkingOrb;
-
-  // Idle "presence" orb in the chat header: the 'connecting'
-  // constellation at 28px, drawn with the dense 64 tuning — the 20
-  // tuning reads as a shapeless dot smudge at header scale.
-  window.addEventListener("DOMContentLoaded", () => {
-    const slot = document.querySelector(".chat-header-icon");
-    if (!slot) return;
-    const orb = createThinkingOrb("connecting", 28, 64);
-    if (orb) {
-      orb.setAttribute("aria-hidden", "true");
-      orb.removeAttribute("role");
-      orb.removeAttribute("aria-label");
-      slot.appendChild(orb);
-    }
-  });
 })();
