@@ -2084,47 +2084,6 @@ section[id],
   gap: 10px;
 }
 
-/* Coming-soon teaser: same shell as the JD card, but quieter — dashed
-   outline, no fill, so it reads as a preview rather than a live feature. */
-.coming-soon-card {
-  border: 1.5px dashed var(--border-strong);
-  background: transparent;
-  box-shadow: none;
-  align-items: flex-start;
-}
-
-.coming-soon-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 7px 16px;
-  border-radius: 980px;
-  background: var(--accent-tint);
-  color: var(--accent-dk);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.coming-soon-badge::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .coming-soon-badge::before {
-    animation: comingSoonPulse 2s ease-in-out infinite;
-  }
-}
-
-@keyframes comingSoonPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
 .jd-kicker {
   font-family: var(--font-display);
   font-size: 12px;
