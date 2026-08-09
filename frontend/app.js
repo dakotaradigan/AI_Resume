@@ -983,14 +983,16 @@ async function streamChat(url, body, handlers) {
  * queue (real data, gated presentation). The queue flushes the moment the
  * first answer token arrives; the answer is never delayed.
  */
-function createStatusSteps(container) {
+function createStatusSteps(container, orbState = "working") {
   container.innerHTML = "";
   container.classList.add("has-steps");
-  // AI-presence orb: spins fast while steps stream, removed on collapse.
-  const orb = document.createElement("span");
-  orb.className = "ai-orb ai-orb--thinking";
-  orb.setAttribute("aria-hidden", "true");
-  container.appendChild(orb);
+  // Thinking orb (vendor/thinking-orbs.js): animates while steps stream,
+  // removed on collapse. Null when the engine failed to load — fine.
+  const orb = window.createThinkingOrb?.(orbState, 20) ?? null;
+  if (orb) {
+    orb.classList.add("thinking-orb");
+    container.appendChild(orb);
+  }
   const announcer = document.getElementById("step-announcer");
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1071,7 +1073,7 @@ function createStatusSteps(container) {
     /** Replace the step stack with a single summary line (called on done). */
     collapse(summaryText, sourceItems) {
       this.flush();
-      orb.remove();
+      orb?.remove();
       if (!stepsWrap.isConnected) return;
       stepEls.forEach((step) => step.remove());
       stepEls.length = 0;
@@ -1238,7 +1240,7 @@ async function sendMessage(message, { isRetry = false } = {}) {
   thinkingEl.classList.add("is-thinking");
   setSending(true);
 
-  const steps = thinkingBody ? createStatusSteps(thinkingBody) : null;
+  const steps = thinkingBody ? createStatusSteps(thinkingBody, "searching") : null;
   const topic = extractQueryTopic(message);
   steps?.addStep(topic ? `Searching for "${topic}"...` : "Searching Dakota's experience...");
 
@@ -1664,7 +1666,7 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
     jdResults.append(streamHost);
   }
 
-  const steps = createStatusSteps(streamHost);
+  const steps = createStatusSteps(streamHost, "solving");
   steps.addStep("Loading Dakota's full resume...");
 
   let accumulated = "";
