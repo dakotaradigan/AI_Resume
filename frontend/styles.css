@@ -1890,6 +1890,13 @@ section[id],
 
 /* ===== FEEDBACK DIALOG ===== */
 .feedback-dialog {
+  /* Re-assert modal positioning: the `body > *` stacking rule above
+     overrides the UA's dialog:modal { position: fixed }, which left the
+     dialog centered against the document top — off-screen whenever the
+     page is scrolled (e.g. opened from the footer). */
+  position: fixed;
+  inset: 0;
+  margin: auto;
   border: 1px solid var(--border-strong);
   border-radius: 20px;
   padding: 32px;
@@ -2032,12 +2039,18 @@ section[id],
     padding-left: 28px;
   }
 
+  /* Center the 14px node dot on the rail; at -33px its left half was
+     clipped by the section's overflow: hidden. */
+  .experience-timeline::before {
+    left: 7px;
+  }
+
   .timeline-entry {
     padding: 18px 18px;
   }
 
   .timeline-entry::before {
-    left: -33px;
+    left: -27px;
   }
 
   .timeline-header {
@@ -2380,6 +2393,15 @@ section[id],
     padding-bottom: 4px;
   }
 
+  /* In the nowrap scroll row, chips must not shrink to min-content:
+     shrunken chips wrap their label into 3-4 lines and the 980px pill
+     radius turns them into circles. */
+  .chat-suggestions .chips .chip,
+  .msg-followups .chips .chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   .msg {
     max-width: 92%;
     font-size: 15px;
@@ -2402,17 +2424,22 @@ section[id],
   }
 
   .timeline-entry::before {
-    left: -27px;
+    left: -21px;
     top: 22px;
   }
 
   .footer-buttons {
     flex-direction: column;
+    gap: 12px;
   }
 
   .footer-btn {
     width: 100%;
     justify-content: center;
+    padding: 12px 24px;
+    /* anchors inherit 1.5 but <button>s default to normal; equalize
+       so stacked pills are the same height */
+    line-height: 1.5;
   }
 
   .jd-card {
@@ -2453,6 +2480,126 @@ section[id],
     width: 100%;
     justify-content: center;
     text-align: center;
+  }
+
+  /* --- Phone-width fixes from the mobile UI audit --- */
+
+  /* Mobile header is 77px tall (44px controls + padding); keep the page
+     offset and anchor scrolling in sync. */
+  body {
+    padding-top: 78px;
+  }
+
+  .hamburger {
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+  }
+
+  /* Three CTAs: equal-width stack instead of ragged centered wrapping. */
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: min(100%, 300px);
+    gap: 10px;
+  }
+
+  /* Grow the 14px-tall contact links into real tap targets; smaller gap
+     keeps the visual spacing unchanged. */
+  .hero-contact {
+    gap: 0 14px;
+  }
+
+  .hero-contact-item {
+    padding: 12px 6px;
+  }
+
+  .chat-header {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .chat-header-icon {
+    flex-shrink: 0;
+  }
+
+  .chat-header-title {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .ai-disclaimer {
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  .chat-form input {
+    text-overflow: ellipsis;
+  }
+
+  .jd-title {
+    line-height: 1.15;
+  }
+
+  /* Role titles wrapped to 3 lines at 22px; card headers ran ~190px
+     before the first bullet. */
+  .timeline-role {
+    font-size: 18px;
+  }
+
+  .timeline-meta {
+    font-size: 12px;
+  }
+
+  .timeline-company {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  /* Long skill labels wrap; left-aligned soft tags read better than
+     two centered lines inside a stadium pill. */
+  .skills-chips .chip--static {
+    font-size: 13px;
+    padding: 6px 12px;
+    text-align: left;
+    border-radius: 14px;
+  }
+
+  /* Collapsed sections kept their expanded-state spacing — trim the
+     dead space below the "Show details" toggle. */
+  .section-title {
+    margin-bottom: 12px;
+  }
+
+  .resume-section:not(.is-expanded) .section-header {
+    margin-bottom: 0;
+  }
+
+  #skills:not(.is-expanded) {
+    padding-block: 32px 28px;
+  }
+
+  .site-footer {
+    padding: 56px 20px 40px;
+  }
+
+  .footer-content {
+    margin-bottom: 36px;
+  }
+
+  .footer-subtitle {
+    margin-bottom: 28px;
+  }
+
+  .feedback-dialog {
+    padding: 24px 20px;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+  }
+
+  .feedback-textarea {
+    /* 16px floor prevents iOS focus auto-zoom, same as the other inputs */
+    font-size: 16px;
   }
 }
 
