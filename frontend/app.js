@@ -986,6 +986,11 @@ async function streamChat(url, body, handlers) {
 function createStatusSteps(container) {
   container.innerHTML = "";
   container.classList.add("has-steps");
+  // AI-presence orb: spins fast while steps stream, removed on collapse.
+  const orb = document.createElement("span");
+  orb.className = "ai-orb ai-orb--thinking";
+  orb.setAttribute("aria-hidden", "true");
+  container.appendChild(orb);
   const announcer = document.getElementById("step-announcer");
   const prefersReduced =
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1066,6 +1071,7 @@ function createStatusSteps(container) {
     /** Replace the step stack with a single summary line (called on done). */
     collapse(summaryText, sourceItems) {
       this.flush();
+      orb.remove();
       if (!stepsWrap.isConnected) return;
       stepEls.forEach((step) => step.remove());
       stepEls.length = 0;
