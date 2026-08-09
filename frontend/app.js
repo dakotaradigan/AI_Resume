@@ -720,6 +720,21 @@ if (heroResumeCta) {
   });
 }
 
+// Tertiary hero CTA — jump to the JD fit analysis and focus the textarea
+// so a recruiter can paste immediately.
+const heroJdCta = document.getElementById("hero-jd-cta");
+if (heroJdCta) {
+  heroJdCta.addEventListener("click", (e) => {
+    e.preventDefault();
+    const jdEl = document.getElementById("jd-match");
+    jdEl?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+    const jdInput = document.getElementById("jd-input");
+    window.setTimeout(() => {
+      jdInput?.focus({ preventScroll: true });
+    }, 300);
+  });
+}
+
 // Collapsible resume sections — attached after DOM is fully ready
 window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".resume-section .section-header--link[role='button']").forEach((header) => {

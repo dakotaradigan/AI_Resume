@@ -149,7 +149,7 @@ He also led firm-wide AI strategy as the appointed 'AI Champion,' leading an 8-p
 FOLLOWUPS: How was Ben AI architected? | What AI certifications does Dakota hold? | How did Dakota drive AI adoption?"
 
 ## Q: "Tell me about Dakota's product management experience"
-A: "Dakota has 8+ years in Finance with 5+ years in product management, progressing from operations to Supervisor to VP, Senior Product Manager at Parametric (Morgan Stanley).
+A: "Dakota has 8+ years in Finance with 5+ years in product management, progressing from operations to Supervisor to VP — now AI Strategy, Senior Product Manager at Parametric (Morgan Stanley).
 
 **Key wins:**
 - Led a major financial institution integration — $32M initial AUM, $2B+ pipeline

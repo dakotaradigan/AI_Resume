@@ -1,7 +1,7 @@
    {
   "personal": {
     "name": "Dakota Radigan",
-    "title": "Senior Product Manager",
+    "title": "AI Strategy, Senior Product Manager",
     "credentials": "MBA",
     "location": "Seattle, WA",
     "phone": "",
@@ -9,13 +9,13 @@
     "linkedin": "https://linkedin.com/in/dakota-radigan",
     "github": "https://github.com/dakotaradigan",
     "portfolio": "",
-    "summary": "Senior Product Manager with 8+ years in Finance and 5+ years shipping data-driven investment solutions. Expert in validating client and operational pain points and translating them into functional specifications that drive measurable business impact. Combining deep investment operations knowledge with technical fluency (Python and AI) and a bias for action."
+    "summary": "AI Strategy, Senior Product Manager with 8+ years in Finance and 5+ years shipping data-driven investment solutions. Expert in validating client and operational pain points and translating them into functional specifications that drive measurable business impact. Combining deep investment operations knowledge with technical fluency (Python and AI) and a bias for action."
   },
 
   "experience": [
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
-      "role": "Vice President, Senior Product Manager",
+      "role": "Vice President, Senior Product Manager, AI Strategy",
       "duration": "Jan 2024 - Present",
       "location": "Seattle, WA",
       "type": "Full-time",
