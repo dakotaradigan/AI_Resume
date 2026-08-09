@@ -29,9 +29,14 @@
     return document.documentElement.dataset.theme === "dark";
   }
 
-  function createThinkingOrb(state, size) {
+  // `size` is the rendered CSS size; `tuning` picks which of the two
+  // hand-tuned density presets (64 or 20) drives the drawing. The 20
+  // tuning is an inline-text spinner — at avatar sizes it reads as a
+  // few stray dots, so anything 32px+ defaults to the denser 64 tuning.
+  function createThinkingOrb(state, size, tuning) {
     if (typeof ThinkingOrbs === "undefined") return null;
     const { MODE_DRAWS, resolvePreset } = ThinkingOrbs;
+    const tuned = tuning === 64 || tuning === 20 ? tuning : size >= 32 ? 64 : 20;
 
     const canvas = document.createElement("canvas");
     canvas.setAttribute("role", "img");
@@ -46,7 +51,7 @@
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    const { mode, speed, opts } = resolvePreset(state, size);
+    const { mode, speed, opts } = resolvePreset(state, tuned);
     const draw = MODE_DRAWS[mode];
 
     const frame = (tSec) => {
@@ -124,11 +129,13 @@
 
   window.createThinkingOrb = createThinkingOrb;
 
-  // Idle "presence" orb in the chat header, mounted once on load.
+  // Idle "presence" orb in the chat header: the 'connecting'
+  // constellation at 28px, drawn with the dense 64 tuning — the 20
+  // tuning reads as a shapeless dot smudge at header scale.
   window.addEventListener("DOMContentLoaded", () => {
     const slot = document.querySelector(".chat-header-icon");
     if (!slot) return;
-    const orb = createThinkingOrb("breathing", 20);
+    const orb = createThinkingOrb("connecting", 28, 64);
     if (orb) {
       orb.setAttribute("aria-hidden", "true");
       orb.removeAttribute("role");
