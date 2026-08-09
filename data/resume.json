@@ -15,19 +15,30 @@
   "experience": [
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
-      "role": "Vice President, Senior Product Manager, AI Strategy",
-      "duration": "Jan 2024 - Present",
+      "role": "Vice President, AI Strategy, Senior Product Manager",
+      "duration": "Jul 2026 - Present",
       "location": "Seattle, WA",
       "type": "Full-time",
-      "description": "Leading product strategy and technical partnerships for investment solutions at a leading direct indexing firm.",
+      "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
       "achievements": [
-        "Led investment integration with a major financial institution, aligning internal/external stakeholders and technology teams to deliver pilot, securing $32M initial AUM and a $2B+ pipeline",
-        "Led the launch of a new investment solution that created new operating workflows across teams, unlocked targeted GTM campaigns, and supported ~$30M in AUM within 6 months",
-        "Led cross-functional working groups across Trading, Operations, Research, Technology, Client Service, Portfolio Management to design and launch mutual fund trading workflows, risk data integration, and custodian-specific controls for high-value opportunities, including a major financial institution's ~$40B MF market and another major partner's platform integration",
         "Architected a RAG-based GenAI assistant projected to autonomously resolve ~3,500+ annual email inquiries and slash response times for clients from hours to minutes",
         "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
       ],
-      "technologies": ["Python", "SQL", "RAG", "GenAI", "Product Strategy", "Cross-functional Leadership"]
+      "technologies": ["Python", "RAG", "GenAI", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
+    },
+    {
+      "company": "Parametric Portfolio (Morgan Stanley)",
+      "role": "Vice President, Senior Product Manager",
+      "duration": "Jan 2024 - Jul 2026",
+      "location": "Seattle, WA",
+      "type": "Full-time",
+      "description": "Led product strategy and technical partnerships for investment solutions at a leading direct indexing firm.",
+      "achievements": [
+        "Led investment integration with a major financial institution, aligning internal/external stakeholders and technology teams to deliver pilot, securing $32M initial AUM and a $2B+ pipeline",
+        "Led the launch of a new investment solution that created new operating workflows across teams, unlocked targeted GTM campaigns, and supported ~$30M in AUM within 6 months",
+        "Led cross-functional working groups across Trading, Operations, Research, Technology, Client Service, Portfolio Management to design and launch mutual fund trading workflows, risk data integration, and custodian-specific controls for high-value opportunities, including a major financial institution's ~$40B MF market and another major partner's platform integration"
+      ],
+      "technologies": ["Python", "SQL", "Product Strategy", "Cross-functional Leadership"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
