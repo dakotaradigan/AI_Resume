@@ -664,14 +664,8 @@ section[id],
 
 /* ===== THINKING ORBS ===== */
 /* Dotted thought-orbs (vendor/thinking-orbs.js, MIT — Jakub Antalik),
-   mounted by thinking-orb.js: an idle "breathing" orb in the chat header
-   and per-request "searching"/"solving" orbs beside the status steps. */
-.chat-header-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
+   mounted by app.js only while the tool is working: "searching" during
+   chat retrieval, "solving" during JD analysis. */
 
 /* Live status row: active orb + one line that updates in place. */
 .status-live {
@@ -883,7 +877,37 @@ section[id],
   margin-bottom: 4px;
 }
 .status-step.is-visible { opacity: 1; transform: translateY(0); }
-.step-icon { flex-shrink: 0; color: var(--accent-dk); font-size: 0.9rem; }
+
+/* Post-answer disclosure: a one-line summary that expands to the full
+   step history and retrieval sources. */
+.status-details {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.status-details summary {
+  cursor: pointer;
+  user-select: none;
+  color: var(--muted);
+}
+
+.status-details summary:hover {
+  color: var(--accent-dk);
+}
+
+.status-details summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.status-details-body {
+  margin: 6px 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.8rem;
+}
 .step-items {
   margin: 2px 0 0 24px;
   padding: 0;
@@ -2534,10 +2558,6 @@ section[id],
   .chat-header {
     padding: 14px 16px;
     gap: 10px;
-  }
-
-  .chat-header-icon {
-    flex-shrink: 0;
   }
 
   .chat-header-title {

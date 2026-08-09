@@ -130,19 +130,4 @@
   }
 
   window.createThinkingOrb = createThinkingOrb;
-
-  // Header mark: the 'connecting' constellation at 28px, dense 64
-  // tuning, rendered STILL — motion is reserved for live thinking
-  // states so two orbs never animate in the same viewport.
-  window.addEventListener("DOMContentLoaded", () => {
-    const slot = document.querySelector(".chat-header-icon");
-    if (!slot) return;
-    const orb = createThinkingOrb("connecting", 28, { tuning: 64, still: true });
-    if (orb) {
-      orb.setAttribute("aria-hidden", "true");
-      orb.removeAttribute("role");
-      orb.removeAttribute("aria-label");
-      slot.appendChild(orb);
-    }
-  });
 })();

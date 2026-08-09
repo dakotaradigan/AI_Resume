@@ -1005,7 +1005,8 @@ function createStatusSteps(container, orbState = "working") {
   stepsWrap.className = "status-steps";
   live.appendChild(stepsWrap);
   container.appendChild(live);
-  let collapsed = false;
+  // Every stage is kept for the post-answer disclosure dropdown.
+  const history = [];
 
   const queue = [];
   const stepEls = [];
@@ -1015,36 +1016,17 @@ function createStatusSteps(container, orbState = "working") {
 
   function renderStep({ text, items, announce }) {
     if (!stepsWrap.isConnected) return;
-    // Single-line mode: each stage replaces the previous one; only the
-    // final collapsed summary keeps a checkmark.
+    // Single live line: each stage replaces the previous one. Item lists
+    // are not shown live — they surface in the post-answer disclosure.
     stepEls.forEach((el) => el.remove());
     stepEls.length = 0;
     const step = document.createElement("div");
     step.className = "status-step";
     step.setAttribute("aria-hidden", "true");
-    if (collapsed) {
-      const icon = document.createElement("span");
-      icon.className = "step-icon";
-      icon.textContent = "✓";
-      step.appendChild(icon);
-    }
-    const content = document.createElement("div");
-    content.className = "step-content";
     const label = document.createElement("span");
     label.className = "step-label";
     label.textContent = text;
-    content.appendChild(label);
-    if (items && items.length) {
-      const list = document.createElement("ul");
-      list.className = "step-items";
-      items.forEach((item) => {
-        const li = document.createElement("li");
-        li.textContent = item;
-        list.appendChild(li);
-      });
-      content.appendChild(list);
-    }
-    step.appendChild(content);
+    step.appendChild(label);
     stepsWrap.appendChild(step);
     requestAnimationFrame(() => step.classList.add("is-visible"));
     // Screen readers: announce stage completions only, never per-token.
@@ -1069,6 +1051,7 @@ function createStatusSteps(container, orbState = "working") {
 
   return {
     addStep(text, { items = null, announce = null } = {}) {
+      history.push({ text, items });
       queue.push({ text, items, announce: announce ?? text });
       pump();
     },
@@ -1081,19 +1064,46 @@ function createStatusSteps(container, orbState = "working") {
       }
       while (queue.length) renderStep(queue.shift());
     },
-    /** Replace the step stack with a single summary line (called on done). */
+    /**
+     * Replace the live line with a collapsed disclosure (called on done):
+     * a one-line summary the reader can expand to review every stage and
+     * the retrieval sources.
+     */
     collapse(summaryText, sourceItems) {
-      collapsed = true;
       this.flush();
       orb?.remove();
       if (!stepsWrap.isConnected) return;
       stepEls.forEach((step) => step.remove());
       stepEls.length = 0;
-      renderStep({
-        text: summaryText,
-        items: sourceItems && sourceItems.length ? sourceItems.slice(0, 4) : null,
-        announce: null,
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      const details = document.createElement("details");
+      details.className = "status-details";
+      const summary = document.createElement("summary");
+      summary.textContent = summaryText;
+      details.appendChild(summary);
+      const body = document.createElement("div");
+      body.className = "status-details-body";
+      history.forEach((entry) => {
+        const line = document.createElement("div");
+        line.className = "status-history-line";
+        line.textContent = entry.text;
+        body.appendChild(line);
       });
+      if (sourceItems && sourceItems.length) {
+        const list = document.createElement("ul");
+        list.className = "step-items";
+        sourceItems.slice(0, 4).forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          list.appendChild(li);
+        });
+        body.appendChild(list);
+      }
+      details.appendChild(body);
+      stepsWrap.appendChild(details);
     },
   };
 }
