@@ -20,8 +20,7 @@ const navLinks = document.getElementById("nav-links");
 const hamburger = document.getElementById("hamburger");
 
 // Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
-const HERO_TAGLINE =
-  "Turning product vision into reality with Python-driven AI solutions.";
+const HERO_TAGLINE = "Try using my agent to see if we're a fit...";
 
 const SESSION_STORAGE_KEY = "resume-assistant-session-id";
 
@@ -720,17 +719,18 @@ if (heroResumeCta) {
   });
 }
 
-// Tertiary hero CTA — jump to the JD fit analysis and focus the textarea
-// so a recruiter can paste immediately.
+// Tertiary hero CTA — the fit analysis lives in the chat agent: jump there
+// and cue the recruiter to paste the JD.
 const heroJdCta = document.getElementById("hero-jd-cta");
 if (heroJdCta) {
   heroJdCta.addEventListener("click", (e) => {
     e.preventDefault();
-    const jdEl = document.getElementById("jd-match");
-    jdEl?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-    const jdInput = document.getElementById("jd-input");
+    document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     window.setTimeout(() => {
-      jdInput?.focus({ preventScroll: true });
+      if (chatInput) {
+        chatInput.placeholder = "Paste the full job description here...";
+        chatInput.focus({ preventScroll: true });
+      }
     }, 300);
   });
 }
@@ -752,47 +752,6 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
-
-// --- Theme (dark mode) ---
-// theme-init.js already stamped data-theme before first paint; this wires the
-// toggle, persists the choice, and keeps <meta name="theme-color"> in sync.
-const THEME_COLORS = { light: "#FBFDFF", dark: "#16171C" };
-
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  document
-    .querySelector('meta[name="theme-color"]')
-    ?.setAttribute("content", THEME_COLORS[theme] || THEME_COLORS.light);
-  document
-    .getElementById("theme-toggle")
-    ?.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-}
-
-function initTheme() {
-  applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
-
-  document.getElementById("theme-toggle")?.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    try {
-      localStorage.setItem("theme", next);
-    } catch {
-      /* storage unavailable: theme still applies for this page view */
-    }
-    applyTheme(next);
-  });
-
-  // Follow live system changes only while no explicit choice is stored.
-  const mq = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
-  mq?.addEventListener?.("change", (e) => {
-    let stored = null;
-    try {
-      stored = localStorage.getItem("theme");
-    } catch {
-      /* ignore */
-    }
-    if (!stored) applyTheme(e.matches ? "dark" : "light");
-  });
-}
 
 function initNavbar() {
   // Frosted glass on scroll
@@ -1134,10 +1093,12 @@ function renderFollowups(data) {
       {
         label: "Run a fit analysis for your role",
         action: () => {
-          document
-            .getElementById("jd-match")
-            ?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-          document.getElementById("jd-input")?.focus({ preventScroll: true });
+          // JD analyses draw from their own budget, so this works even
+          // when the chat quota is exhausted — paste the JD right here.
+          if (chatInput) {
+            chatInput.placeholder = "Paste the full job description here...";
+            chatInput.focus({ preventScroll: true });
+          }
         },
       },
       {
@@ -1475,9 +1436,6 @@ initChatAutoScroll();
 // Navbar: frosted glass on scroll + hamburger.
 initNavbar();
 
-// Theme toggle + persistence (initial theme applied by theme-init.js).
-initTheme();
-
 // Explore link: focus chat input after scroll completes.
 document.querySelector(".hero-explore")?.addEventListener("click", () => {
   setTimeout(() => chatInput?.focus(), 400);
@@ -1518,32 +1476,16 @@ if (feedbackDialog && feedbackOpenBtn) {
   });
 }
 
-// --- JD fit analysis ("Hiring for a role?") ---
-const jdInput = document.getElementById("jd-input");
-const jdCounter = document.getElementById("jd-counter");
-const jdAnalyzeBtn = document.getElementById("jd-analyze");
-const jdResults = document.getElementById("jd-results");
-const jdAnnouncer = document.getElementById("jd-announcer");
-const JD_MIN_CHARS = 200;
+// --- JD fit analysis (runs inside the chat thread) ---
 const JD_MAX_CHARS = 15000;
 
 let jdBusy = false;
 let jdAnalysisMarkdown = ""; // raw markdown of the last completed analysis
+let jdLastText = ""; // first line of the last analyzed JD feeds the email subject
 
-function updateJDControls() {
-  if (!jdInput || !jdCounter || !jdAnalyzeBtn) return;
-  const len = jdInput.value.length;
-  jdCounter.textContent = `${len.toLocaleString("en-US")} / 15,000`;
-  jdCounter.classList.toggle("is-near-limit", len >= JD_MAX_CHARS * 0.9);
-  const tooShort = len < JD_MIN_CHARS;
-  jdAnalyzeBtn.disabled = jdBusy || tooShort;
-  jdAnalyzeBtn.title = tooShort
-    ? `Paste at least ${JD_MIN_CHARS} characters of the job description`
-    : "";
-  // Explain the disabled button once the user has pasted *something* short —
-  // an unexplained dead button reads as frozen.
-  const hint = document.getElementById("jd-hint");
-  if (hint) hint.hidden = !(len > 0 && tooShort);
+function announceJD(text) {
+  const announcer = document.getElementById("step-announcer");
+  if (announcer) announcer.textContent = text;
 }
 
 function looksLikeJD(text) {
@@ -1580,7 +1522,7 @@ function makeCopyButton(label, getText, announceText) {
       const original = label;
       btn.textContent = "✓ Copied";
       btn.classList.add("is-copied");
-      if (jdAnnouncer) jdAnnouncer.textContent = announceText;
+      announceJD(announceText);
       setTimeout(() => {
         btn.textContent = original;
         btn.classList.remove("is-copied");
@@ -1629,7 +1571,7 @@ function decorateJDResults(container) {
 
 function buildJDMailto() {
   const roleLine =
-    (jdInput?.value || "")
+    jdLastText
       .split("\n")
       .map((l) => l.trim())
       .find(Boolean) || "your role";
@@ -1637,12 +1579,14 @@ function buildJDMailto() {
   return `mailto:${getContactEmail()}?subject=${encodeURIComponent(subject)}`;
 }
 
-function renderJDActions() {
-  if (!jdResults) return;
-  jdResults.querySelector(".jd-actions:not(.jd-actions--brief)")?.remove();
+function renderJDActions(host) {
+  // Only the latest analysis carries live actions — older ones would act
+  // on the wrong (current) session state.
+  chatLog?.querySelectorAll(".jd-actions:not(.jd-actions--brief)").forEach((n) => n.remove());
+  const analysisMarkdown = jdAnalysisMarkdown;
 
   const briefBtn = el("button", {
-    class: "jd-analyze jd-brief-btn",
+    class: "chip chip--primary jd-brief-btn",
     type: "button",
     text: "Generate screening brief",
   });
@@ -1662,31 +1606,30 @@ function renderJDActions() {
   });
 
   const actions = el("div", { class: "jd-actions" }, [
-    makeCopyButton("Copy summary", () => extractRecruiterSummary(jdAnalysisMarkdown), "Recruiter summary copied"),
+    makeCopyButton("Copy summary", () => extractRecruiterSummary(analysisMarkdown), "Recruiter summary copied"),
     briefBtn,
     emailLink,
   ]);
-  jdResults.append(actions);
+  host.append(actions);
 }
 
 async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
-  if (jdBusy || !jdResults) return;
+  if (jdBusy) return;
   jdBusy = true;
-  updateJDControls();
-  if (jdAnalyzeBtn && mode === "analysis") jdAnalyzeBtn.textContent = "Analyzing…";
+  if (mode === "analysis") jdLastText = jdText;
 
-  let streamHost;
+  // The analysis streams into a regular bot message so the whole flow
+  // lives in the conversation.
+  const msg = addMessage("", "bot");
+  msg.classList.add("jd-analysis");
+  const msgBody = msg.querySelector(".msg-body");
   if (mode === "analysis") {
-    jdResults.hidden = false;
-    jdResults.innerHTML = "";
-    jdResults.append(el("h3", { class: "jd-results-heading", text: "Fit analysis" }));
-    streamHost = el("div", { class: "jd-stream" });
-    jdResults.append(streamHost);
-    jdResults.focus({ preventScroll: true });
-  } else {
-    streamHost = el("div", { class: "jd-stream jd-stream--brief" });
-    jdResults.append(streamHost);
+    msgBody.append(el("h3", { class: "jd-results-heading", text: "Fit analysis" }));
   }
+  const streamHost = el("div", {
+    class: mode === "analysis" ? "jd-stream" : "jd-stream jd-stream--brief",
+  });
+  msgBody.append(streamHost);
 
   const steps = createStatusSteps(streamHost, "solving");
   steps.addStep("Loading Dakota's full resume...");
@@ -1717,6 +1660,7 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
         maxAnswerHeight = height;
         answerDiv.style.minHeight = `${height}px`;
       }
+      requestScrollToBottom();
     });
   }
 
@@ -1759,13 +1703,13 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
         const host = el("div", { class: "jd-unlock" }, [el("div", { class: "msg-body" })]);
         streamHost.append(host);
         renderUnlockForm(host, detail, null, () => sendJDMatch(jdText, { mode }));
-        if (jdAnnouncer) jdAnnouncer.textContent = "Password required for another analysis.";
+        announceJD("Password required for another analysis.");
         return;
       }
       streamHost.append(
         el("p", { class: "jd-error", text: detail || "Something went wrong. Please try again." })
       );
-      if (jdAnnouncer) jdAnnouncer.textContent = "The analysis could not be completed.";
+      announceJD("The analysis could not be completed.");
       return;
     }
 
@@ -1777,8 +1721,8 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
 
     if (mode === "analysis") {
       jdAnalysisMarkdown = String(finalData.reply || "");
-      renderJDActions();
-      if (jdAnnouncer) jdAnnouncer.textContent = "Fit analysis ready.";
+      renderJDActions(msgBody);
+      announceJD("Fit analysis ready.");
     } else {
       const briefMarkdown = String(finalData.reply || "");
       streamHost.append(
@@ -1786,8 +1730,9 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
           makeCopyButton("Copy brief", () => briefMarkdown, "Screening brief copied"),
         ])
       );
-      if (jdAnnouncer) jdAnnouncer.textContent = "Screening brief ready.";
+      announceJD("Screening brief ready.");
     }
+    requestScrollToBottom();
   } catch (err) {
     console.error(err);
     steps.flush();
@@ -1796,13 +1741,12 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
     );
   } finally {
     jdBusy = false;
-    if (jdAnalyzeBtn) jdAnalyzeBtn.textContent = "Analyze fit";
-    updateJDControls();
   }
 }
 
 /** Chat interstitial when a pasted message looks like a job description. */
 function renderJDInterstitial(text) {
+  suggestionsEl?.remove();
   removePreviousFollowups();
   const msg = addMessage(
     "This looks like a job description. I can run a structured fit analysis against Dakota's full resume instead of a chat reply.",
@@ -1814,11 +1758,6 @@ function renderJDInterstitial(text) {
   const analyzeChip = el("button", { class: "chip chip--primary", type: "button", text: "Analyze fit" });
   analyzeChip.addEventListener("click", () => {
     msg.remove();
-    if (jdInput) {
-      jdInput.value = clipped;
-      updateJDControls();
-    }
-    document.getElementById("jd-match")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     sendJDMatch(clipped);
   });
 
@@ -1844,16 +1783,6 @@ function renderJDInterstitial(text) {
   }
   // The interstitial consumes no quota and sends nothing until a choice is made.
   requestScrollToBottom();
-}
-
-if (jdInput && jdAnalyzeBtn) {
-  jdInput.addEventListener("input", updateJDControls);
-  updateJDControls();
-  jdAnalyzeBtn.addEventListener("click", () => {
-    const text = jdInput.value.trim();
-    if (text.length < JD_MIN_CHARS) return;
-    sendJDMatch(text);
-  });
 }
 
 // --- Resume PDF download (password-gated; unlocked with the chat password) ---

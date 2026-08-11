@@ -32,7 +32,8 @@ const BALL_SIZE = 0.78;
 const STATIC_FRAME = 61750;
 
 const HOSTS = [
-  { selector: ".hero", className: "hero-bubbles" },
+  // The hero now carries a photo backdrop (hero-bg.jpg); bubbles only
+  // mount behind the footer.
   { selector: ".site-footer", className: "footer-bubbles" },
 ];
 

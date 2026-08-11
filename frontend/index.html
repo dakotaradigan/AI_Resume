@@ -9,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="./theme-init.js"></script>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -25,15 +24,6 @@
       <a href="./how-it-works.html">How It Works</a>
       <a href="#contact">Contact</a>
     </nav>
-    <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Dark theme">
-      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-      </svg>
-      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/>
-        <path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-      </svg>
-    </button>
     <button id="hamburger" class="hamburger" type="button" aria-label="Toggle navigation" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -42,16 +32,17 @@
   </header>
 
   <main class="layout">
+    <div class="photo-stage">
     <section id="home" class="hero">
       <div class="hero-kicker">AI STRATEGY, SENIOR PRODUCT MANAGER @ MORGAN STANLEY</div>
       <h1 id="hero-name" class="hero-name">Dakota Radigan</h1>
       <p id="hero-tagline" class="hero-tagline">
-        Turning product vision into reality with Python-driven AI solutions.
+        Try using my agent to see if we're a fit...
       </p>
       <div class="hero-actions" role="group" aria-label="Resume actions">
         <a href="#chat" id="hero-cta" class="hero-action hero-action--primary">Ask my AI agent</a>
         <a href="#experience" id="hero-resume-cta" class="hero-action hero-action--secondary">View resume</a>
-        <a href="#jd-match" id="hero-jd-cta" class="hero-action hero-action--secondary">Compare your JD</a>
+        <a href="#chat" id="hero-jd-cta" class="hero-action hero-action--secondary">Compare your JD</a>
       </div>
 
       <div id="hero-contact" class="hero-contact">
@@ -74,8 +65,7 @@
     <section id="chat" class="chat-section" aria-labelledby="chat-section-title">
       <div class="chat-intro">
         <div class="chat-intro-kicker">SKIP THE PDF</div>
-        <h2 id="chat-section-title" class="chat-intro-title">Ask my AI agent anything.</h2>
-        <p class="chat-intro-subtitle">It knows my whole background — projects, impact, and how I work.</p>
+        <h2 id="chat-section-title" class="chat-intro-title">Ask my AI agent about my work.</h2>
       </div>
 
       <div class="chat-card">
@@ -102,22 +92,7 @@
         </form>
       </div>
     </section>
-
-    <div class="trail-line" aria-hidden="true"></div>
-
-    <section id="jd-match" class="jd-card">
-      <div class="jd-kicker">VETTING CANDIDATES?</div>
-      <h2 id="jd-title" class="jd-title">Paste the job description</h2>
-      <p class="jd-subtitle">Get an honest read in seconds — where Dakota matches, where the gaps are, and what's worth a closer conversation.</p>
-      <textarea id="jd-input" rows="4" maxlength="15000" aria-labelledby="jd-title" aria-describedby="jd-counter" placeholder="Paste the full job description here..."></textarea>
-      <div class="jd-controls">
-        <span id="jd-counter" class="jd-counter">0 / 15,000</span>
-        <button id="jd-analyze" class="jd-analyze" type="button" disabled>Analyze fit</button>
-      </div>
-      <p id="jd-hint" class="jd-hint" hidden>Paste the full job description — the analysis needs at least 200 characters to work with.</p>
-      <div id="jd-announcer" class="sr-only" role="status" aria-live="polite"></div>
-      <div id="jd-results" tabindex="-1" hidden></div>
-    </section>
+    </div>
 
     <div class="trail-line" aria-hidden="true"></div>
 

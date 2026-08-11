@@ -9,7 +9,9 @@
   --accent: #4a97d2;
   --accent-dk: #2f7cb3;
   --accent-tint: #e7f2fb;
-  --hero-gradient: radial-gradient(130% 90% at 50% -20%, #d4e8f7 0%, #eaf3fb 34%, var(--bg) 68%);
+  /* Scrim over the hero photo: darkens the top so the white hero text stays
+     legible; the photo ends in a hard edge below the chat card. */
+  --hero-scrim: linear-gradient(to bottom, rgba(18, 22, 28, 0.42) 0%, rgba(18, 22, 28, 0.22) 45%, rgba(18, 22, 28, 0.28) 100%);
 
   /* Fonts */
   --font-display: -apple-system, BlinkMacSystemFont, "Hanken Grotesk", system-ui, sans-serif;
@@ -63,60 +65,6 @@
   color-scheme: light;
 }
 
-/* Dark theme: data-theme is stamped by theme-init.js before first paint. */
-:root[data-theme="dark"] {
-  --bg: #16171c;
-  --card: #1e2027;
-  --text: #ececf2;
-  --muted: #a6a6b2;
-  --muted-2: #858692;
-  --secondary: #22242c;
-  --accent: #6fb3e6;
-  --accent-dk: #8cc4ee;
-  --accent-tint: rgba(111, 179, 230, 0.12);
-  --hero-gradient: radial-gradient(130% 90% at 50% -20%, rgba(111, 179, 230, 0.20) 0%, #1b2028 34%, var(--bg) 68%);
-
-  --border: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --ring: rgba(111, 179, 230, 0.36);
-  --focus-ring: var(--accent-dk);
-  --surface-hover: rgba(111, 179, 230, 0.10);
-
-  --shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --shadow-md: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 10px 36px rgba(0, 0, 0, 0.36);
-  --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 20px 60px rgba(0, 0, 0, 0.46);
-
-  --footer-bg: var(--bg);
-  --footer-gradient: radial-gradient(130% 90% at 50% 120%, rgba(111, 179, 230, 0.20) 0%, #1b2028 34%, var(--bg) 68%);
-  --footer-text: var(--text);
-  --footer-heading: #ffffff;
-  --footer-subtitle: var(--muted);
-  --footer-btn-border: rgba(255, 255, 255, 0.16);
-  --footer-btn-bg: rgba(255, 255, 255, 0.03);
-  --footer-btn-text: #d3d3db;
-  --footer-accent: #6fb3e6;
-  --footer-separator: rgba(255, 255, 255, 0.12);
-  --footer-copyright: var(--muted);
-
-  --on-primary: #ffffff;
-  --on-primary-hover: #ffffff;
-  --input-bg: var(--secondary);
-  --nav-glass: rgba(22, 23, 28, 0.70);
-  --nav-glass-solid: rgba(22, 23, 28, 0.94);
-  --scrollbar-thumb: rgba(236, 236, 242, 0.20);
-  --error-text: #ef9a9a;
-  --chat-card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 20px 60px rgba(0, 0, 0, 0.46);
-  --cite-border: rgba(111, 179, 230, 0.52);
-  --cite-bg: var(--accent-tint);
-  --cite-bg-hover: rgba(111, 179, 230, 0.20);
-  --cite-border-hover: rgba(111, 179, 230, 0.76);
-  --cite-card-border: rgba(111, 179, 230, 0.80);
-  --cite-glow: rgba(111, 179, 230, 0.28);
-  --cite-glow-soft: rgba(111, 179, 230, 0.20);
-
-  color-scheme: dark;
-}
-
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
@@ -129,7 +77,6 @@
 
 body {
   margin: 0;
-  padding-top: 64px;
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
@@ -147,15 +94,16 @@ body > * {
   z-index: 2;
 }
 
-body::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 640px;
-  pointer-events: none;
-  z-index: 0;
-  background: var(--hero-gradient);
-  animation: none;
+/* Full-bleed photo stage: the city photo sits behind the hero AND the chat
+   card, ending in a hard edge with a soft shadow (design: "Zealous dew"). */
+.photo-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  background: var(--hero-scrim), url("./hero-bg.jpg") center top / cover no-repeat;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.20);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -176,20 +124,22 @@ a:hover {
 }
 
 /* ===== NAVBAR ===== */
+/* Floating glass pill, inset from the viewport edges */
 .site-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   padding: 16px 32px;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 10px;
+  left: 16px;
+  right: 16px;
   z-index: 50;
   background: var(--nav-glass);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: 980px;
   transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -201,7 +151,7 @@ a:hover {
   background: var(--nav-glass-solid);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom-color: var(--border);
+  border-color: var(--border);
   box-shadow: var(--shadow-sm);
 }
 
@@ -291,47 +241,6 @@ a:hover {
   display: block;
 }
 
-/* Theme toggle: persistent chrome at all widths, next to the hamburger */
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 980px;
-  justify-self: end;
-}
-
-.theme-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 3px var(--ring);
-}
-
-.theme-toggle svg {
-  width: 20px;
-  height: 20px;
-  display: block;
-}
-
-/* Icon shows the mode you'd switch to; no JS icon swapping */
-.theme-toggle .icon-sun {
-  display: none;
-}
-
-:root[data-theme="dark"] .theme-toggle .icon-sun {
-  display: block;
-}
-
-:root[data-theme="dark"] .theme-toggle .icon-moon {
-  display: none;
-}
-
 /* ===== LAYOUT ===== */
 .layout {
   display: flex;
@@ -358,26 +267,8 @@ section[id],
   text-align: center;
   position: relative;
   overflow: visible;
-  padding: 88px 16px 68px;
-}
-
-/* Animated metaball backdrop, mounted by bubble-background.js. The blobs
-   sit behind the hero content and fade out toward the section's bottom
-   edge so they blend into the page background. */
-.hero-bubbles {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0.6;
-  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
-}
-
-.hero > :not(.hero-bubbles) {
-  position: relative;
-  z-index: 1;
+  width: 100%;
+  padding: 152px 16px 12px;
 }
 
 .hero-kicker {
@@ -386,7 +277,7 @@ section[id],
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--accent-dk);
+  color: rgba(255, 255, 255, 0.92);
   margin-bottom: 12px;
 }
 
@@ -396,7 +287,8 @@ section[id],
   font-weight: 700;
   line-height: 0.96;
   letter-spacing: -0.05em;
-  color: var(--text);
+  color: #ffffff;
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.35);
   margin: 0 0 18px;
 }
 
@@ -404,7 +296,8 @@ section[id],
   font-family: var(--font-body);
   font-size: 18px;
   line-height: 1.5;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 16px rgba(0, 0, 0, 0.30);
   margin: 0 auto 32px;
   max-width: 440px;
 }
@@ -479,7 +372,7 @@ section[id],
   flex-wrap: wrap;
   gap: 22px;
   font-size: 13px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 0;
 }
 
@@ -492,7 +385,7 @@ section[id],
 
 .hero-contact a:hover {
   text-decoration: none;
-  color: var(--accent-dk);
+  color: #ffffff;
 }
 
 .hero-contact-text {
@@ -598,12 +491,11 @@ section[id],
 }
 
 /* ===== CHAT ===== */
+/* Inside the photo stage: transparent, the white chat card floats on the photo */
 .chat-section {
-  width: calc(100% + 32px);
-  margin-inline: -16px;
-  padding: 56px 16px 64px;
-  border-radius: 24px;
-  background: var(--secondary);
+  width: min(1012px, 100%);
+  padding: 24px 16px 64px;
+  background: transparent;
 }
 
 .chat-intro {
@@ -613,7 +505,7 @@ section[id],
 
 .chat-intro-kicker {
   margin-bottom: 10px;
-  color: var(--accent-dk);
+  color: rgba(255, 255, 255, 0.92);
   font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
@@ -623,20 +515,13 @@ section[id],
 
 .chat-intro-title {
   margin: 0 0 12px;
-  color: var(--text);
+  color: #ffffff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
   font-family: var(--font-display);
   font-size: clamp(32px, 4vw, 40px);
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1.1;
-}
-
-.chat-intro-subtitle {
-  max-width: 460px;
-  margin: 0 auto;
-  color: var(--muted);
-  font-size: 17px;
-  line-height: 1.5;
 }
 
 .chat-card {
@@ -2033,23 +1918,14 @@ section[id],
     display: flex;
   }
 
-  body::before {
-    background: var(--hero-gradient);
-  }
-
   .hamburger {
     display: block;
-  }
-
-  .theme-toggle {
-    margin-left: auto;
-    margin-right: 8px;
   }
 
   .nav-links {
     display: none;
     position: absolute;
-    top: 100%;
+    top: calc(100% + 8px);
     left: 0;
     right: 0;
     flex-direction: column;
@@ -2057,7 +1933,9 @@ section[id],
     background: var(--nav-glass-solid);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--border);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
     padding: 8px 0;
     box-shadow: var(--shadow-md);
   }
@@ -2123,123 +2001,10 @@ section[id],
 }
 
 /* --- JD fit analysis card ("Hiring for a role?") --- */
-.jd-card {
-  position: relative;
-  max-width: 980px;
-  margin: 0 auto;
+/* --- JD fit analysis (rendered as a chat message) --- */
+.jd-analysis {
+  max-width: 100%;
   width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: var(--secondary);
-  box-shadow: var(--shadow-sm);
-  padding: 30px 32px 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.jd-kicker {
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent-dk);
-}
-
-.jd-title {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  color: var(--text);
-  margin: 0;
-}
-
-.jd-subtitle {
-  font-size: 15px;
-  color: var(--muted);
-  margin: 0 0 6px;
-}
-
-#jd-input {
-  width: 100%;
-  min-height: 96px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 14px;
-  background: var(--card);
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.5;
-  resize: vertical;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, min-height 0.2s ease;
-}
-
-#jd-input:focus {
-  min-height: 200px;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--ring);
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.jd-controls {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-}
-
-.jd-counter {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.jd-counter.is-near-limit {
-  color: var(--accent-dk);
-}
-
-.jd-hint {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 2px 0 0;
-}
-
-.jd-analyze {
-  border: none;
-  border-radius: 980px;
-  background: var(--accent);
-  color: var(--on-primary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  min-height: 40px;
-  padding: 8px 20px;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.jd-analyze:hover:not(:disabled) {
-  background: var(--accent-dk);
-  color: var(--on-primary-hover);
-}
-
-.jd-analyze:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.jd-analyze:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 3px var(--ring);
-}
-
-#jd-results {
-  margin-top: 14px;
-  outline: none;
 }
 
 .jd-results-heading {
@@ -2252,7 +2017,7 @@ section[id],
 
 /* All four result headings get identical kicker treatment — equal typographic
    dignity is what makes Honest Gaps read as credible, not damning. */
-#jd-results .step-answer h2 {
+.jd-analysis .step-answer h2 {
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 700;
@@ -2264,27 +2029,27 @@ section[id],
   border-top: 1px solid var(--border);
 }
 
-#jd-results .step-answer h2:first-child {
+.jd-analysis .step-answer h2:first-child {
   margin-top: 0;
   padding-top: 0;
   border-top: none;
 }
 
-#jd-results .step-answer h2[data-jd]::before {
+.jd-analysis .step-answer h2[data-jd]::before {
   margin-right: 6px;
 }
 
-#jd-results .step-answer h2[data-jd="strong"]::before {
+.jd-analysis .step-answer h2[data-jd="strong"]::before {
   content: "✓";
   color: var(--accent-dk);
 }
 
-#jd-results .step-answer h2[data-jd="partial"]::before {
+.jd-analysis .step-answer h2[data-jd="partial"]::before {
   content: "◐";
   color: var(--muted);
 }
 
-#jd-results .step-answer h2[data-jd="gaps"]::before {
+.jd-analysis .step-answer h2[data-jd="gaps"]::before {
   content: "○";
   color: var(--muted);
 }
@@ -2385,10 +2150,6 @@ section[id],
     font-size: 30px;
   }
 
-  .chat-intro-subtitle {
-    font-size: 15px;
-  }
-
   .chat-card {
     margin-top: 20px;
     border-radius: 20px;
@@ -2414,11 +2175,6 @@ section[id],
   .send-button {
     min-width: 44px;
     min-height: 44px;
-  }
-
-  .theme-toggle {
-    width: 44px;
-    height: 44px;
   }
 
   .chip {
@@ -2483,11 +2239,6 @@ section[id],
     line-height: 1.5;
   }
 
-  .jd-card {
-    border-radius: 20px;
-    padding: 20px 16px 22px;
-  }
-
   .resume-section {
     padding: 30px 16px;
     border-radius: 20px;
@@ -2499,24 +2250,6 @@ section[id],
     padding: 44px 16px 48px;
   }
 
-  #jd-input {
-    font-size: 16px;
-  }
-
-  #jd-input:focus {
-    min-height: 140px;
-  }
-
-  .jd-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .jd-counter {
-    text-align: right;
-  }
-
-  .jd-analyze,
   .jd-actions .chip {
     width: 100%;
     justify-content: center;
@@ -2525,10 +2258,10 @@ section[id],
 
   /* --- Phone-width fixes from the mobile UI audit --- */
 
-  /* Mobile header is 77px tall (44px controls + padding); keep the page
-     offset and anchor scrolling in sync. */
-  body {
-    padding-top: 78px;
+  /* The photo stage runs under the floating pill header, so the page needs
+     no top offset; hero padding clears the header instead. */
+  .hero {
+    padding-top: 140px;
   }
 
   .hamburger {
@@ -2572,10 +2305,6 @@ section[id],
 
   .chat-form input {
     text-overflow: ellipsis;
-  }
-
-  .jd-title {
-    line-height: 1.15;
   }
 
   /* Role titles wrapped to 3 lines at 22px; card headers ran ~190px
