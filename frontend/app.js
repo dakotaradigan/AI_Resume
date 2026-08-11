@@ -3,10 +3,9 @@ const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
 const sendButton = chatForm.querySelector("button");
 
-const experienceGrid = document.getElementById("experience-grid");
-const skillsGrid = document.getElementById("skills-grid");
-const educationGrid = document.getElementById("education-grid");
-const certificationsGrid = document.getElementById("certifications-grid");
+const resumePaper = document.getElementById("resume-paper");
+const resumeDrawer = document.getElementById("resume-drawer");
+const resumeTab = document.getElementById("resume-tab");
 
 const brandTitle = document.getElementById("brand-title");
 const heroName = document.getElementById("hero-name");
@@ -316,215 +315,199 @@ function safeExternalUrl(value) {
   }
 }
 
-function normalizeSkillName(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9+.#/\s-]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// ===== Paper resume ("the old way") =====
+// The drawer renders the same /api/resume payload the agent answers from,
+// but as a single typewritten sheet. Citations from chat answers open the
+// drawer and drag a highlighter mark across the cited part of the page.
 
-function buildSkillLookup(skills) {
-  const lookup = new Map();
-  Object.values(skills || {}).forEach((group) => {
-    safeArray(group).forEach((skill) => {
-      const key = normalizeSkillName(skill);
-      if (key && !lookup.has(key)) lookup.set(key, skill);
-    });
+const drawerState = { open: false, lastFocus: null };
+
+function paperLink(href, text) {
+  const url = safeExternalUrl(href);
+  if (!url) return el("strong", { text });
+  return el("a", {
+    class: "paper-link",
+    href: url,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    text,
   });
-  return lookup;
 }
 
-function buildRoleAskPrompt(exp) {
-  const role = String(exp?.role || "this role").trim();
-  const company = String(exp?.company || "").trim();
-  const roleLabel = company ? `${role} at ${company}` : role;
-  return `What impact did Dakota have as ${roleLabel}? Focus on core responsibilities, measurable outcomes, and why this experience is relevant for hiring decisions.`;
+function paperSection(id, title, children) {
+  return el("section", { id, class: "paper-section" }, [
+    el("h3", { class: "paper-heading paper-markable", text: title }),
+    ...children,
+  ]);
 }
 
-function renderExperience(items, skillLookup = new Map()) {
-  if (!experienceGrid) return;
-  experienceGrid.innerHTML = "";
-  experienceGrid.className = "experience-timeline";
+function renderResumePaper(data) {
+  if (!resumePaper) return;
+  resumePaper.innerHTML = "";
 
-  safeArray(items).forEach((exp, idx) => {
-    const role = el("div", { class: "timeline-role", text: exp.role || "" });
-    const companyText = exp.company || "";
-    const company = el("div", { class: "timeline-company", text: companyText });
+  const personal = data.personal || {};
 
-    // Build meta column (date + location, right-aligned)
-    const metaChildren = [];
-    if (exp.duration) metaChildren.push(el("div", { text: exp.duration }));
-    if (exp.location) metaChildren.push(el("div", { text: exp.location }));
-    const meta = metaChildren.length ? el("div", { class: "timeline-meta" }, metaChildren) : null;
+  const contact = el("p", { class: "paper-contact" });
+  const contactBits = [];
+  if (personal.location) contactBits.push(el("span", { text: personal.location }));
+  if (personal.email) {
+    contactBits.push(
+      el("a", { class: "paper-link", href: `mailto:${personal.email}`, text: personal.email })
+    );
+  }
+  if (personal.linkedin) contactBits.push(paperLink(personal.linkedin, "LinkedIn"));
+  if (personal.github) contactBits.push(paperLink(personal.github, "GitHub"));
+  contactBits.forEach((bit, i) => {
+    if (i) contact.append(" \u00B7 ");
+    contact.append(bit);
+  });
 
-    const header = el("div", { class: "timeline-header" }, [role, meta]);
+  resumePaper.append(
+    el("header", { class: "paper-head" }, [
+      el("h2", { class: "paper-name", text: personal.name || "" }),
+      personal.title ? el("p", { class: "paper-title", text: personal.title }) : null,
+      contactBits.length ? contact : null,
+    ])
+  );
 
+  if (personal.summary) {
+    resumePaper.append(el("p", { class: "paper-summary", text: personal.summary }));
+  }
+
+  const expEntries = safeArray(data.experience).map((exp) => {
+    const head = el("div", { class: "paper-entry-head" }, [
+      el("span", { class: "paper-entry-role", text: exp.role || "" }),
+      exp.duration ? el("span", { class: "paper-entry-meta", text: exp.duration }) : null,
+    ]);
+    const subText = [exp.company, exp.location].filter(Boolean).join(" \u2014 ");
+    const sub = subText ? el("div", { class: "paper-entry-sub", text: subText }) : null;
     const achievements = safeArray(exp.achievements);
-    const bullets = achievements.map((a, i) =>
-      el("li", { class: i >= 3 ? "is-extra" : "", text: a })
-    );
-    const list = bullets.length
-      ? el("ul", { class: "timeline-bullets is-collapsed" }, bullets)
+    const bullets = achievements.length
+      ? el("ul", { class: "paper-bullets" }, achievements.map((a) => el("li", { text: a })))
       : null;
-
-    const extrasCount = Math.max(0, achievements.length - 3);
-    const toggle =
-      extrasCount > 0
-        ? el("button", {
-            class: "timeline-toggle",
-            type: "button",
-            text: `Show more (${extrasCount})`,
-          })
-        : null;
-
-    if (toggle && list) {
-      toggle.addEventListener("click", () => {
-        const expanded = list.classList.toggle("is-collapsed") === false;
-        toggle.textContent = expanded ? "Show less" : `Show more (${extrasCount})`;
-      });
-    }
-
-    // Technology tags
-    const technologies = safeArray(exp.technologies);
-    const alignedTech = [];
-    const seen = new Set();
-    technologies.forEach((tech) => {
-      const key = normalizeSkillName(tech);
-      const label = skillLookup.get(key) || tech;
-      const seenKey = normalizeSkillName(label);
-      if (!seenKey || seen.has(seenKey)) return;
-      seen.add(seenKey);
-      alignedTech.push(label);
-    });
-    const tags = technologies.length
-      ? el("div", { class: "timeline-tags" },
-          alignedTech.map((label) =>
-            el("a", {
-              class: "timeline-tag timeline-tag--link",
-              href: "#skills",
-              text: label,
-              "aria-label": `Jump to skills section for ${label}`,
-            })
-          )
-        )
-      : null;
-
-    const askBtn = el("button", {
-      class: "timeline-ask-btn",
-      type: "button",
-      "aria-label": `Ask AI about ${exp.role || "this experience"}`,
-    }, [
-      el("span", { class: "timeline-ask-icon", "aria-hidden": "true", text: "✦" }),
-      el("span", { text: "Ask AI" }),
-    ]);
-    askBtn.addEventListener("click", async () => {
-      const chatSection = document.getElementById("chat");
-      chatSection?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-      if (chatInput?.disabled) return;
-      const prompt = buildRoleAskPrompt(exp);
-      await sendMessage(prompt);
-    });
-    const actions = el("div", { class: "timeline-actions" }, [askBtn]);
-
-    const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
-    const entry = el("article", { class: `timeline-entry reveal${delayClass}` }, [
-      header,
-      company,
-      list,
-      toggle,
-      tags,
-      actions,
-    ]);
-    experienceGrid.append(entry);
+    return el("div", { class: "paper-entry" }, [head, sub, bullets]);
   });
-}
+  resumePaper.append(paperSection("paper-experience", "Experience", expEntries));
 
-function renderSkills(skills) {
-  if (!skillsGrid) return;
-  skillsGrid.innerHTML = "";
-
-  const entries = Object.entries(skills || {});
-  entries.forEach(([key, items], idx) => {
-    const label = key.replace(/_/g, " ").toUpperCase();
-    const chips = safeArray(items).map((s) => el("button", { class: "chip chip--static", type: "button", text: s }));
-    const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
-    const block = el("section", { class: `skills-block reveal${delayClass}` }, [
-      el("div", { class: "skills-kicker", text: label }),
-      el("div", { class: "skills-chips" }, chips),
+  const eduEntries = safeArray(data.education).map((ed) => {
+    const head = el("div", { class: "paper-entry-head" }, [
+      el("span", { class: "paper-entry-role", text: ed.school || "" }),
+      ed.graduation ? el("span", { class: "paper-entry-meta", text: ed.graduation }) : null,
     ]);
-    skillsGrid.append(block);
+    const sub = ed.degree ? el("div", { class: "paper-entry-sub", text: ed.degree }) : null;
+    return el("div", { class: "paper-entry" }, [head, sub]);
   });
-}
+  resumePaper.append(paperSection("paper-education", "Education", eduEntries));
 
-function renderEducation(items) {
-  if (!educationGrid) return;
-  educationGrid.innerHTML = "";
-  safeArray(items).forEach((ed) => {
-    const cardId = buildResumeAnchor("education", ed.school || ed.degree);
-    const row = el("div", { class: "resume-card-title-row" }, [
-      el("div", { class: "resume-card-title", text: ed.school || "" }),
-      el("div", { class: "resume-card-meta", text: ed.graduation || "" }),
-    ]);
-    const subtitle = el("div", { class: "resume-card-subtitle", text: ed.degree || "" });
-    educationGrid.append(
-      el("article", {
-        id: cardId,
-        class: "resume-card reveal",
-        "data-citation-label": ed.school || ed.degree || "Education",
-      }, [row, subtitle])
-    );
-  });
-}
-
-function renderCertifications(items) {
-  if (!certificationsGrid) return;
-  certificationsGrid.innerHTML = "";
-  safeArray(items).forEach((c, idx) => {
+  const certEntries = safeArray(data.certifications).map((c) => {
     const name = c.name || "";
-    const cardId = buildResumeAnchor("certification", name);
-    const credentialUrl = safeExternalUrl(c.credential_url);
-    const showDate =
-      /PCAP/i.test(name) || /Certified Associate Python Programmer/i.test(name);
-    const rowChildren = [el("div", { class: "resume-card-title", text: name })];
-    if (showDate && c.date) {
-      rowChildren.push(el("div", { class: "resume-card-meta", text: c.date }));
+    const li = el("li", {
+      id: buildResumeAnchor("paper-certification", name),
+      class: "paper-markable",
+    });
+    li.append(c.credential_url ? paperLink(c.credential_url, name) : el("strong", { text: name }));
+    // Match the old cards: only PCAP shows its date.
+    const showDate = /PCAP/i.test(name) || /Certified Associate Python Programmer/i.test(name);
+    const extras = [c.issuer, showDate ? c.date : null].filter(Boolean).join(", ");
+    if (extras) li.append(` \u2014 ${extras}`);
+    const status = String(c.status || "").trim();
+    if (status && status.toLowerCase() !== "completed") li.append(` (${status.toLowerCase()})`);
+    return li;
+  });
+  resumePaper.append(
+    paperSection("paper-certifications", "Certifications", [
+      el("ul", { class: "paper-bullets paper-bullets--certs" }, certEntries),
+    ])
+  );
+
+  const skillLines = Object.entries(data.skills || {}).map(([key, items]) => {
+    const line = el("p", { class: "paper-skill-line" });
+    line.append(el("strong", { text: `${key.replace(/_/g, " ").toUpperCase()}: ` }));
+    line.append(safeArray(items).join(", "));
+    return line;
+  });
+  resumePaper.append(paperSection("paper-skills", "Skills", skillLines));
+
+  resumePaper.append(
+    el("p", {
+      class: "paper-signoff",
+      text: "\u2014 typed the old-fashioned way. the agent upstairs is faster. \u2014",
+    })
+  );
+}
+
+function clearPaperMarks() {
+  resumePaper?.querySelectorAll(".is-marked").forEach((n) => n.classList.remove("is-marked"));
+}
+
+function drawerFocusables() {
+  const panel = resumeDrawer?.querySelector(".resume-drawer-panel");
+  if (!panel) return [];
+  return Array.from(
+    panel.querySelectorAll("button, a[href], [tabindex]:not([tabindex='-1'])")
+  ).filter((n) => n.offsetParent !== null);
+}
+
+function openResumeDrawer() {
+  if (!resumeDrawer || drawerState.open) return;
+  drawerState.open = true;
+  drawerState.lastFocus = document.activeElement;
+  resumeDrawer.classList.add("is-open");
+  resumeDrawer.setAttribute("aria-hidden", "false");
+  resumeTab?.setAttribute("aria-expanded", "true");
+  document.body.classList.add("resume-drawer-open");
+  document.getElementById("resume-drawer-close")?.focus({ preventScroll: true });
+}
+
+function closeResumeDrawer() {
+  if (!resumeDrawer || !drawerState.open) return;
+  drawerState.open = false;
+  resumeDrawer.classList.remove("is-open");
+  resumeDrawer.setAttribute("aria-hidden", "true");
+  resumeTab?.setAttribute("aria-expanded", "false");
+  document.body.classList.remove("resume-drawer-open");
+  clearPaperMarks();
+  if (drawerState.lastFocus instanceof HTMLElement) {
+    drawerState.lastFocus.focus({ preventScroll: true });
+  }
+  drawerState.lastFocus = null;
+}
+
+function initResumeDrawer() {
+  if (!resumeDrawer) return;
+  resumeTab?.addEventListener("click", () => {
+    drawerState.open ? closeResumeDrawer() : openResumeDrawer();
+  });
+  document.getElementById("resume-drawer-close")?.addEventListener("click", closeResumeDrawer);
+  resumeDrawer.querySelector("[data-drawer-close]")?.addEventListener("click", closeResumeDrawer);
+  document.addEventListener("keydown", (e) => {
+    if (!drawerState.open) return;
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeResumeDrawer();
+      return;
     }
-    const row = el("div", { class: "resume-card-title-row" }, rowChildren);
-    const subtitle = el("div", { class: "resume-card-subtitle", text: c.issuer || "" });
-    const status =
-      c.status && String(c.status).trim() && String(c.status).toLowerCase() !== "completed"
-        ? el("div", { class: "resume-card-status", text: c.status })
-        : null;
-    const certificateLabel = credentialUrl
-      ? el("span", { class: "resume-card-link-label", text: "View certificate" })
-      : null;
-    const delayClass = idx <= 4 ? ` reveal-delay-${Math.min(idx + 1, 4)}` : "";
-    const tagName = credentialUrl ? "a" : "article";
-    const attrs = {
-      id: cardId,
-      class: `resume-card${credentialUrl ? " resume-card--link" : ""} reveal${delayClass}`,
-      "data-citation-label": name || "Certification",
-    };
-    if (credentialUrl) {
-      attrs.href = credentialUrl;
-      attrs.target = "_blank";
-      attrs.rel = "noopener noreferrer";
-      attrs["aria-label"] = `View certificate for ${name}`;
+    // Minimal focus trap: keep Tab inside the dialog.
+    if (e.key === "Tab") {
+      const focusables = drawerFocusables();
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
-    certificationsGrid.append(
-      el(tagName, attrs, [row, subtitle, status, certificateLabel])
-    );
   });
 }
 
 const CITATION_RULES = [
   {
     label: "Experience",
-    targetId: "experience-evidence",
-    scrollId: "experience",
-    sectionId: "experience",
+    targetId: "paper-experience",
     patterns: [
       /senior product manager/i,
       /\bvp\b/i,
@@ -538,8 +521,7 @@ const CITATION_RULES = [
   },
   {
     label: "PCAP certification",
-    targetId: "certification-pcap-certified-associate-python-programmer",
-    sectionId: "education",
+    targetId: "paper-certification-pcap-certified-associate-python-programmer",
     patterns: [
       /\bpcap\b/i,
       /certified associate python programmer/i,
@@ -548,8 +530,7 @@ const CITATION_RULES = [
   },
   {
     label: "AI Product Management",
-    targetId: "certification-ai-product-management",
-    sectionId: "education",
+    targetId: "paper-certification-ai-product-management",
     patterns: [
       /ai product management/i,
       /product faculty/i,
@@ -561,54 +542,49 @@ const CITATION_RULES = [
   },
   {
     label: "Finance certification",
-    targetId: "certification-finance-certification",
-    sectionId: "education",
+    targetId: "paper-certification-finance-certification",
     patterns: [/finance certification/i],
   },
   {
     label: "Education",
-    targetId: "education-evidence",
-    sectionId: "education",
+    targetId: "paper-education",
     sourceTitles: ["Education"],
     patterns: [/\bmba\b/i, /washington state university/i],
   },
   {
     label: "Certifications",
-    targetId: "certifications-evidence",
-    sectionId: "education",
+    targetId: "paper-certifications",
     sourceTitles: ["Certifications"],
   },
   {
     label: "Skills",
-    targetId: "skills",
-    sectionId: "skills",
+    targetId: "paper-skills",
     sourceTitles: ["Skills and Expertise"],
   },
 ];
 
-function expandResumeSection(sectionId) {
-  const section = document.getElementById(sectionId);
-  if (!section?.classList?.contains("resume-section")) return;
-  section.classList.add("is-expanded");
-  const header = section.querySelector(".section-header--link[role='button']");
-  header?.setAttribute("aria-expanded", "true");
-  const toggle = section.querySelector(".section-toggle");
-  if (toggle) toggle.textContent = "Hide details";
-}
-
-function highlightCitationTarget(targetId, sectionId, scrollId = targetId) {
-  if (sectionId) expandResumeSection(sectionId);
+/**
+ * Citation click: slide the paper out and run a highlighter across the cited
+ * part of the sheet. Whole sections get their heading marked; specific lines
+ * (individual certifications) get marked directly.
+ */
+function highlightCitationTarget(targetId) {
   const target = document.getElementById(targetId);
   if (!target) return;
-  const scrollTarget = document.getElementById(scrollId) || target;
-  target.classList.add("is-visible");
+  const mark = target.classList.contains("paper-section")
+    ? target.querySelector(".paper-markable") || target
+    : target;
+  const wasOpen = drawerState.open;
+  openResumeDrawer();
+  // Let the slide-in transition land before scrolling the sheet.
   window.setTimeout(() => {
-    scrollTarget.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-    target.classList.remove("is-cited");
-    void target.offsetWidth;
-    target.classList.add("is-cited");
-    window.setTimeout(() => target.classList.remove("is-cited"), 2400);
-  }, 120);
+    clearPaperMarks();
+    // Scroll to the mark, not the section: a whole section centered can push
+    // its own marked heading off-screen.
+    mark.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
+    void mark.offsetWidth;
+    mark.classList.add("is-marked");
+  }, wasOpen ? 60 : 420);
 }
 
 function buildAnswerCitations(data) {
@@ -644,7 +620,7 @@ function renderAnswerCitations(data) {
       text: citation.label,
     });
     button.addEventListener("click", () => {
-      highlightCitationTarget(citation.targetId, citation.sectionId, citation.scrollId);
+      highlightCitationTarget(citation.targetId);
     });
     list.append(button);
   });
@@ -653,36 +629,6 @@ function renderAnswerCitations(data) {
     el("span", { class: "answer-citations-label", text: "Sources" }),
     list,
   ]);
-}
-
-function initRevealOnScroll() {
-  const nodes = Array.from(document.querySelectorAll(".reveal"));
-  if (nodes.length === 0) return;
-
-  const prefersReduced =
-    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (prefersReduced) {
-    nodes.forEach((n) => n.classList.add("is-visible"));
-    return;
-  }
-
-  if (!("IntersectionObserver" in window)) {
-    nodes.forEach((n) => n.classList.add("is-visible"));
-    return;
-  }
-
-  const io = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        entry.target.classList.add("is-visible");
-        io.unobserve(entry.target);
-      });
-    },
-    { threshold: 0.08, rootMargin: "0px 0px -10% 0px" }
-  );
-
-  nodes.forEach((n) => io.observe(n));
 }
 
 // Hero CTA — scroll to chat and focus input
@@ -706,18 +652,20 @@ if (heroCta) {
   });
 }
 
-// Secondary hero CTA — reveal the resume and move directly to Experience.
+// Secondary hero CTA — slide out the paper resume ("the old way").
 const heroResumeCta = document.getElementById("hero-resume-cta");
 if (heroResumeCta) {
   heroResumeCta.addEventListener("click", (e) => {
     e.preventDefault();
-    expandResumeSection("experience");
-    const experienceEl = document.getElementById("experience");
-    window.setTimeout(() => {
-      experienceEl?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-    }, 100);
+    openResumeDrawer();
   });
 }
+
+// Nav "Resume" link opens the same drawer.
+document.getElementById("nav-resume")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  openResumeDrawer();
+});
 
 // Tertiary hero CTA — the fit analysis lives in the chat agent: jump there
 // and cue the recruiter to paste the JD.
@@ -734,24 +682,6 @@ if (heroJdCta) {
     }, 300);
   });
 }
-
-// Collapsible resume sections — attached after DOM is fully ready
-window.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".resume-section .section-header--link[role='button']").forEach((header) => {
-    header.style.cursor = "pointer";
-    header.addEventListener("click", (e) => {
-      e.preventDefault();
-      const section = header.closest(".resume-section");
-      const expanded = section.classList.toggle("is-expanded");
-      header.setAttribute("aria-expanded", String(expanded));
-      const toggle = header.querySelector(".section-toggle");
-      if (toggle) toggle.textContent = expanded ? "Hide details" : "Show details";
-    });
-    header.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); header.click(); }
-    });
-  });
-});
 
 function initNavbar() {
   // Frosted glass on scroll
@@ -821,16 +751,11 @@ async function loadAndRenderResume() {
       if (t) t.textContent = personal.location;
     }
 
-    const skillLookup = buildSkillLookup(data.skills);
-    renderExperience(data.experience, skillLookup);
-    renderSkills(data.skills);
-    renderEducation(data.education);
-    renderCertifications(data.certifications);
-    initRevealOnScroll();
+    renderResumePaper(data);
   } catch (err) {
-    console.warn("Resume sections unavailable (did you start the backend?)", err);
-    const resumeRoot = document.getElementById("resume");
-    if (resumeRoot) resumeRoot.style.display = "none";
+    console.warn("Resume data unavailable (did you start the backend?)", err);
+    // No sheet to show: hide the drawer tab so it never opens onto blank paper.
+    resumeTab?.setAttribute("hidden", "");
   }
 }
 
@@ -1110,10 +1035,7 @@ function renderFollowups(data) {
       },
       {
         label: "See full resume",
-        action: () =>
-          document
-            .getElementById("resume")
-            ?.scrollIntoView({ behavior: scrollBehavior(), block: "start" }),
+        action: () => openResumeDrawer(),
       },
     ];
   } else {
@@ -1845,5 +1767,8 @@ async function downloadResumePdf() {
 
 document.getElementById("pdf-download")?.addEventListener("click", downloadResumePdf);
 
-// Render resume details below chat (Experience / Skills / Education).
+// Paper resume drawer: tab, close button, backdrop, Escape, focus trap.
+initResumeDrawer();
+
+// Render the typewritten paper resume from /api/resume.
 loadAndRenderResume();
