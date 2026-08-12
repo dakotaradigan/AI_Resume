@@ -95,5 +95,15 @@ generation so the look stays consistent, then add the scene prompt.
 - **Sound design (in edit):** typewriter clacks → dial-up screech → mouse clicks →
   frantic keyboard → silence and one soft chime for the agent. The dial-up tone is the
   laugh line.
-- **Tagline slot:** Scene 6 ends with dead air on parchment — drop the product name and
-  tagline there, e.g. "Stop applying. Start evolving."
+- **Tagline slot:** Scene 6 ends with dead air on parchment. The card speaks to the
+  recruiter watching — the ask is "be the one who tries the new thing and picks me."
+  Options, in order of directness:
+  - "Try something new. Interview my agent." *(then the agent URL)*
+  - "Hiring evolved. Your next hire already did." *(name + URL)*
+  - "You've read 200 resumes today. Talk to one instead."
+  - "Don't read my resume. Ask it anything." *(then the agent URL)*
+  - "The resume evolved. Be the recruiter who noticed."
+
+  Recommended card sequence (two cards, ~2s each): card 1 is the hook line, card 2 is
+  "Dakota Radigan" + the agent link — the second card is the actual call to action, so
+  keep it on screen longest.
