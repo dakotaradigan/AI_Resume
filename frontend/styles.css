@@ -59,15 +59,14 @@
   --cite-border-hover: rgba(74, 151, 210, 0.72);
   --footer-copyright: var(--muted);
 
-  /* Paper resume drawer ("the old way") */
+  /* Paper resume drawer ("the old way") — minimal treatment: a clean
+     typewritten sheet, no rotation/grain/margin-rule skeuomorphism. */
   --font-typewriter: "Courier Prime", "Courier New", Courier, monospace;
-  --font-typewriter-display: "Special Elite", "Courier Prime", Courier, monospace;
   --paper: #fdfaf1;
   --paper-edge: rgba(90, 80, 50, 0.14);
   --paper-ink: #33302a;
   --paper-ink-soft: #5c574a;
   --paper-rule: #6b6555;
-  --paper-margin-red: rgba(196, 82, 74, 0.5);
   --paper-desk: #eae6da;
   --paper-mark: rgba(255, 216, 20, 0.42);
 
@@ -1841,9 +1840,7 @@ section[id],
   border: 1px solid var(--paper-edge);
   border-right: none;
   border-radius: 12px 0 0 12px;
-  background:
-    repeating-linear-gradient(90deg, rgba(120, 100, 60, 0.02) 0 2px, transparent 2px 4px),
-    var(--paper);
+  background: var(--paper);
   box-shadow: -8px 6px 22px rgba(42, 42, 51, 0.18);
   color: var(--paper-ink);
   font-family: var(--font-typewriter);
@@ -1964,37 +1961,21 @@ body.resume-drawer-open {
   padding: 30px 26px 56px;
 }
 
-/* The sheet itself: off-white grain, red margin rule, a whisper of rotation. */
+/* The sheet itself: a clean off-white page with a soft shadow. */
 .resume-paper {
   position: relative;
   max-width: 660px;
   margin: 0 auto;
-  padding: 54px 50px 46px 68px;
-  background:
-    repeating-linear-gradient(0deg, rgba(120, 100, 60, 0.022) 0 2px, transparent 2px 4px),
-    repeating-linear-gradient(90deg, rgba(120, 100, 60, 0.015) 0 3px, transparent 3px 6px),
-    var(--paper);
+  padding: 54px 56px 46px;
+  background: var(--paper);
   border: 1px solid var(--paper-edge);
   box-shadow:
     0 1px 2px rgba(40, 35, 20, 0.10),
     0 16px 38px rgba(40, 35, 20, 0.20);
-  transform: rotate(0.35deg);
   font-family: var(--font-typewriter);
   font-size: 14px;
   line-height: 1.62;
   color: var(--paper-ink);
-}
-
-.resume-paper::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 46px;
-  width: 1px;
-  background: var(--paper-margin-red);
-  box-shadow: 2px 0 0 rgba(196, 82, 74, 0.16);
-  pointer-events: none;
 }
 
 .paper-head {
@@ -2007,9 +1988,8 @@ body.resume-drawer-open {
 
 .paper-name {
   margin: 0 0 6px;
-  font-family: var(--font-typewriter-display);
-  font-size: clamp(20px, 4.4vw, 27px);
-  font-weight: 400;
+  font-size: clamp(20px, 4.4vw, 26px);
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -2033,9 +2013,8 @@ body.resume-drawer-open {
 
 .paper-heading {
   margin: 26px 0 14px;
-  font-family: var(--font-typewriter-display);
   font-size: 15px;
-  font-weight: 400;
+  font-weight: 700;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   border-bottom: 1px solid var(--paper-rule);
@@ -2168,13 +2147,8 @@ body.resume-drawer-open {
   }
 
   .resume-paper {
-    padding: 38px 22px 34px 42px;
-    transform: none;
+    padding: 38px 24px 34px;
     font-size: 13px;
-  }
-
-  .resume-paper::before {
-    left: 26px;
   }
 
   .paper-entry-head {
