@@ -31,9 +31,8 @@
   --shadow-md: 0 10px 36px rgba(42, 42, 51, 0.08);
   --shadow-lg: 0 20px 60px rgba(42, 42, 51, 0.10);
 
-  /* Footer: light treatment mirroring the hero */
-  --footer-bg: var(--bg);
-  --footer-gradient: radial-gradient(130% 90% at 50% 120%, #d4e8f7 0%, #eaf3fb 34%, var(--bg) 68%);
+  /* Footer: plain white ground */
+  --footer-bg: #ffffff;
   --footer-text: var(--text);
   --footer-heading: var(--text);
   --footer-subtitle: var(--muted);
@@ -1240,7 +1239,6 @@ section[id],
   position: relative;
   overflow: hidden;
   background-color: var(--footer-bg);
-  background-image: var(--footer-gradient);
   color: var(--footer-text);
   margin-top: 0;
   padding: 80px 24px 48px;
