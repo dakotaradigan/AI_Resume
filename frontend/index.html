@@ -8,7 +8,7 @@
   <title>Dakota Radigan | AI Strategy, Senior Product Manager @ Morgan Stanley</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -18,9 +18,7 @@
     </div>
     <nav id="nav-links" class="nav-links">
       <a href="#home">Home</a>
-      <a href="#experience">Experience</a>
-      <a href="#education">Education</a>
-      <a href="#skills">Skills</a>
+      <a href="#" id="nav-resume">Resume</a>
       <a href="./how-it-works.html">How It Works</a>
       <a href="#contact">Contact</a>
     </nav>
@@ -41,7 +39,7 @@
       </p>
       <div class="hero-actions" role="group" aria-label="Resume actions">
         <a href="#chat" id="hero-cta" class="hero-action hero-action--primary">Ask my AI agent</a>
-        <a href="#experience" id="hero-resume-cta" class="hero-action hero-action--secondary">View resume</a>
+        <a href="#" id="hero-resume-cta" class="hero-action hero-action--secondary">View resume</a>
         <a href="#chat" id="hero-jd-cta" class="hero-action hero-action--secondary">Compare your JD</a>
       </div>
 
@@ -94,53 +92,28 @@
     </section>
     </div>
 
-    <div class="trail-line" aria-hidden="true"></div>
-
-    <section id="resume" class="resume">
-      <section id="experience" class="resume-section">
-        <div class="section-header section-header--link" role="button" tabindex="0" aria-expanded="false">
-          <span class="section-label">Experience</span>
-          <h2 class="section-title">A track record of shipping.</h2>
-          <span class="section-toggle">Show details</span>
-        </div>
-        <div class="section-content">
-          <div id="experience-evidence" class="citation-group">
-            <div id="experience-grid"></div>
-          </div>
-        </div>
-      </section>
-
-      <section id="education" class="resume-section">
-        <div class="section-header section-header--link" role="button" tabindex="0" aria-expanded="false">
-          <h2 class="section-title">Education &amp; Certifications</h2>
-          <span class="section-toggle">Show details</span>
-        </div>
-        <div class="section-content">
-          <div class="resume-grid resume-grid--two">
-            <div id="education-evidence" class="citation-group">
-              <div class="section-kicker">Education</div>
-              <div id="education-grid" class="resume-grid resume-grid--one"></div>
-            </div>
-            <div id="certifications-evidence" class="citation-group">
-              <div class="section-kicker">Certifications</div>
-              <div id="certifications-grid" class="resume-grid resume-grid--one"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="skills" class="resume-section">
-        <div class="section-header section-header--link" role="button" tabindex="0" aria-expanded="false">
-          <span class="section-label">Skills</span>
-          <h2 class="section-title">What I bring.</h2>
-          <span class="section-toggle">Show details</span>
-        </div>
-        <div class="section-content">
-          <div id="skills-grid" class="skills-grid"></div>
-        </div>
-      </section>
-    </section>
   </main>
+
+  <!-- "The old way": a sheet of typewritten paper in a slide-out drawer.
+       Content is rendered by app.js from the same /api/resume payload the
+       chat agent uses — one source of truth, two eras of presentation. -->
+  <button id="resume-tab" class="resume-tab" type="button" aria-haspopup="dialog" aria-controls="resume-drawer" aria-expanded="false">
+    <span class="resume-tab-label">See my resume</span>
+    <span class="resume-tab-sub">— the old way</span>
+  </button>
+
+  <div id="resume-drawer" class="resume-drawer" aria-hidden="true">
+    <div class="resume-drawer-backdrop" data-drawer-close></div>
+    <aside class="resume-drawer-panel" role="dialog" aria-modal="true" aria-label="Dakota Radigan's resume, classic paper edition">
+      <div class="resume-drawer-bar">
+        <span class="resume-drawer-note">THE OLD WAY &middot; one page, no follow-up questions</span>
+        <button id="resume-drawer-close" class="resume-drawer-close" type="button" aria-label="Close resume">&times;</button>
+      </div>
+      <div class="resume-paper-scroll" tabindex="-1">
+        <article id="resume-paper" class="resume-paper"></article>
+      </div>
+    </aside>
+  </div>
 
   <footer id="contact" class="site-footer">
     <div class="footer-content">
@@ -208,6 +181,5 @@
   <script src="./vendor/thinking-orbs.js"></script>
   <script src="./thinking-orb.js"></script>
   <script src="./app.js"></script>
-  <script type="module" src="./bubble-background.js"></script>
 </body>
 </html>
