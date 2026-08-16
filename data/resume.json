@@ -125,12 +125,12 @@
     {
       "name": "Ben AI: Intelligent Benchmark Assistant",
       "tagline": "Full-stack AI chatbot: Personal PoC to production deployment reducing advisor research time from hours to seconds",
-      "tech_stack": ["GPT-4o", "RAG Pipeline", "Pinecone Vector DB", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],
+      "tech_stack": ["OpenAI Responses API", "RAG Pipeline", "Pinecone Vector DB", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],
       "description": "Personal project evolved to production deployment: Built enterprise-grade AI assistant starting as a home PoC (early 2025) to validate RAG architecture for complex financial benchmark queries. After proving technical viability, brought it to Parametric and scaled it to production for advisor workflow automation. Single cohesive project demonstrating end-to-end ownership from initial architecture design through production scaling.",
       "highlights": [
         "Phase 1 (Personal PoC): Built initial proof-of-concept at home to validate RAG + hybrid intelligence architecture for complex benchmark eligibility queries",
         "Phase 2 (Production): Brought validated PoC to Parametric, scaled architecture to handle production workload, reducing advisor research time from 30+ minutes to seconds",
-        "Designed layered architecture: User Interface → Backend (Request Router, Intent Classification, Session Handler) → AI Orchestration (Function Calling Engine, RAG Pipeline, GPT-4o) → Vector Store + Knowledge Base",
+        "Designed layered architecture: User Interface → Backend (Request Router, Intent Classification, Session Handler) → AI Orchestration (Function Calling Engine, RAG Pipeline, OpenAI Responses API) → Vector Store + Knowledge Base",
         "Implemented natural language intelligence with intent classification routing and conversation memory",
         "Architected hybrid AI system combining RAG retrieval, LLM reasoning, and deterministic calculations for grounded responses",
         "Built security guardrails including prompt injection protection and input/output sanitization",
@@ -148,7 +148,7 @@
       "architecture_details": {
         "frontend": "Advisor natural language interface with WebSocket/REST communication and typing indicators",
         "backend": "FastAPI with Request Router, Intent Classification, Session Handler for context management",
-        "ai_orchestration": "Function Calling Engine, GPT-4o Model, RAG Pipeline (Pinecone + semantic embeddings)",
+        "ai_orchestration": "Function Calling Engine, OpenAI Responses API, RAG Pipeline (Pinecone + semantic embeddings)",
         "data_layer": "Vector Store (Pinecone) with benchmark embeddings + JSON knowledge base",
         "core_capabilities": [
           "Natural Language Intelligence - understands complex queries like 'S&P 500 but more ESG'",
