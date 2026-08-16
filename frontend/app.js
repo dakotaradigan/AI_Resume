@@ -768,6 +768,9 @@ function initNavbar() {
 // matters), but every card is keyed to a project in the /api/resume payload
 // and only renders when that project exists — cards can't outlive or drift
 // from the source data. Claims stay within what resume.json states.
+// Exception: `standalone` cards describe work that lives in its own repo
+// (not in resume.json), so they render unconditionally and link out instead
+// of offering "Ask my AI" (the assistant only knows the resume data).
 const PROJECT_CARDS = [
   {
     match: "Resume Assistant",
@@ -777,6 +780,15 @@ const PROJECT_CARDS = [
     tags: ["RAG", "hybrid retrieval", "model routing", "evals", "MCP", "FastAPI"],
     link: "./how-it-works.html",
     actionLabel: "See how it's built",
+  },
+  {
+    standalone: true,
+    title: "OfferBirds",
+    blurb:
+      "This site proved a resume can be an agent — OfferBirds turns that into a product. Anyone uploads a resume and gets a hosted AI agent at their own handle, to share instead of a PDF. In build now: multi-tenant RAG with strict tenant isolation and plan-aware model routing.",
+    tags: ["multi-tenant SaaS", "RAG", "tenant isolation", "model routing", "MCP"],
+    link: "https://github.com/dakotaradigan/offerbirds",
+    actionLabel: "Follow the build",
   },
   {
     match: "Ben AI",
@@ -796,15 +808,6 @@ const PROJECT_CARDS = [
     ask: "Tell me about Dakota's SQL analytics framework",
     actionLabel: "Ask my AI about it",
   },
-  {
-    match: "Python Self-Service Tool",
-    title: "C-Suite Self-Service Tool",
-    blurb:
-      "Executives had no self-serve view of key business metrics. A working Python prototype made the digital-service concept concrete — and won the buy-in to keep going.",
-    tags: ["Python", "automation", "data visualization"],
-    ask: "Tell me about the Python self-service tool Dakota built for executives",
-    actionLabel: "Ask my AI about it",
-  },
 ];
 
 function renderProjectCards(data) {
@@ -813,8 +816,9 @@ function renderProjectCards(data) {
   if (!grid || !section) return;
 
   const projects = safeArray(data.projects);
-  const cards = PROJECT_CARDS.filter((card) =>
-    projects.some((p) => String(p.name || "").startsWith(card.match))
+  const cards = PROJECT_CARDS.filter(
+    (card) =>
+      card.standalone || projects.some((p) => String(p.name || "").startsWith(card.match))
   );
   if (!cards.length) return; // section stays hidden
 
@@ -822,7 +826,14 @@ function renderProjectCards(data) {
   cards.forEach((card) => {
     let action = null;
     if (card.link) {
-      action = el("a", { class: "home-link", href: card.link, text: `${card.actionLabel} →` });
+      const external = /^https:/.test(card.link);
+      action = el("a", {
+        class: "home-link",
+        href: card.link,
+        target: external ? "_blank" : null,
+        rel: external ? "noopener" : null,
+        text: `${card.actionLabel} →`,
+      });
     } else if (card.ask) {
       action = el("button", { class: "home-link", type: "button", text: `${card.actionLabel} →` });
       action.addEventListener("click", () => askAssistant(card.ask));
