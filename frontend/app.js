@@ -785,7 +785,7 @@ const PROJECT_CARDS = [
     standalone: true,
     title: "OfferBirds",
     blurb:
-      "This site proved a resume can be an agent — OfferBirds turns that into a product. Anyone uploads a resume and gets a hosted AI agent at their own handle, to share instead of a PDF. In build now: multi-tenant RAG with strict tenant isolation and plan-aware model routing.",
+      "This site proved a resume can be an agent — OfferBirds turns that into a product. Anyone uploads a resume and gets a hosted AI agent at their own handle, to share instead of a PDF. In build, not live yet: multi-tenant RAG with strict tenant isolation and plan-aware model routing.",
     tags: ["multi-tenant SaaS", "RAG", "tenant isolation", "model routing", "MCP"],
     link: "https://github.com/dakotaradigan/offerbirds",
     actionLabel: "Follow the build",
@@ -800,13 +800,13 @@ const PROJECT_CARDS = [
     actionLabel: "Ask my AI about it",
   },
   {
-    match: "SQL Analytics Framework",
-    title: "SQL Analytics Framework",
+    standalone: true,
+    title: "Solution Manager Toolkit",
     blurb:
-      "Roadmap debates ran on opinion. SQL reporting and heatmaps surfaced how features were actually used — lifting utilization 20% and putting data behind prioritization.",
-    tags: ["SQL", "product analytics"],
-    ask: "Tell me about Dakota's SQL analytics framework",
-    actionLabel: "Ask my AI about it",
+      "PM thinking work is structured — but the structure usually lives in scattered templates. This Claude Code plugin turns it into guided workflows for solution and product managers, down to a five-perspective AI stakeholder review panel.",
+    tags: ["Claude Code plugin", "agent workflows", "multi-agent review", "PM tooling"],
+    link: "https://github.com/dakotaradigan/Solution-Manager-Plugin",
+    actionLabel: "Get the plugin",
   },
 ];
 

@@ -63,7 +63,6 @@
       "type": "Full-time",
       "description": "Scaled direct indexing product suite and led platform configuration for new investment strategies.",
       "achievements": [
-        "Prototyped a Python-based self-service tool for the C-suite, demonstrating the viability of ongoing digital service concepts",
         "Scaled the direct indexing suite by launching 18 new benchmark strategies within 9 months, leading platform configuration to drive $100M+ in new AUM",
         "Engineered SQL reporting and heatmaps to diagnose bottlenecks and drive targeted CRM optimizations across Sales, Client Service, and Operations"
       ],
@@ -176,25 +175,6 @@
       "impact": "Increased feature utilization by 20%, data-backed roadmap prioritization",
       "context": "Built at Parametric Portfolio (Morgan Stanley)",
       "timeframe": "2023-2024",
-      "repo_url": "",
-      "demo_url": "",
-      "images": [],
-      "detailed_description_file": ""
-    },
-    {
-      "name": "Python Self-Service Tool for C-Suite",
-      "tagline": "Executive dashboard prototyping digital service concepts",
-      "tech_stack": ["Python", "Automation", "Data Visualization"],
-      "description": "Prototyped Python-based self-service tool for executive leadership to demonstrate viability of digital service concepts.",
-      "highlights": [
-        "Built executive-facing prototype demonstrating automation potential",
-        "Validated digital service concept with C-suite stakeholders",
-        "Showcased technical feasibility of self-service workflows"
-      ],
-      "problem_solved": "Executives lacked self-service tools for accessing key business metrics and insights",
-      "impact": "Validated digital service concept, secured buy-in for ongoing development",
-      "context": "Built at Parametric Portfolio (Morgan Stanley)",
-      "timeframe": "2023",
       "repo_url": "",
       "demo_url": "",
       "images": [],
