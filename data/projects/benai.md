@@ -25,7 +25,7 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 
 ## Tech Stack
 **Backend:** FastAPI, Python
-**AI/ML:** OpenAI GPT-4o, RAG Pipeline, Pinecone Vector Database, text-embedding-3-small
+**AI/ML:** OpenAI Responses API, RAG Pipeline, Pinecone Vector Database, text-embedding-3-small
 **Communication:** WebSockets (with REST API fallback)
 **Frontend:** JavaScript, Claude-inspired UI
 

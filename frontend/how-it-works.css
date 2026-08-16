@@ -72,6 +72,18 @@
   margin: 12px 0 0;
 }
 
+.hiw-steps {
+  margin: 12px 0 0;
+  padding-left: 22px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.hiw-steps li {
+  margin: 6px 0;
+}
+
 .hiw-section code {
   background: var(--secondary);
   border: 1px solid var(--border);

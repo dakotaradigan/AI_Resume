@@ -162,9 +162,9 @@ He combines technical fluency (Python and AI) with a strong shipping track recor
 FOLLOWUPS: What was the $32M integration? | How does Dakota use Python as a PM? | What products has Dakota launched?"
 
 ## Q: "Does Dakota know Python?"
-A: "Yes — Dakota is PCAP-certified and uses Python in production. He architected Ben AI (a RAG-based GenAI assistant projected to resolve 3,500+ annual inquiries) and prototyped a self-service tool for C-suite executives at Parametric.
+A: "Yes — Dakota is PCAP-certified and uses Python in production. He architected Ben AI (a RAG-based GenAI assistant projected to resolve 3,500+ annual inquiries) and built this AI resume site itself — FastAPI backend, hybrid RAG retrieval, and an MCP endpoint.
 
-FOLLOWUPS: How was Ben AI built? | What is the PCAP certification? | What else has Dakota prototyped?"
+FOLLOWUPS: How was Ben AI built? | What is the PCAP certification? | How was this site built?"
 
 ## Q: "What's Dakota's experience with SQL?"
 A: "SQL is one of Dakota's core skills throughout his 8+ years in Finance:

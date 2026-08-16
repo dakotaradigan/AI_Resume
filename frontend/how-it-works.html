@@ -125,12 +125,20 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
 
     <section class="hiw-section" id="connect-mcp">
       <div class="section-header"><h2 class="section-title">Connect your own AI</h2></div>
-      <p>The resume is machine-readable: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth, and an MCP endpoint exposes one data-only tool, <code>get_resume</code>. Connect it and your own AI can read the full resume and answer questions with its own reasoning — no account, no API key, nothing to authorize.</p>
-      <p><strong>Claude (claude.ai or desktop):</strong> Settings → Connectors → <em>Add custom connector</em>, then paste this URL:</p>
+      <p>The MCP endpoint doesn't run my AI assistant for you. It exposes my resume as structured, AI-readable data so your own agent or preferred AI tool can reason over it. The flow is deliberately simple:</p>
+      <ol class="hiw-steps">
+        <li>Your MCP client connects to the remote server at <code>/mcp</code> (streamable HTTP, no authentication).</li>
+        <li>It discovers a single read-only tool: <code>get_resume</code>.</li>
+        <li><code>get_resume</code> returns structured career data — experience, projects, skills, education, and certifications. Private contact details like my phone number are excluded.</li>
+        <li>Your AI does the reasoning: fit comparisons, gap analysis, summaries, interview prep — with its own model, on your side of the connection.</li>
+      </ol>
+      <p>That split is intentional. The server exposes data, not a hosted model — so any compatible MCP client that supports remote servers gets the same structured access, and what its AI concludes is up to it. The resume is also machine-readable without MCP: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth.</p>
+      <p><strong>To connect a compatible client,</strong> add a remote MCP server with this URL (streamable-HTTP transport, no authentication):</p>
       <pre class="hiw-pre">https://www.dakotaradigan.io/mcp</pre>
+      <p><strong>Claude (claude.ai or desktop):</strong> Settings → Connectors → <em>Add custom connector</em>, then paste the URL above.</p>
       <p><strong>Claude Code (terminal):</strong></p>
       <pre class="hiw-pre">claude mcp add --transport http resume https://www.dakotaradigan.io/mcp</pre>
-      <p>Then ask your assistant something like <em>"Using the resume tool, is Dakota a fit for this role?"</em> Any other MCP-capable client (ChatGPT, Cursor, etc.) works the same way — add a remote MCP server with the URL above, streamable-HTTP transport, no authentication.</p>
+      <p>Then ask your assistant something like <em>"Using the resume tool, is Dakota a fit for this role?"</em> Other MCP-compatible clients that support remote servers work the same way.</p>
     </section>
 
     <section class="hiw-section">

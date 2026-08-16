@@ -1118,6 +1118,432 @@ section[id],
   transform: translateY(-1px);
 }
 
+/* ===== HOMEPAGE SECTIONS ===== */
+/* Everything below the photo stage: white ground, generous whitespace,
+   centered kickers, and the same card/pill vocabulary as the chat UI. */
+
+.home-section {
+  width: 100%;
+  max-width: 948px;
+  margin: 0 auto;
+  padding: 56px 16px 0;
+}
+
+.home-section-label {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.home-section-head {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.home-section-title {
+  margin: 0 0 10px;
+}
+
+.home-section-sub {
+  margin: 0;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.home-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-dk);
+}
+
+/* What I do: editorial pillars, thin top rules instead of cards. */
+.pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px 44px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.pillar {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 16px;
+}
+
+.pillar-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.pillar-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* Explore my work your way: four clickable interfaces. */
+.interface-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.interface-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 22px 18px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--text);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.interface-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: var(--ring);
+  text-decoration: none;
+}
+
+.interface-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+.interface-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.interface-text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  flex-grow: 1;
+}
+
+.interface-go {
+  margin-top: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--accent-dk);
+}
+
+.interface-card:hover .interface-go {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+/* Things I've built: project cards rendered from /api/resume. */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 20px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.project-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.project-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.project-blurb {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text);
+  flex-grow: 1;
+}
+
+.project-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.project-tag {
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 4px 10px;
+  border-radius: 980px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.project-action {
+  margin-top: 2px;
+}
+
+.project-action .home-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-dk);
+  cursor: pointer;
+}
+
+.project-action .home-link:hover,
+.project-action .home-link:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
+.project-action .home-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* MCP: copy beside a small endpoint panel — a feature, not documentation. */
+.mcp-columns {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 44px;
+  align-items: center;
+}
+
+/* Let the nowrap endpoint URL scroll inside its pill instead of forcing
+   the grid track (and the page) wider than the viewport. */
+.mcp-columns > * {
+  min-width: 0;
+}
+
+.mcp-copy .section-label {
+  margin-bottom: 8px;
+}
+
+.mcp-copy .home-section-title {
+  margin-bottom: 14px;
+}
+
+.mcp-lede {
+  margin: 0 0 12px;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.mcp-note {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.mcp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+.mcp-panel-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mcp-endpoint-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-endpoint {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mcp-copy-btn.is-copied {
+  color: var(--accent-dk);
+  border-color: var(--accent);
+}
+
+.mcp-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 7px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.mcp-flow code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary);
+}
+
+.mcp-flow-arrow {
+  color: var(--muted-2);
+}
+
+/* Under the hood: terse teaser columns, detail lives on How It Works. */
+.hood-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.hood-title {
+  margin: 0 0 6px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-dk);
+}
+
+.hood-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.hood-cta {
+  text-align: center;
+  margin-top: 30px;
+}
+
+/* Where I do my best work: compact, centered, right above contact. */
+.home-section--focus {
+  max-width: 760px;
+  text-align: center;
+  padding-bottom: 88px;
+}
+
+.home-section--focus .home-section-title {
+  margin-bottom: 14px;
+}
+
+.focus-lede {
+  margin: 0 auto 22px;
+  max-width: 56ch;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.focus-areas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14.5px;
+  color: var(--muted);
+}
+
+.focus-areas li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.focus-areas li + li::before {
+  content: "\00B7";
+  margin: 0 12px;
+  color: var(--muted-2);
+}
+
+@media (max-width: 900px) {
+  .hood-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .home-section {
+    padding: 44px 12px 0;
+  }
+
+  .home-section--focus {
+    padding-bottom: 64px;
+  }
+
+  .pillars-grid,
+  .interface-grid,
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pillars-grid {
+    gap: 24px;
+  }
+
+  .mcp-columns {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hood-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
 /* ===== FEEDBACK UI ===== */
 .msg-feedback {
   display: flex;

@@ -19,7 +19,8 @@ const navLinks = document.getElementById("nav-links");
 const hamburger = document.getElementById("hamburger");
 
 // Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
-const HERO_TAGLINE = "Try using my agent to see if we're a fit...";
+const HERO_TAGLINE =
+  "I turn emerging AI capabilities into products, workflows, and systems people actually use.";
 
 const SESSION_STORAGE_KEY = "resume-assistant-session-id";
 
@@ -631,35 +632,53 @@ function renderAnswerCitations(data) {
   ]);
 }
 
-// Hero CTA — scroll to chat and focus input
-const heroCta = document.getElementById("hero-cta");
-if (heroCta) {
-  heroCta.addEventListener("click", (e) => {
-    e.preventDefault();
-    const chatEl = document.getElementById("chat");
-    if (chatEl) chatEl.scrollIntoView({ behavior: scrollBehavior() });
-    // Retry focus until the input is visible and focused
-    let attempts = 0;
-    const tryFocus = () => {
-      if (chatInput) {
-        chatInput.focus();
-        if (document.activeElement === chatInput || attempts > 10) return;
-      }
-      attempts++;
-      setTimeout(tryFocus, 150);
-    };
-    setTimeout(tryFocus, 300);
-  });
+/**
+ * Scroll to the chat card and focus the input. The hero CTAs, the interface
+ * cards, and the project cards all funnel here; jdMode swaps the placeholder
+ * to cue a JD paste (the fit analysis lives inside the chat thread).
+ */
+function focusChat({ jdMode = false } = {}) {
+  document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+  if (jdMode && chatInput) {
+    chatInput.placeholder = "Paste the full job description here...";
+  }
+  // Retry focus until the input is visible and focused
+  let attempts = 0;
+  const tryFocus = () => {
+    if (chatInput) {
+      chatInput.focus({ preventScroll: true });
+      if (document.activeElement === chatInput || attempts > 10) return;
+    }
+    attempts++;
+    setTimeout(tryFocus, 150);
+  };
+  setTimeout(tryFocus, 300);
 }
 
-// Secondary hero CTA — slide out the paper resume ("the old way").
-const heroResumeCta = document.getElementById("hero-resume-cta");
-if (heroResumeCta) {
-  heroResumeCta.addEventListener("click", (e) => {
-    e.preventDefault();
-    openResumeDrawer();
-  });
+/** Scroll to the chat, then send a prepared question (project card actions). */
+function askAssistant(question) {
+  document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+  window.setTimeout(() => sendMessage(question), 350);
 }
+
+// Hero CTA — scroll to chat and focus input
+document.getElementById("hero-cta")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  focusChat();
+});
+
+// Hero CTA — the fit analysis lives in the chat agent: jump there and cue
+// the recruiter to paste the JD.
+document.getElementById("hero-jd-cta")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  focusChat({ jdMode: true });
+});
+
+// Hero CTA — slide out the paper resume ("the old way").
+document.getElementById("hero-resume-cta")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  openResumeDrawer();
+});
 
 // Nav "Resume" link opens the same drawer.
 document.getElementById("nav-resume")?.addEventListener("click", (e) => {
@@ -667,19 +686,33 @@ document.getElementById("nav-resume")?.addEventListener("click", (e) => {
   openResumeDrawer();
 });
 
-// Tertiary hero CTA — the fit analysis lives in the chat agent: jump there
-// and cue the recruiter to paste the JD.
-const heroJdCta = document.getElementById("hero-jd-cta");
-if (heroJdCta) {
-  heroJdCta.addEventListener("click", (e) => {
-    e.preventDefault();
-    document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-    window.setTimeout(() => {
-      if (chatInput) {
-        chatInput.placeholder = "Paste the full job description here...";
-        chatInput.focus({ preventScroll: true });
-      }
-    }, 300);
+// "Explore my work your way" cards reuse the same three actions; the MCP
+// card is a plain in-page anchor and needs no JS.
+document.querySelectorAll("[data-explore]").forEach((cardEl) => {
+  cardEl.addEventListener("click", () => {
+    const mode = cardEl.dataset.explore;
+    if (mode === "chat") focusChat();
+    else if (mode === "jd") focusChat({ jdMode: true });
+    else if (mode === "resume") openResumeDrawer();
+  });
+});
+
+// MCP endpoint copy button.
+const mcpCopyBtn = document.getElementById("mcp-copy");
+if (mcpCopyBtn) {
+  mcpCopyBtn.addEventListener("click", async () => {
+    const url = document.getElementById("mcp-endpoint")?.textContent?.trim() || "";
+    try {
+      await copyToClipboard(url);
+      mcpCopyBtn.textContent = "Copied";
+      mcpCopyBtn.classList.add("is-copied");
+      setTimeout(() => {
+        mcpCopyBtn.textContent = "Copy";
+        mcpCopyBtn.classList.remove("is-copied");
+      }, 2000);
+    } catch {
+      mcpCopyBtn.textContent = "Press Ctrl+C";
+    }
   });
 }
 
@@ -730,6 +763,97 @@ function initNavbar() {
   }
 }
 
+// ===== "Things I've built" project cards =====
+// Display copy is tightened for the homepage (problem → built → why it
+// matters), but every card is keyed to a project in the /api/resume payload
+// and only renders when that project exists — cards can't outlive or drift
+// from the source data. Claims stay within what resume.json states.
+// Exception: `standalone` cards describe work that lives in its own repo
+// (not in resume.json), so they render unconditionally and link out instead
+// of offering "Ask my AI" (the assistant only knows the resume data).
+const PROJECT_CARDS = [
+  {
+    match: "Resume Assistant",
+    title: "AI Resume",
+    blurb:
+      "Static resumes can't answer questions. This site is the alternative: a resume you can interview — conversational answers, JD fit analysis, and structured data for AI agents, all from one source of truth.",
+    tags: ["RAG", "hybrid retrieval", "model routing", "evals", "MCP", "FastAPI"],
+    link: "./how-it-works.html",
+    actionLabel: "See how it's built",
+  },
+  {
+    standalone: true,
+    title: "OfferBirds",
+    blurb:
+      "This site proved a resume can be an agent — OfferBirds turns that into a product. Anyone uploads a resume and gets a hosted AI agent at their own handle, to share instead of a PDF. In build, not live yet: multi-tenant RAG with strict tenant isolation and plan-aware model routing.",
+    tags: ["multi-tenant SaaS", "RAG", "tenant isolation", "model routing", "MCP"],
+    link: "https://github.com/dakotaradigan/offerbirds",
+    actionLabel: "Follow the build",
+  },
+  {
+    match: "Ben AI",
+    title: "Ben AI",
+    blurb:
+      "Financial advisors were spending 30+ minutes researching benchmark eligibility. Ben AI answers those queries in seconds — a personal proof-of-concept I brought to Parametric and scaled into a production assistant.",
+    tags: ["OpenAI Responses API", "RAG", "Pinecone", "function calling", "FastAPI"],
+    ask: "Tell me about Ben AI",
+    actionLabel: "Ask my AI about it",
+  },
+  {
+    standalone: true,
+    title: "Solution Manager Toolkit",
+    blurb:
+      "PM thinking work is structured — but the structure usually lives in scattered templates. This Claude Code plugin turns it into guided workflows for solution and product managers, down to a five-perspective AI stakeholder review panel.",
+    tags: ["Claude Code plugin", "agent workflows", "multi-agent review", "PM tooling"],
+    link: "https://github.com/dakotaradigan/Solution-Manager-Plugin",
+    actionLabel: "Get the plugin",
+  },
+];
+
+function renderProjectCards(data) {
+  const grid = document.getElementById("project-grid");
+  const section = document.getElementById("projects");
+  if (!grid || !section) return;
+
+  const projects = safeArray(data.projects);
+  const cards = PROJECT_CARDS.filter(
+    (card) =>
+      card.standalone || projects.some((p) => String(p.name || "").startsWith(card.match))
+  );
+  if (!cards.length) return; // section stays hidden
+
+  grid.innerHTML = "";
+  cards.forEach((card) => {
+    let action = null;
+    if (card.link) {
+      const external = /^https:/.test(card.link);
+      action = el("a", {
+        class: "home-link",
+        href: card.link,
+        target: external ? "_blank" : null,
+        rel: external ? "noopener" : null,
+        text: `${card.actionLabel} →`,
+      });
+    } else if (card.ask) {
+      action = el("button", { class: "home-link", type: "button", text: `${card.actionLabel} →` });
+      action.addEventListener("click", () => askAssistant(card.ask));
+    }
+    grid.append(
+      el("article", { class: "project-card" }, [
+        el("h3", { class: "project-title", text: card.title }),
+        el("p", { class: "project-blurb", text: card.blurb }),
+        el(
+          "div",
+          { class: "project-tags" },
+          card.tags.map((t) => el("span", { class: "project-tag", text: t }))
+        ),
+        action ? el("div", { class: "project-action" }, [action]) : null,
+      ])
+    );
+  });
+  section.hidden = false;
+}
+
 async function loadAndRenderResume() {
   try {
     const res = await fetch("/api/resume");
@@ -752,6 +876,7 @@ async function loadAndRenderResume() {
     }
 
     renderResumePaper(data);
+    renderProjectCards(data);
   } catch (err) {
     console.warn("Resume data unavailable (did you start the backend?)", err);
     // No sheet to show: hide the drawer tab so it never opens onto blank paper.

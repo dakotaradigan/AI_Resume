@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#FBFDFF" />
-  <meta name="description" content="Dakota Radigan — AI Strategy, Senior Product Manager at Morgan Stanley. Interactive AI-powered resume showcasing experience, skills, and projects." />
+  <meta name="description" content="Dakota Radigan — AI Strategy, Senior Product Manager at Morgan Stanley. A resume built for humans and AI: chat with it, compare a role against it, or connect your own agent over MCP." />
   <title>Dakota Radigan | AI Strategy, Senior Product Manager @ Morgan Stanley</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,6 +18,7 @@
     </div>
     <nav id="nav-links" class="nav-links">
       <a href="#home">Home</a>
+      <a href="#projects">Projects</a>
       <a href="#" id="nav-resume">Resume</a>
       <a href="./how-it-works.html">How It Works</a>
       <a href="#contact">Contact</a>
@@ -35,12 +36,13 @@
       <div class="hero-kicker">AI STRATEGY, SENIOR PRODUCT MANAGER @ MORGAN STANLEY</div>
       <h1 id="hero-name" class="hero-name">Dakota Radigan</h1>
       <p id="hero-tagline" class="hero-tagline">
-        Try using my agent to see if we're a fit...
+        I turn emerging AI capabilities into products, workflows, and systems people actually use.
       </p>
-      <div class="hero-actions" role="group" aria-label="Resume actions">
-        <a href="#chat" id="hero-cta" class="hero-action hero-action--primary">Ask my AI agent</a>
+      <div class="hero-actions" role="group" aria-label="Ways to explore this resume">
+        <a href="#chat" id="hero-cta" class="hero-action hero-action--primary">Ask my AI</a>
+        <a href="#chat" id="hero-jd-cta" class="hero-action hero-action--secondary">Compare a role</a>
+        <a href="#mcp" class="hero-action hero-action--secondary">Bring your own AI</a>
         <a href="#" id="hero-resume-cta" class="hero-action hero-action--secondary">View resume</a>
-        <a href="#chat" id="hero-jd-cta" class="hero-action hero-action--secondary">Compare your JD</a>
       </div>
 
       <div id="hero-contact" class="hero-contact">
@@ -63,7 +65,7 @@
     <section id="chat" class="chat-section" aria-labelledby="chat-section-title">
       <div class="chat-intro">
         <div class="chat-intro-kicker">SKIP THE PDF</div>
-        <h2 id="chat-section-title" class="chat-intro-title">Ask my AI agent about my work.</h2>
+        <h2 id="chat-section-title" class="chat-intro-title">Ask my AI about my work.</h2>
       </div>
 
       <div class="chat-card">
@@ -92,6 +94,133 @@
     </section>
     </div>
 
+    <!-- What I do: four pillars, editorial treatment (no cards). -->
+    <section id="what" class="home-section" aria-labelledby="what-title">
+      <h2 id="what-title" class="section-label home-section-label">What I do</h2>
+      <div class="pillars-grid">
+        <div class="pillar">
+          <h3 class="pillar-title">AI Strategy</h3>
+          <p class="pillar-text">Turn new AI capabilities into practical product and operating strategies.</p>
+        </div>
+        <div class="pillar">
+          <h3 class="pillar-title">Product Leadership</h3>
+          <p class="pillar-text">Find the problem, define the product, align people, and ship.</p>
+        </div>
+        <div class="pillar">
+          <h3 class="pillar-title">Technical Builder</h3>
+          <p class="pillar-text">Prototype and build with Python, RAG, agents, MCP, APIs, and production AI systems.</p>
+        </div>
+        <div class="pillar">
+          <h3 class="pillar-title">Financial Services</h3>
+          <p class="pillar-text">Deep experience across investing, technology, and complex enterprise environments.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Explore my work your way: the same career data, four interfaces. -->
+    <section id="explore" class="home-section" aria-labelledby="explore-title">
+      <div class="home-section-head">
+        <span class="section-label">Choose your interface</span>
+        <h2 id="explore-title" class="section-title home-section-title">Explore my work your way.</h2>
+        <p class="home-section-sub">Same underlying experience. Different interfaces.</p>
+      </div>
+      <div class="interface-grid">
+        <button class="interface-card" type="button" data-explore="chat">
+          <h3 class="interface-title">Ask my AI</h3>
+          <p class="interface-text">Ask questions, drill into projects, and follow up naturally.</p>
+          <span class="interface-go" aria-hidden="true">Start a conversation &rarr;</span>
+        </button>
+        <button class="interface-card" type="button" data-explore="jd">
+          <h3 class="interface-title">Compare a role</h3>
+          <p class="interface-text">Paste a job description for a structured fit analysis: strengths, honest gaps, and interview questions.</p>
+          <span class="interface-go" aria-hidden="true">Paste a JD &rarr;</span>
+        </button>
+        <a class="interface-card" href="#mcp">
+          <h3 class="interface-title">Bring your own AI</h3>
+          <p class="interface-text">Connect a compatible MCP client and let your preferred AI reason directly over my structured resume data.</p>
+          <span class="interface-go" aria-hidden="true">See the MCP endpoint &rarr;</span>
+        </a>
+        <button class="interface-card" type="button" data-explore="resume">
+          <h3 class="interface-title">Read the resume</h3>
+          <p class="interface-text">The traditional human-readable version. One page, no follow-up questions.</p>
+          <span class="interface-go" aria-hidden="true">Open the old way &rarr;</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Things I've built: cards rendered by app.js from the same /api/resume
+         payload the agent answers from — no separately maintained claims. -->
+    <section id="projects" class="home-section" aria-labelledby="projects-title" hidden>
+      <div class="home-section-head">
+        <span class="section-label">In my free time</span>
+        <h2 id="projects-title" class="section-title home-section-title">Things I've built.</h2>
+        <p class="home-section-sub">Side projects, built for fun — separate from the AI I build at work.</p>
+      </div>
+      <div id="project-grid" class="project-grid"></div>
+    </section>
+
+    <!-- MCP: the agent-facing interface, presented as a product feature. -->
+    <section id="mcp" class="home-section" aria-labelledby="mcp-title">
+      <div class="mcp-columns">
+        <div class="mcp-copy">
+          <span class="section-label">For AI agents</span>
+          <h2 id="mcp-title" class="section-title home-section-title">Built for humans. And&nbsp;agents.</h2>
+          <p class="mcp-lede">Most resumes are documents designed for people to read. This one is also available as structured data through MCP, so compatible AI tools can evaluate my experience directly.</p>
+          <p class="mcp-note">The MCP server doesn't run my AI assistant for you. It exposes my resume — experience, projects, skills, education, certifications — as structured, AI-readable data, and your own AI does the reasoning: comparing me against a role, mapping strengths and gaps, or preparing interview questions.</p>
+        </div>
+        <div class="mcp-panel">
+          <span class="mcp-panel-label">Remote MCP server &middot; streamable HTTP &middot; no auth</span>
+          <div class="mcp-endpoint-row">
+            <code class="mcp-endpoint" id="mcp-endpoint">https://www.dakotaradigan.io/mcp</code>
+            <button id="mcp-copy" class="chip mcp-copy-btn" type="button">Copy</button>
+          </div>
+          <p class="mcp-flow" aria-label="How the MCP connection works">
+            <span>your AI client</span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span><code>get_resume</code></span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span>structured career data</span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span>your AI reasons</span>
+          </p>
+          <a class="home-link" href="./how-it-works.html#connect-mcp">Connection instructions &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Under the hood: teaser only; the detail lives on How It Works. -->
+    <section id="under-the-hood" class="home-section" aria-labelledby="hood-title">
+      <h2 id="hood-title" class="section-label home-section-label">Under the hood</h2>
+      <div class="hood-grid">
+        <div class="hood-item">
+          <h3 class="hood-title">Hybrid retrieval</h3>
+          <p class="hood-text">Semantic + lexical search to find better context.</p>
+        </div>
+        <div class="hood-item">
+          <h3 class="hood-title">Model routing</h3>
+          <p class="hood-text">Use the right model for the question.</p>
+        </div>
+        <div class="hood-item">
+          <h3 class="hood-title">Evaluations</h3>
+          <p class="hood-text">Human-grounded testing instead of vibe-based evaluation.</p>
+        </div>
+        <div class="hood-item">
+          <h3 class="hood-title">Guardrails</h3>
+          <p class="hood-text">Validation, quotas, fallbacks, and production safety.</p>
+        </div>
+      </div>
+      <div class="hood-cta">
+        <a class="home-link" href="./how-it-works.html">See how it works &rarr;</a>
+      </div>
+    </section>
+
+    <!-- Where I do my best work: direction, right before contact. -->
+    <section id="focus" class="home-section home-section--focus" aria-labelledby="focus-title">
+      <span class="section-label">Direction</span>
+      <h2 id="focus-title" class="section-title home-section-title">Where I do my best work.</h2>
+      <p class="focus-lede">Problems where AI changes not just a feature, but how the product or workflow should work.</p>
+      <ul class="focus-areas" role="list">
+        <li>AI-native products</li>
+        <li>Enterprise AI strategy &amp; adoption</li>
+        <li>Technical product leadership</li>
+        <li>AI in financial services &amp; complex enterprise systems</li>
+      </ul>
+    </section>
+
   </main>
 
   <!-- "The old way": a sheet of typewritten paper in a slide-out drawer.
@@ -119,7 +248,7 @@
     <div class="footer-content">
       <span class="footer-kicker">GET IN TOUCH</span>
       <h2 class="footer-heading">Let's Connect</h2>
-      <p class="footer-subtitle">Interested in discussing product strategy, AI innovation, or potential opportunities?</p>
+      <p class="footer-subtitle">Working on one of those problems — or hiring someone who should be? I'd like to hear about it.</p>
       <div class="footer-buttons">
         <a class="footer-btn" href="mailto:dakotaradigan@gmail.com">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
