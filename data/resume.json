@@ -12,6 +12,27 @@
     "summary": "AI Strategy, Senior Product Manager with 8+ years in Finance and 5+ years shipping data-driven investment solutions. Expert in validating client and operational pain points and translating them into functional specifications that drive measurable business impact. Combining deep investment operations knowledge with technical fluency (Python and AI) and a bias for action."
   },
 
+  "about": {
+    "working_style": [
+      "Prototype-first: would rather build a working demo than write a long document — show, don't tell. Both Ben AI and this resume assistant started as prototypes built at home.",
+      "A bridge between worlds: enjoys translating between technical and business people — engineering, operations, sales, and clients — and being the one who keeps them aligned.",
+      "Bias for action: ship, learn, iterate rather than wait for perfect information.",
+      "Deep-dive learner: when a topic matters, goes deep — courses, certifications, and side projects until it actually makes sense."
+    ],
+    "values": [
+      "Ownership and trust: being handed a problem and the autonomy to solve it end to end",
+      "Honest, low-ego communication: disagree openly, commit fully",
+      "Real user impact: work that measurably helps actual users and clients, not vanity metrics"
+    ],
+    "interests": [
+      "Hiking and skiing around the Pacific Northwest",
+      "Regular at the gym, plus some golf",
+      "Building side projects — currently OfferBirds, an in-development platform that turns anyone's resume into a hosted AI agent, aiming to better match candidates and employers"
+    ],
+    "path_into_product": "Dakota started his career on the client service side of finance. During his MBA he built a product end to end for the first time — and fell in love with product building. That kicked off a sustained investment in learning to code, moving from SQL reporting to Python to shipping production AI systems.",
+    "what_energizes": "Building — and working with tools and people operating at the frontier of AI. Dakota is happiest in environments of constant learning and experimentation, where a weekend prototype can become a production system."
+  },
+
   "experience": [
     {
       "company": "Parametric Portfolio (Morgan Stanley)",

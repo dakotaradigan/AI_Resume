@@ -32,6 +32,21 @@ def _format_resume_context(data: dict) -> str:
         if summary:
             lines.append(summary)
 
+    about = data.get("about", {})
+    if about:
+        lines.append("About Dakota (working style, values, interests):")
+        for item in about.get("working_style", []):
+            lines.append(f"- {item}")
+        for item in about.get("values", []):
+            lines.append(f"- Values: {item}")
+        interests = about.get("interests", [])
+        if interests:
+            lines.append(f"- Interests: {'; '.join(interests)}")
+        if about.get("path_into_product"):
+            lines.append(f"- Path into product: {about['path_into_product']}")
+        if about.get("what_energizes"):
+            lines.append(f"- What energizes him: {about['what_energizes']}")
+
     experiences = data.get("experience", [])
     if experiences:
         lines.append("Experience:")
@@ -182,6 +197,20 @@ def render_llms_text() -> str:
         label = category.replace("_", " ").title()
         lines.append(f"- {label}: {', '.join(items)}")
     lines.append("")
+    about = data.get("about", {})
+    if about:
+        lines.append("## About Dakota")
+        for item in about.get("working_style", []):
+            lines.append(f"- {item}")
+        for item in about.get("values", []):
+            lines.append(f"- Values: {item}")
+        if about.get("interests"):
+            lines.append(f"- Interests: {'; '.join(about['interests'])}")
+        if about.get("path_into_product"):
+            lines.append(f"- Path into product: {about['path_into_product']}")
+        if about.get("what_energizes"):
+            lines.append(f"- What energizes him: {about['what_energizes']}")
+        lines.append("")
     lines.append("## Certifications")
     for cert in data.get("certifications", []):
         entry = f"- {cert.get('name', '')} — {cert.get('issuer', '')}"
