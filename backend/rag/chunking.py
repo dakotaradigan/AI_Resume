@@ -28,6 +28,7 @@ def chunk_resume_data(resume_path: Path) -> list[DocumentChunk]:
 
     Strategy:
     - Personal info: 1 chunk
+    - About (working style, values, interests): 1 chunk
     - Each job experience: 1 chunk (with all achievements)
     - Each project: 1-3 chunks depending on detail
     - Skills: 1 chunk
@@ -60,6 +61,56 @@ def chunk_resume_data(resume_path: Path) -> list[DocumentChunk]:
                 tags=["contact", "summary"],
             )
         )
+
+    # About chunk (working style, values, interests)
+    about = data.get("about", {})
+    if about:
+        about_parts: list[str] = []
+
+        working_style = about.get("working_style", [])
+        if working_style:
+            about_parts.append("How Dakota likes to work:")
+            about_parts.extend(f"- {item}" for item in working_style)
+            about_parts.append("")
+
+        values = about.get("values", [])
+        if values:
+            about_parts.append("What Dakota values in work and teams:")
+            about_parts.extend(f"- {item}" for item in values)
+            about_parts.append("")
+
+        interests = about.get("interests", [])
+        if interests:
+            about_parts.append("Hobbies and interests outside of work:")
+            about_parts.extend(f"- {item}" for item in interests)
+            about_parts.append("")
+
+        path = about.get("path_into_product", "")
+        if path:
+            about_parts.append(f"How Dakota got into product and AI: {path}")
+            about_parts.append("")
+
+        energizes = about.get("what_energizes", "")
+        if energizes:
+            about_parts.append(f"What energizes Dakota: {energizes}")
+
+        if about_parts:
+            chunks.append(
+                DocumentChunk(
+                    text="\n".join(about_parts).strip(),
+                    chunk_type="about",
+                    title="About Dakota — Working Style, Values, and Interests",
+                    tags=[
+                        "about",
+                        "personality",
+                        "working style",
+                        "values",
+                        "hobbies",
+                        "interests",
+                        "culture fit",
+                    ],
+                )
+            )
 
     # Experience chunks (one per job)
     for exp in data.get("experience", []):
