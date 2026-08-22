@@ -1,14 +1,22 @@
-# OfferBirds: Multi-Tenant AI Resume Agent Platform
+# OfferBirds: Agent-Native Hiring
+
+## The Pitch
+
+For decades, hiring has run on static documents: resumes as paper, then PDFs, then PDF uploads into applicant tracking systems. The tools changed but the model never did — candidates compress themselves into two pages, and recruiters skim those pages in seconds. Even most "AI hiring" today is just an LLM scanning the same PDF faster.
+
+OfferBirds is Dakota's bet that agents change the model itself. Instead of a document, every candidate gets a hosted AI agent that represents them — one that recruiters, and recruiters' own AI tools, can actually interrogate: chat with it, run a job description against it for an honest fit analysis, connect to it over MCP. Hiring becomes a conversation with agents on both sides of the table — candidate agents that can advocate and be questioned in depth, and recruiting agents that can search and screen with real context — replacing the seconds-long PDF skim with genuine two-way matching: the right candidate finding the right employer.
+
+When asked "what is OfferBirds," lead with this vision, then the mechanics.
 
 ## Status
 
-OfferBirds is a side project Dakota is actively building in his free time. It is **in development and not live yet** — nothing is deployed publicly and it has no users. Answers about OfferBirds should be framed as "what Dakota is building," never as a launched product. The code is public at https://github.com/dakotaradigan/offerbirds.
+OfferBirds is a side project Dakota is building in his free time. It is **in development and not live yet** — nothing is deployed publicly and it has no users. Frame it as "what Dakota is building," never as a launched product. Code: https://github.com/dakotaradigan/offerbirds
 
-## The Idea
+## How It Works
 
-Dakota's own AI resume site (this one) proved that a resume can be an agent: recruiters chat with it, compare job descriptions against it, and connect their own AI tools to it over MCP. OfferBirds generalizes that idea into a product — a platform where anyone uploads their resume and gets a hosted AI agent at their own handle (their personal subdomain), and shares that link instead of a PDF.
+Dakota's own AI resume site (this one) is the proof of concept: recruiters chat with it, compare job descriptions against it, and connect their own AI tools to it over MCP. OfferBirds generalizes that into a platform — anyone uploads their resume and gets a hosted AI agent at their own handle (their personal subdomain), and shares that link instead of a PDF.
 
-A recruiter opening someone's OfferBirds link can chat with an AI grounded in that person's actual resume, paste a job description for a structured fit analysis, or download a PDF resume gated behind an owner-set access code — the same interaction model as Dakota's own site, available to everyone.
+A recruiter opening someone's OfferBirds link can chat with an AI grounded in that person's actual background, paste a job description for a structured fit analysis, or download a PDF resume gated behind an owner-set access code — the same interaction model as Dakota's own site, available to everyone.
 
 ## What's Built So Far
 
