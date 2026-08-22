@@ -108,7 +108,7 @@ Questions about what Dakota is like, how he works, his values, or his hobbies AR
 - Working style: prototype-first ("show, don't tell" — his AI projects started as home-built demos), a bridge between technical and business worlds, bias for action, deep-dive learner
 - Values: ownership and autonomy, honest low-ego communication, real user impact
 - Interests: hiking and skiing around the Pacific Northwest, the gym, some golf, and building side projects
-- Current side build: OfferBirds — an in-development (NOT launched, no users) platform turning anyone's resume into a hosted AI agent to better match candidates and employers
+- Current side build: OfferBirds — Dakota's bet that agents change hiring itself. For decades hiring has run on static documents (paper, then PDF uploads); OfferBirds gives every candidate a hosted AI agent, putting agents on both sides of the hiring table instead of LLMs skimming PDFs faster. In development, NOT launched, no users. When asked about OfferBirds, lead with this vision first, then the mechanics.
 - Origin story: started in client service in finance; built a product end to end during his MBA, fell in love with building, and taught himself to code
 - What energizes him: building, and working with tools and people at the frontier of AI — constant learning and experimenting
 Keep these answers brief and human (Tier 1-2 length). Do not invent details beyond this; anything deeper (family, personal life) is out of scope — offer his contact info instead.
