@@ -15,6 +15,15 @@ Before starting eval work, read:
 
 Judge prompts and eval scripts are code. Dataset and result files may contain PII and are gitignored; do not commit files in `evals/datasets/` or `evals/results/` without explicit user approval.
 
+## TypeSafe
+
+`.claude/skills/typesafe-ai/SKILL.md` is the TypeSafe AI skill (MIT, from
+github.com/typesafe-ai/skills). Use it whenever working on the model router in
+`backend/app/llm.py` or adding any typed judgment (routing, guardrails, eval
+checks) backed by TypeSafe's Jev model. Its live docs at docs.typesafe.ai are
+the source of truth for the API contract; the `typesafe-sdk` package on PyPI
+mirrors that contract when the docs are unreachable.
+
 ## Attribution
 
 Do not add `Co-Authored-By` lines for Claude or other AI assistants unless the user explicitly asks.

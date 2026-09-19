@@ -24,24 +24,49 @@ _ROUTER_SYSTEM = (
 # routing reason reported in status events, so they match the Claude
 # classifier's vocabulary. Jev returns a probability per label plus a
 # confidence for the distribution — no text to parse.
+#
+# Per the TypeSafe skill: the question id is not sent to the model, so the
+# instructions carry the full judgment and reference the named state field;
+# criteria are structured (description + examples) because examples sharpen
+# the boundary between the two tiers better than prose alone.
 _ROUTE_QUESTION_ID = "model_route"
+_ROUTE_STATE_FIELD = "visitor_question"
 _ROUTE_INSTRUCTIONS = (
-    "Choose the least costly model that can fully answer this visitor question "
-    "about Dakota's resume."
+    f"`{_ROUTE_STATE_FIELD}` is a recruiter or hiring manager asking about "
+    "Dakota's resume. Decide whether a complete, accurate answer needs only a "
+    "direct lookup of one fact, or needs synthesis across several parts of "
+    "the resume."
 )
 _ROUTE_CHOICES = {
-    "simple": (
-        "Direct lookups and extraction: a single skill, role, employer, date, "
-        "or project fact that one resume line answers."
-    ),
-    "complex": (
-        "Synthesis, comparison, multi-part, open-ended, or fit/judgment "
-        "questions that draw on several roles or projects."
-    ),
+    "simple": {
+        "description": (
+            "Direct lookup or extraction: a single skill, role, employer, "
+            "date, or project fact that one resume line answers."
+        ),
+        "examples": [
+            "Does Dakota know Python?",
+            "Where does Dakota work now?",
+            "When did he start at Parametric?",
+        ],
+    },
+    "complex": {
+        "description": (
+            "Synthesis, comparison, multi-part, open-ended, or fit/judgment "
+            "questions that draw on several roles or projects."
+        ),
+        "examples": [
+            "Compare his product management and AI engineering experience.",
+            "Would he be a good fit for a senior AI PM role, and why?",
+            "What are his biggest strengths and gaps for a fintech role?",
+        ],
+    },
 }
-# Below this, the distribution is too flat to trust the cheap tier; fail safe
-# to the primary model rather than risk a thin answer.
+# Confidence summarizes how concentrated the label distribution is. Below
+# this, fail safe to the primary model rather than risk a thin answer. 0.6 is
+# a starting point; tune it against the `routing` reasons in analytics.
 _ROUTE_MIN_CONFIDENCE = 0.6
+# No retries on purpose: routing runs alongside retrieval and must not add
+# serial latency. A failed call simply routes to the primary model.
 _ROUTE_TIMEOUT_SECONDS = 2.0
 
 # Newer Anthropic models (Sonnet 5, Opus 4.7/4.8, Fable/Mythos) reject requests
@@ -90,7 +115,7 @@ def is_fast_path_simple(message: str) -> bool:
 def typesafe_route_payload(message: str, settings: Settings) -> dict[str, Any]:
     """Request body for TypeSafe's /v1/systemone endpoint."""
     return {
-        "state": message,
+        "state": {_ROUTE_STATE_FIELD: message},
         "model": settings.typesafe_model,
         "questions": {
             _ROUTE_QUESTION_ID: {

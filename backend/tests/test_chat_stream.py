@@ -583,11 +583,12 @@ class TestTypeSafeRouter(unittest.TestCase):
         self.assertEqual(str(request.url), "https://typesafe.test/v1/systemone")
         self.assertEqual(request.headers["authorization"], "Bearer test-typesafe-key")
         body = json.loads(request.content)
-        self.assertEqual(body["state"], COMPLEX_MESSAGE)
+        self.assertEqual(body["state"], {"visitor_question": COMPLEX_MESSAGE})
         self.assertEqual(body["model"], "jev-latest")
         question = body["questions"]["model_route"]
         self.assertEqual(question["type"], "choice")
         self.assertEqual(set(question["criteria"]), {"simple", "complex"})
+        self.assertIn("visitor_question", question["instructions"])
 
     def test_confident_simple_label_routes_to_simple_model(self) -> None:
         model, reason = self.route(
