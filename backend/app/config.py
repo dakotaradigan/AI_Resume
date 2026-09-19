@@ -31,6 +31,13 @@ class Settings:
     anthropic_model_simple: str = "claude-sonnet-5"
     anthropic_router_model: str = "claude-haiku-4-5-20251001"
 
+    # TypeSafe Jev router: when typesafe_api_key is set, the tier decision is a
+    # typed Choice classification (no text generation to parse) instead of the
+    # Claude classifier above. Unset key = keep the Claude classifier.
+    typesafe_api_key: str = ""
+    typesafe_model: str = "jev-latest"
+    typesafe_base_url: str = "https://api.typesafe.ai"
+
     # Scalability settings (configurable via environment variables)
     rate_limit_requests_per_minute: int = 20  # Max requests per session per minute
     session_max_age_seconds: int = 3600  # 1 hour - sessions older than this are cleaned up
@@ -120,6 +127,9 @@ def get_settings() -> Settings:
             "ANTHROPIC_ROUTER_MODEL",
             "claude-haiku-4-5-20251001",
         ),
+        typesafe_api_key=os.getenv("TYPESAFE_API_KEY", ""),
+        typesafe_model=os.getenv("TYPESAFE_MODEL", "jev-latest"),
+        typesafe_base_url=os.getenv("TYPESAFE_BASE_URL", "https://api.typesafe.ai"),
         environment=os.getenv("ENVIRONMENT", "development"),
         data_dir=data_dir,
         # Scalability settings (use defaults if not set)
