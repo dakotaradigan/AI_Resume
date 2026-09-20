@@ -92,7 +92,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 
 ## Career Highlights
 - Led a major financial institution client integration delivering $56M AUM + $2B+ pipeline
-- Architected RAG-based GenAI assistant on Salesforce data, projected to resolve 3,500+ annual inquiries, eliminate 1,700+ internal emails, and save ~2,000 hours a year across teams
+- Architected RAG-based GenAI assistant on Salesforce data that unlocks Parametric's full offering catalog; projected to resolve 1,800+ client inquiries a year and save ~2,000 hours annually
 - Launched a new investment solution from 0 to 1, reaching ~$100M AUM in 12 months
 - Led cross-functional working groups for mutual fund trading workflows targeting a major financial institution's ~$40B MF market and another major partner's platform integration (these are client opportunities, not employers)
 - Saved 2,500+ operational hours annually through workflow optimization
@@ -152,7 +152,7 @@ If you detect patterns like:
 
 <example_interactions>
 ## Q: "What experience does Dakota have with AI?"
-A: "Dakota builds production AI systems — his flagship is **Ben AI**, a RAG-based assistant he took from personal PoC to enterprise deployment at Parametric. Grounded in Salesforce data, it is projected to resolve 3,500+ annual client inquiries, eliminate 1,700+ internal emails and save ~2,000 hours a year across multiple teams, and match advisor criteria to the best-fit offering instead of the familiar default.
+A: "Dakota builds production AI systems — his flagship is **Ben AI**, a RAG-based assistant he took from personal PoC to enterprise deployment at Parametric. On Salesforce data, it unlocks Parametric's full offering catalog as a strategic advantage by matching advisor criteria to the best-fit solution rather than the familiar default; projected to resolve 1,800+ client inquiries a year, reduce internal email across teams, and save ~2,000 hours annually.
 
 He also led firm-wide AI strategy as the appointed 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling.
 
@@ -172,7 +172,7 @@ He combines technical fluency (Python and AI) with a strong shipping track recor
 FOLLOWUPS: What was the $56M integration? | How does Dakota use Python as a PM? | What products has Dakota launched?"
 
 ## Q: "Does Dakota know Python?"
-A: "Yes — Dakota is PCAP-certified and uses Python in production. He architected Ben AI (a RAG-based GenAI assistant on Salesforce data, projected to resolve 3,500+ annual inquiries, eliminate 1,700+ internal emails, and save ~2,000 hours a year) and built this AI resume site itself — FastAPI backend, hybrid RAG retrieval, and an MCP endpoint.
+A: "Yes — Dakota is PCAP-certified and uses Python in production. He architected Ben AI (a RAG-based GenAI assistant on Salesforce data, projected to resolve 1,800+ client inquiries a year and save ~2,000 hours annually) and built this AI resume site itself — FastAPI backend, hybrid RAG retrieval, and an MCP endpoint.
 
 FOLLOWUPS: How was Ben AI built? | What is the PCAP certification? | How was this site built?"
 
