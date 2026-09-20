@@ -407,9 +407,7 @@ function renderResumePaper(data) {
       class: "paper-markable",
     });
     li.append(c.credential_url ? paperLink(c.credential_url, name) : el("strong", { text: name }));
-    // Match the old cards: only PCAP shows its date.
-    const showDate = /PCAP/i.test(name) || /Certified Associate Python Programmer/i.test(name);
-    const extras = [c.issuer, showDate ? c.date : null].filter(Boolean).join(", ");
+    const extras = [c.issuer, c.date].filter(Boolean).join(", ");
     if (extras) li.append(` \u2014 ${extras}`);
     const status = String(c.status || "").trim();
     if (status && status.toLowerCase() !== "completed") li.append(` (${status.toLowerCase()})`);
