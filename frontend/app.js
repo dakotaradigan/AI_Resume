@@ -1359,7 +1359,9 @@ async function sendMessage(message, { isRetry = false } = {}) {
               steps?.addStep("Using full resume context");
             }
           } else if (data.stage === "routing") {
-            steps?.addStep(`Routed to ${data.model}`);
+            steps?.addStep(
+              data.router ? `Routed to ${data.model} via ${data.router}` : `Routed to ${data.model}`
+            );
           } else if (data.stage === "generation" && data.state === "start") {
             steps?.addStep("Generating answer...");
           }
@@ -1421,7 +1423,12 @@ async function sendMessage(message, { isRetry = false } = {}) {
         ? `${sourceItems.length} source${sourceItems.length === 1 ? "" : "s"}`
         : "Full resume context",
     ];
-    if (finalData.model) summaryParts.push(finalData.model);
+    // "Jev → Sonnet": which router chose, then which model answered.
+    if (finalData.model) {
+      summaryParts.push(
+        finalData.router ? `${finalData.router} → ${finalData.model}` : finalData.model
+      );
+    }
     summaryParts.push(`${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
     steps?.collapse(summaryParts.join(" · "), finalData.used_rag ? sourceItems : null);
 

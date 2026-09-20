@@ -24,7 +24,13 @@ from app.chat_service import (
 from app.constants import BUSY_MESSAGE, GENERIC_CHAT_ERROR
 from app.dependencies import app_settings, rag_pipeline
 from app.identity import set_visitor_cookie
-from app.llm import build_api_messages, make_anthropic_client, model_short_label, sampling_kwargs
+from app.llm import (
+    build_api_messages,
+    make_anthropic_client,
+    model_short_label,
+    router_short_label,
+    sampling_kwargs,
+)
 from app.schemas import ChatRequest, ChatResponse
 from app.session_store import get_session_store
 
@@ -204,6 +210,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
         yield sse("status", {
             "stage": "routing", "state": "done",
             "model": model_short_label(model_id), "reason": route_reason,
+            "router": router_short_label(route_reason, settings),
         })
         yield sse("status", {"stage": "generation", "state": "start"})
 
@@ -260,6 +267,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             yield sse("done", {
                 "reply": reply_text, "used_rag": used_rag, "sources": sources,
                 "session_id": session_id, "model": model_short_label(used_model),
+                "router": router_short_label(route_reason, settings),
                 "followups": followups, "quota_remaining": quota_remaining,
             })
         except asyncio.CancelledError:

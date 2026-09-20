@@ -225,6 +225,7 @@ class TestEventOrdering(ChatStreamTestCase):
 
         routing = next(d for name, d in events if name == "status" and d["stage"] == "routing")
         self.assertEqual(routing["reason"], "fast-path")
+        self.assertEqual(routing["router"], "Rules")
         self.assertEqual(routing["model"], "Sonnet")
         # Classifier never called on the fast path
         self.assertEqual(FakeAnthropic.messages_api.create_calls, [])
@@ -241,6 +242,7 @@ class TestEventOrdering(ChatStreamTestCase):
 
         routing = next(d for name, d in events if name == "status" and d["stage"] == "routing")
         self.assertEqual(routing["reason"], "complex")
+        self.assertEqual(routing["router"], "test-router")
         self.assertEqual(len(FakeAnthropic.messages_api.create_calls), 1)
         self.assertEqual(
             FakeAnthropic.messages_api.create_calls[0]["model"], "test-router"
@@ -629,6 +631,15 @@ class TestTypeSafeRouter(unittest.TestCase):
         client = SimpleNamespace(messages=FakeStreamingMessages([], router_label="simple"))
         model, reason = asyncio.run(llm.route_model(COMPLEX_MESSAGE, client, settings))
         self.assertEqual((model, reason), ("test-sonnet", "simple"))
+
+
+class TestRouterLabel(unittest.TestCase):
+    def test_labels_each_routing_source(self) -> None:
+        self.assertEqual(llm.router_short_label("simple", typesafe_settings()), "Jev")
+        self.assertEqual(llm.router_short_label("low-confidence", typesafe_settings()), "Jev")
+        self.assertEqual(llm.router_short_label("complex", make_settings()), "test-router")
+        self.assertEqual(llm.router_short_label("fast-path", typesafe_settings()), "Rules")
+        self.assertEqual(llm.router_short_label("router-error", typesafe_settings()), "Fallback")
 
 
 class TestSamplingParams(unittest.TestCase):

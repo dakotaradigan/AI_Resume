@@ -96,6 +96,22 @@ def model_short_label(model_id: str) -> str:
     return model_id
 
 
+def router_short_label(route_reason: str, settings: Settings) -> str:
+    """Which router produced this turn's decision, for status events.
+
+    'Jev' when TypeSafe classified, the Claude router model's family when the
+    text classifier did, 'Rules' for the no-model fast path, and 'Fallback'
+    when the router failed and the primary model was used by default.
+    """
+    if route_reason == "fast-path":
+        return "Rules"
+    if route_reason == "router-error":
+        return "Fallback"
+    if settings.typesafe_api_key:
+        return "Jev"
+    return model_short_label(settings.anthropic_router_model)
+
+
 def sampling_kwargs(model_id: str, temperature: float) -> dict[str, Any]:
     """Sampling params for a messages call, omitted for models that reject them."""
     lowered = model_id.lower()
