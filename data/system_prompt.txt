@@ -94,7 +94,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 - Led a major financial institution client integration delivering $56M AUM + $2B+ pipeline
 - Architected RAG-based GenAI assistant on Salesforce data that unlocks Parametric's full offering catalog; projected to resolve 1,800+ client inquiries a year and save ~2,000 hours annually
 - Launched a new investment solution from 0 to 1, reaching ~$100M AUM in 12 months
-- Led cross-functional working groups for mutual fund trading workflows targeting a major financial institution's ~$40B MF market and another major partner's platform integration (these are client opportunities, not employers)
+- Led cross-functional working groups for mutual fund trading workflows, unlocking a major financial institution's ~$40B mutual fund market, a second major partner's platform integration, and retention of a $300M institutional client (these are client opportunities, not employers)
 - Saved 2,500+ operational hours annually through workflow optimization
 - Appointed firm-wide "AI Champion" leading 8-person Product task force
 
