@@ -33,38 +33,45 @@ _ROUTE_QUESTION_ID = "model_route"
 _ROUTE_STATE_FIELD = "visitor_question"
 _ROUTE_INSTRUCTIONS = (
     f"`{_ROUTE_STATE_FIELD}` is a recruiter or hiring manager asking about "
-    "Dakota's resume. Decide whether a complete, accurate answer needs only a "
-    "direct lookup of one fact, or needs synthesis across several parts of "
-    "the resume."
+    "Dakota's resume. A capable general model answers most questions well. "
+    "Choose `complex` only when a good answer must weigh several roles or "
+    "projects against each other or against a job; otherwise choose `simple`."
 )
 _ROUTE_CHOICES = {
     "simple": {
         "description": (
-            "Direct lookup or extraction: a single skill, role, employer, "
-            "date, or project fact that one resume line answers."
+            "The default. Any question about one topic: a skill, a role, an "
+            "employer, a project, a date, a summary of one area of experience, "
+            "or a yes/no question. Open-ended is fine as long as it is one topic."
         ),
         "examples": [
             "Does Dakota know Python?",
-            "Where does Dakota work now?",
-            "When did he start at Parametric?",
+            "Tell me about Dakota's AI experience.",
+            "What did he do at Parametric?",
+            "What projects has he built?",
+            "Is he PCAP certified?",
         ],
     },
     "complex": {
         "description": (
-            "Synthesis, comparison, multi-part, open-ended, or fit/judgment "
-            "questions that draw on several roles or projects."
+            "Only when the answer must compare or combine several roles or "
+            "projects: side-by-side comparisons, fit assessments against a "
+            "specific job, strengths-and-gaps analysis, or a multi-part "
+            "question spanning different areas of the resume."
         ),
         "examples": [
             "Compare his product management and AI engineering experience.",
             "Would he be a good fit for a senior AI PM role, and why?",
             "What are his biggest strengths and gaps for a fintech role?",
+            "Walk me through his career arc and how each role built on the last.",
         ],
     },
 }
-# Confidence summarizes how concentrated the label distribution is. Below
-# this, fail safe to the primary model rather than risk a thin answer. 0.6 is
-# a starting point; tune it against the `routing` reasons in analytics.
-_ROUTE_MIN_CONFIDENCE = 0.6
+# Sonnet is the default tier. Opus only when Jev is clearly convinced the
+# question is complex: its probability for `complex` must reach this. Using
+# the label alone (or Jev's confidence) sent uncertain questions to Opus,
+# which is the expensive direction to be wrong in.
+_ROUTE_COMPLEX_MIN_PROBABILITY = 0.7
 # No retries on purpose: routing runs alongside retrieval and must not add
 # serial latency. A failed call simply routes to the primary model.
 _ROUTE_TIMEOUT_SECONDS = 2.0
@@ -145,11 +152,12 @@ def typesafe_route_payload(message: str, settings: Settings) -> dict[str, Any]:
 
 async def classify_with_typesafe(
     message: str, settings: Settings, http: httpx.AsyncClient
-) -> tuple[str, float]:
-    """Ask Jev which tier fits. Returns (label, confidence).
+) -> float:
+    """Ask Jev which tier fits. Returns the probability the question is complex.
 
     Raises on transport errors, non-2xx responses, or a response that does not
-    carry a known label — callers treat all of those as "router unavailable".
+    carry a probability for every label — callers treat all of those as
+    "router unavailable".
     """
     response = await http.post(
         f"{settings.typesafe_base_url.rstrip('/')}/v1/systemone",
@@ -159,10 +167,11 @@ async def classify_with_typesafe(
     )
     response.raise_for_status()
     answer = response.json()["answers"][_ROUTE_QUESTION_ID]
-    label = answer["choice"]
-    if label not in _ROUTE_CHOICES:
-        raise ValueError(f"TypeSafe returned unknown route label {label!r}")
-    return label, float(answer["confidence"])
+    probabilities = answer["probabilities"]
+    missing = set(_ROUTE_CHOICES) - set(probabilities)
+    if missing:
+        raise ValueError(f"TypeSafe response lacks probabilities for {sorted(missing)}")
+    return float(probabilities["complex"])
 
 
 async def check_typesafe_credentials(
@@ -204,17 +213,16 @@ async def route_model(
     """
     if settings.typesafe_api_key:
         try:
-            label, confidence = await classify_with_typesafe(
+            p_complex = await classify_with_typesafe(
                 message, settings, http or typesafe_http_client()
             )
         except Exception:
             logger.warning("TypeSafe router classification failed; using primary model")
             return settings.anthropic_model, "router-error"
-        if confidence < _ROUTE_MIN_CONFIDENCE:
-            return settings.anthropic_model, "low-confidence"
-        if label == "simple":
-            return settings.anthropic_model_simple, "simple"
-        return settings.anthropic_model, "complex"
+        logger.info("Jev route p_complex=%.2f", p_complex)
+        if p_complex >= _ROUTE_COMPLEX_MIN_PROBABILITY:
+            return settings.anthropic_model, "complex"
+        return settings.anthropic_model_simple, "simple"
     if is_fast_path_simple(message):
         return settings.anthropic_model_simple, "fast-path"
     try:

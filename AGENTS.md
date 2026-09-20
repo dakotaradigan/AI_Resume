@@ -78,9 +78,10 @@ Model routing (optional, defaults provided):
 - `ANTHROPIC_MODEL_SIMPLE` — answers simple factual queries
 - `ANTHROPIC_ROUTER_MODEL` — small Claude classifier that picks the tier
 - `TYPESAFE_API_KEY` / `TYPESAFE_MODEL` — when the key is set, the tier is
-  picked by TypeSafe's Jev model (typed `Choice` classification with a
-  confidence score) instead of the Claude classifier; low-confidence or
-  failed classifications route to `ANTHROPIC_MODEL`
+  picked by TypeSafe's Jev model (typed `Choice` classification returning a
+  probability per label) instead of the Claude classifier. Sonnet is the
+  default; `ANTHROPIC_MODEL` is used only when Jev's probability for
+  `complex` reaches the threshold in `llm.py`, or when the router fails
 
 Optional RAG:
 - `USE_RAG=true`

@@ -550,15 +550,16 @@ def typesafe_http(handler) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
 
-def typesafe_answer(choice: str, confidence: float) -> dict:
+def typesafe_answer(p_complex: float) -> dict:
+    """A Jev Choice answer with the given probability for `complex`."""
     return {
         "model": "jev-latest",
         "answers": {
             "model_route": {
                 "type": "choice",
-                "choice": choice,
-                "probabilities": {"simple": 0.5, "complex": 0.5},
-                "confidence": confidence,
+                "choice": "complex" if p_complex >= 0.5 else "simple",
+                "probabilities": {"simple": 1 - p_complex, "complex": p_complex},
+                "confidence": abs(p_complex - 0.5) * 2,
             }
         },
     }
@@ -578,7 +579,7 @@ class TestTypeSafeRouter(unittest.TestCase):
 
         def handler(request: httpx.Request) -> httpx.Response:
             seen.append(request)
-            return httpx.Response(200, json=typesafe_answer("complex", 0.9))
+            return httpx.Response(200, json=typesafe_answer(0.9))
 
         model, reason = self.route(handler)
 
@@ -594,26 +595,27 @@ class TestTypeSafeRouter(unittest.TestCase):
         self.assertEqual(set(question["criteria"]), {"simple", "complex"})
         self.assertIn("visitor_question", question["instructions"])
 
-    def test_confident_simple_label_routes_to_simple_model(self) -> None:
-        model, reason = self.route(
-            lambda _: httpx.Response(200, json=typesafe_answer("simple", 0.85))
-        )
+    def test_simple_routes_to_simple_model(self) -> None:
+        model, reason = self.route(lambda _: httpx.Response(200, json=typesafe_answer(0.1)))
         self.assertEqual((model, reason), ("test-sonnet", "simple"))
 
-    def test_low_confidence_fails_safe_to_primary_model(self) -> None:
-        model, reason = self.route(
-            lambda _: httpx.Response(200, json=typesafe_answer("simple", 0.4))
-        )
-        self.assertEqual((model, reason), ("test-opus", "low-confidence"))
+    def test_uncertain_questions_default_to_simple_model(self) -> None:
+        """Opus needs Jev to be clearly convinced; a 'complex' label at 0.6 is not enough."""
+        model, reason = self.route(lambda _: httpx.Response(200, json=typesafe_answer(0.6)))
+        self.assertEqual((model, reason), ("test-sonnet", "simple"))
+
+    def test_threshold_is_inclusive(self) -> None:
+        model, reason = self.route(lambda _: httpx.Response(200, json=typesafe_answer(0.7)))
+        self.assertEqual((model, reason), ("test-opus", "complex"))
 
     def test_http_error_fails_safe_to_primary_model(self) -> None:
         model, reason = self.route(lambda _: httpx.Response(503, json={}))
         self.assertEqual((model, reason), ("test-opus", "router-error"))
 
-    def test_unknown_label_fails_safe_to_primary_model(self) -> None:
-        model, reason = self.route(
-            lambda _: httpx.Response(200, json=typesafe_answer("other", 0.99))
-        )
+    def test_missing_probabilities_fail_safe_to_primary_model(self) -> None:
+        body = typesafe_answer(0.9)
+        body["answers"]["model_route"]["probabilities"] = {"other": 1.0}
+        model, reason = self.route(lambda _: httpx.Response(200, json=body))
         self.assertEqual((model, reason), ("test-opus", "router-error"))
 
     def test_short_messages_still_go_to_typesafe(self) -> None:
@@ -623,9 +625,7 @@ class TestTypeSafeRouter(unittest.TestCase):
                 SIMPLE_MESSAGE,
                 None,
                 typesafe_settings(),
-                http=typesafe_http(
-                    lambda _: httpx.Response(200, json=typesafe_answer("simple", 0.9))
-                ),
+                http=typesafe_http(lambda _: httpx.Response(200, json=typesafe_answer(0.1))),
             )
         )
         self.assertEqual((model, reason), ("test-sonnet", "simple"))
@@ -647,7 +647,6 @@ class TestTypeSafeRouter(unittest.TestCase):
 class TestRouterLabel(unittest.TestCase):
     def test_labels_each_routing_source(self) -> None:
         self.assertEqual(llm.router_short_label("simple", typesafe_settings()), "Jev")
-        self.assertEqual(llm.router_short_label("low-confidence", typesafe_settings()), "Jev")
         self.assertEqual(llm.router_short_label("complex", make_settings()), "test-router")
         self.assertEqual(llm.router_short_label("fast-path", typesafe_settings()), "Rules")
         self.assertEqual(llm.router_short_label("router-error", typesafe_settings()), "Fallback")
