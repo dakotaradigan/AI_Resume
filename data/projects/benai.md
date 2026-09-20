@@ -4,7 +4,7 @@
 **The Journey:** Personal project (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)
 
 ## What It Does
-AI-powered chatbot that helps financial advisors instantly determine benchmark eligibility for client portfolios. Reduces complex research queries from 30+ minutes to seconds.
+AI-powered chatbot that helps financial advisors instantly determine benchmark eligibility for client portfolios. Reduces complex research queries from 30+ minutes to seconds. Grounded in Salesforce data, so answers come from the system of record instead of email threads and manual searches across multiple sources.
 
 ## The Evolution Story
 
@@ -18,7 +18,7 @@ Built initial version at home to validate whether RAG architecture could effecti
 ### Phase 2: Production Scaling (Parametric Deployment)
 After validating the architecture, brought Ben AI to Parametric and scaled it for production use:
 - Hardened for enterprise reliability and security
-- Optimized for production workload (projected 3,500+ annual queries)
+- Optimized for production workload (projected 1,800+ annual client inquiries)
 - Added advanced features: iterative function calling, multi-benchmark comparisons
 - Integrated with existing advisor workflows
 - Built comprehensive error handling and logging
@@ -39,8 +39,11 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 
 ## Business Impact
 - **Time Savings**: Reduced advisor research from 30+ minutes to <5 seconds per query
-- **Scale**: Projected to autonomously handle 3,500+ annual email inquiries
+- **Scale**: Projected to autonomously resolve 1,800+ client inquiries a year
 - **Response Time**: Client inquiries resolved in minutes instead of hours
+- **Internal Email Reduction**: Reduces internal email across teams that previously answered questions by hand
+- **Hours Saved**: ~2,000 hours a year saved across multiple teams that no longer search several sources manually
+- **Catalog as Strategic Advantage**: Matches advisor criteria to the best-fit solution rather than the familiar default, unlocking Parametric's full offering catalog that teams historically underused
 - **Innovation**: Visible client-facing AI capability demonstrating technical leadership
 - **Retention**: Enabled organic SMAP ecosystem retention through better service
 

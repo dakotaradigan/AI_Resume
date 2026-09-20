@@ -42,7 +42,7 @@
       "type": "Full-time",
       "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
       "achievements": [
-        "Architected a RAG-based GenAI assistant projected to autonomously resolve ~3,500+ annual email inquiries and slash response times for clients from hours to minutes",
+        "Architected a RAG-based GenAI assistant on Salesforce data that unlocks Parametric's full offering catalog as a strategic advantage, matching advisor criteria to the best-fit solution rather than the familiar default; projected to resolve 1,800+ client inquiries a year, reduce internal email across teams, and save ~2,000 hours annually",
         "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
@@ -55,8 +55,8 @@
       "type": "Full-time",
       "description": "Led product strategy and technical partnerships for investment solutions at a leading direct indexing firm.",
       "achievements": [
-        "Led investment integration with a major financial institution, aligning internal/external stakeholders and technology teams to deliver pilot, securing $32M initial AUM and a $2B+ pipeline",
-        "Led the launch of a new investment solution that created new operating workflows across teams, unlocked targeted GTM campaigns, and supported ~$30M in AUM within 6 months",
+        "Led investment integration with a major financial institution, aligning internal/external stakeholders and technology teams to deliver pilot, securing $56M initial AUM and a $2B+ pipeline",
+        "Launched a new investment solution from 0 to 1, taking it from concept to ~$100M AUM within 12 months; created new operating workflows across teams and unlocked targeted GTM campaigns",
         "Led cross-functional working groups across Trading, Operations, Research, Technology, Client Service, Portfolio Management to design and launch mutual fund trading workflows, risk data integration, and custodian-specific controls for high-value opportunities, including a major financial institution's ~$40B MF market and another major partner's platform integration"
       ],
       "technologies": ["Python", "SQL", "Product Strategy", "Cross-functional Leadership"]
@@ -155,11 +155,11 @@
         "Implemented natural language intelligence with intent classification routing and conversation memory",
         "Architected hybrid AI system combining RAG retrieval, LLM reasoning, and deterministic calculations for grounded responses",
         "Built security guardrails including prompt injection protection and input/output sanitization",
-        "Achieved tangible business impact: projected to handle 3,500+ annual inquiries autonomously, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
+        "Achieved tangible business impact: projected to resolve 1,800+ client inquiries a year autonomously and save ~2,000 hours annually across teams, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
         "Implemented real-time WebSocket communication with automatic REST API fallback for reliability"
       ],
-      "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Manual research caused workflow disruptions, email chains with 1000s of messages, and delayed client onboarding.",
-      "impact": "Reduced research time from hours/days to seconds, enabled organic SMAP ecosystem retention, created visible client-facing innovation. Projected to handle 3,500+ annual inquiries autonomously.",
+      "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions over email and by manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the advisor's criteria, leaving Parametric's full offering catalog underused.",
+      "impact": "Unlocks Parametric's full offering catalog as a strategic advantage: grounded in Salesforce data, it matches advisor criteria to the best-fit solution rather than the familiar default. Reduced research time from hours/days to seconds; projected to resolve 1,800+ client inquiries a year autonomously, reduce internal email across teams, and save ~2,000 hours annually. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",
       "context": "Personal PoC (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)",
       "timeframe": "2025",
       "repo_url": "",
@@ -170,7 +170,7 @@
         "frontend": "Advisor natural language interface with WebSocket/REST communication and typing indicators",
         "backend": "FastAPI with Request Router, Intent Classification, Session Handler for context management",
         "ai_orchestration": "Function Calling Engine, OpenAI Responses API, RAG Pipeline (Pinecone + semantic embeddings)",
-        "data_layer": "Vector Store (Pinecone) with benchmark embeddings + JSON knowledge base",
+        "data_layer": "Salesforce as system of record, Vector Store (Pinecone) with benchmark embeddings + JSON knowledge base",
         "core_capabilities": [
           "Natural Language Intelligence - understands complex queries like 'S&P 500 but more ESG'",
           "Intent Classification Routing - sophisticated routing to appropriate functions",
