@@ -256,6 +256,21 @@
 
   "certifications": [
     {
+      "name": "Network Systems & Linux Networking",
+      "issuer": "University of Colorado Boulder",
+      "date": "Aug 2026",
+      "status": "Completed",
+      "credential_url": ""
+    },
+    {
+      "name": "Grokking the Fundamentals of System Design",
+      "issuer": "Educative",
+      "date": "Apr 2026",
+      "status": "Completed",
+      "credential_url": "https://www.linkedin.com/in/dakota-radigan/",
+      "credential_id": "UJEJLNJWM9"
+    },
+    {
       "name": "PCAP - Certified Associate Python Programmer",
       "issuer": "Python Institute",
       "date": "",
@@ -303,13 +318,6 @@
       "date": "",
       "status": "Completed",
       "credential_url": "https://verify.skilljar.com/c/tqnbno7y4bfc"
-    },
-    {
-      "name": "Grokking the Fundamentals of System Design",
-      "issuer": "Educative",
-      "date": "",
-      "status": "Completed",
-      "credential_url": "https://www.linkedin.com/in/dakota-radigan/"
     }
   ]
 }
