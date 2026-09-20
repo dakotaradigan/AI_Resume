@@ -10,7 +10,7 @@ from anthropic import AnthropicError
 from fastapi import APIRouter, Header, Request
 
 from app.dependencies import app_settings, rag_pipeline
-from app.llm import make_anthropic_client
+from app.llm import check_typesafe_credentials, make_anthropic_client, typesafe_http_client
 from app.security import require_admin
 
 logger = logging.getLogger(__name__)
@@ -126,6 +126,20 @@ async def models_health(
         except Exception as exc:  # pragma: no cover - unexpected transport errors
             results[env_name] = {
                 "model": model_id,
+                "status": "error",
+                "detail": f"{type(exc).__name__}: {exc}"[:300],
+            }
+    # Router credential. "unset" means the Claude classifier is routing and
+    # chat summaries will read "Haiku →" instead of "Jev →".
+    if not settings.typesafe_api_key:
+        results["TYPESAFE_API_KEY"] = {"model": settings.typesafe_model, "status": "unset"}
+    else:
+        try:
+            await check_typesafe_credentials(settings, typesafe_http_client())
+            results["TYPESAFE_API_KEY"] = {"model": settings.typesafe_model, "status": "ok"}
+        except Exception as exc:
+            results["TYPESAFE_API_KEY"] = {
+                "model": settings.typesafe_model,
                 "status": "error",
                 "detail": f"{type(exc).__name__}: {exc}"[:300],
             }
