@@ -42,7 +42,7 @@
       "type": "Full-time",
       "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
       "achievements": [
-        "Architected a RAG-based GenAI assistant grounded in Salesforce data that replaces manual email threads and multi-source lookups: projected to resolve ~3,500+ annual client inquiries autonomously, eliminate ~2,000 internal emails a year across teams, and match advisor criteria to the best-fit offering instead of defaulting to familiar products",
+        "Architected a RAG-based GenAI assistant grounded in Salesforce data that replaces manual email threads and multi-source lookups: projected to resolve ~3,500+ annual client inquiries autonomously, eliminate 1,700+ internal emails and save ~2,000 hours a year across multiple teams, and match advisor criteria to the best-fit offering instead of defaulting to familiar products",
         "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
@@ -158,8 +158,8 @@
         "Achieved tangible business impact: projected to handle 3,500+ annual inquiries autonomously, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
         "Implemented real-time WebSocket communication with automatic REST API fallback for reliability"
       ],
-      "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions by emailing each other (~2,000 internal emails a year) and manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the advisor's criteria.",
-      "impact": "Grounded in Salesforce data, so answers come from the system of record. Reduced research time from hours/days to seconds, projected to handle 3,500+ annual client inquiries autonomously and eliminate ~2,000 internal emails a year, and surfaces best-fit offerings against stated advisor criteria, broadening what gets recommended. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",
+      "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions by emailing each other (1,700+ internal emails a year) and manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the advisor's criteria.",
+      "impact": "Grounded in Salesforce data, so answers come from the system of record. Reduced research time from hours/days to seconds, projected to handle 3,500+ annual client inquiries autonomously eliminate 1,700+ internal emails and save ~2,000 hours a year across multiple teams, and surfaces best-fit offerings against stated advisor criteria, broadening what gets recommended. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",
       "context": "Personal PoC (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)",
       "timeframe": "2025",
       "repo_url": "",

@@ -41,7 +41,8 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 - **Time Savings**: Reduced advisor research from 30+ minutes to <5 seconds per query
 - **Scale**: Projected to autonomously handle 3,500+ annual email inquiries
 - **Response Time**: Client inquiries resolved in minutes instead of hours
-- **Internal Email Reduction**: Eliminates ~2,000 internal emails a year across teams that previously answered questions by hand
+- **Internal Email Reduction**: Eliminates 1,700+ internal emails a year across teams that previously answered questions by hand
+- **Hours Saved**: ~2,000 hours a year saved across multiple teams that no longer search several sources manually
 - **Better-Fit Recommendations**: Takes in advisor criteria and finds the best-fit offering, where teams historically defaulted to the products they already knew
 - **Innovation**: Visible client-facing AI capability demonstrating technical leadership
 - **Retention**: Enabled organic SMAP ecosystem retention through better service
