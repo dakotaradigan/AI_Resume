@@ -9,7 +9,7 @@
     "linkedin": "https://linkedin.com/in/dakota-radigan",
     "github": "https://github.com/dakotaradigan",
     "portfolio": "",
-    "summary": "AI Strategy, Senior Product Manager with 8+ years in Finance and 5+ years shipping data-driven investment solutions. Expert in validating client and operational pain points and translating them into functional specifications that drive measurable business impact. Combining deep investment operations knowledge with technical fluency (Python and AI) and a bias for action."
+    "summary": "Senior Product Manager focused on AI applications and investment platforms, with 8+ years in financial services and 5+ years delivering investment products. Combine product strategy and investment expertise with hands-on Python development to take solutions from problem discovery through implementation. Experience spans designing and building AI applications, launching investment products, delivering data integrations, and using product analytics to guide roadmap priorities."
   },
 
   "about": {
@@ -42,7 +42,8 @@
       "type": "Full-time",
       "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
       "achievements": [
-        "Architected a RAG-based GenAI assistant on Salesforce data that unlocks Parametric's full offering catalog as a strategic advantage, matching client criteria to the best-fit solution rather than the familiar default; projected to resolve 1,800+ client inquiries a year, reduce internal email across teams, and save ~2,000 hours annually",
+        "Designed and built a Python-based RAG assistant leveraging Salesforce data and internal business logic, owning product requirements, application architecture, retrieval logic, data preparation, and evaluations; partnered with engineering on code review and deployment.",
+        "Made Parametric’s full investment offering catalog more discoverable by matching client requirements to relevant solutions, broadening consideration beyond familiar products; projected to address 1,800+ inquiries and save approximately 2,000 hours annually.",
         "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
