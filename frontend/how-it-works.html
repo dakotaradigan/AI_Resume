@@ -70,7 +70,7 @@
         <rect x="60" y="114" width="240" height="72" rx="10" class="hiw-box"/>
         <text x="180" y="142" text-anchor="middle" class="hiw-label">FastAPI gateway</text>
         <text x="180" y="160" text-anchor="middle" class="hiw-sublabel">guardrails · quotas · model router</text>
-        <text x="180" y="176" text-anchor="middle" class="hiw-sublabel">Haiku classifier picks the model</text>
+        <text x="180" y="176" text-anchor="middle" class="hiw-sublabel">Jev (TypeSafe) picks the model</text>
 
         <line x1="120" y1="186" x2="95" y2="240" class="hiw-line" marker-end="url(#arrow)"/>
         <line x1="240" y1="186" x2="265" y2="240" class="hiw-line" marker-end="url(#arrow)"/>
@@ -105,9 +105,9 @@
     <section class="hiw-section">
       <div class="section-header"><h2 class="section-title">Streaming &amp; model routing</h2></div>
       <p>Every chat is a real server-sent-event stream: the browser shows retrieval status, then tokens as Claude produces them. What you see in the status steps is what actually happened — a cached answer says "answered from cache," it doesn't fake a search.</p>
-      <p>A small Haiku classifier (4 output tokens, 2-second timeout) routes each question: simple factual lookups go to Sonnet, synthesis and comparisons go to Opus, and any router failure fails safe to the most capable model. Routing runs concurrently with retrieval, so it adds no time to first token.</p>
+      <p>Routing is a typed decision, not a generated one. Each question goes to <a href="https://typesafe.ai" target="_blank" rel="noopener">Jev</a>, TypeSafe's System One model, with one multiple-choice question: does this need a direct lookup or synthesis across the resume? Jev returns a label plus a confidence score in a single sub-second pass, with no text to parse. Simple lookups go to Sonnet, synthesis and comparisons go to Opus, and a low-confidence or failed classification fails safe to the most capable model. Routing runs concurrently with retrieval, so it adds no time to first token.</p>
       <pre class="hiw-pre">event: status   {"stage": "rag_search", "state": "done", "sources": [...]}
-event: status   {"stage": "routing", "state": "done", "model": "sonnet"}
+event: status   {"stage": "routing", "state": "done", "model": "Sonnet", "router": "Jev"}
 event: delta    {"text": "Dakota is PCAP-certified and uses Python in"}
 event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
     </section>

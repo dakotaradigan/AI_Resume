@@ -165,6 +165,18 @@ async def classify_with_typesafe(
     return label, float(answer["confidence"])
 
 
+async def check_typesafe_credentials(
+    settings: Settings, http: httpx.AsyncClient
+) -> None:
+    """Raise if the TypeSafe key cannot list models (no tokens spent)."""
+    response = await http.get(
+        f"{settings.typesafe_base_url.rstrip('/')}/v1/models",
+        headers={"Authorization": f"Bearer {settings.typesafe_api_key}"},
+        timeout=5.0,
+    )
+    response.raise_for_status()
+
+
 _typesafe_http: httpx.AsyncClient | None = None
 
 
@@ -185,11 +197,11 @@ async def route_model(
     """Pick the generation model for this turn. Returns (model_id, reason).
 
     Uses TypeSafe Jev when TYPESAFE_API_KEY is set, else the Claude classifier.
+    Jev is cheap and sub-second, so it judges every message; the rule-based
+    fast path only exists to spare the Claude classifier a model call.
     Fails safe: any classifier error routes to the primary (most capable)
     model, bounded by the existing rate and daily limits.
     """
-    if is_fast_path_simple(message):
-        return settings.anthropic_model_simple, "fast-path"
     if settings.typesafe_api_key:
         try:
             label, confidence = await classify_with_typesafe(
@@ -203,6 +215,8 @@ async def route_model(
         if label == "simple":
             return settings.anthropic_model_simple, "simple"
         return settings.anthropic_model, "complex"
+    if is_fast_path_simple(message):
+        return settings.anthropic_model_simple, "fast-path"
     try:
         response = await asyncio.wait_for(
             client.messages.create(

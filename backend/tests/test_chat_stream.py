@@ -22,6 +22,7 @@ from app import chat_service, content, llm, session_store
 from app import main as app_main
 from app.config import Settings
 from app.constants import GENERIC_CHAT_ERROR
+from app.routes import health as health_route
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -539,6 +540,7 @@ def typesafe_settings() -> Settings:
         anthropic_router_model="test-router",
         typesafe_api_key="test-typesafe-key",
         typesafe_base_url="https://typesafe.test",
+        admin_token="test-admin-token",
         use_rag=False,
     )
 
@@ -614,16 +616,25 @@ class TestTypeSafeRouter(unittest.TestCase):
         )
         self.assertEqual((model, reason), ("test-opus", "router-error"))
 
-    def test_fast_path_skips_typesafe(self) -> None:
-        def handler(_: httpx.Request) -> httpx.Response:
-            raise AssertionError("TypeSafe must not be called on the fast path")
-
+    def test_short_messages_still_go_to_typesafe(self) -> None:
+        """No rule-based fast path when Jev is configured: it judges every turn."""
         model, reason = asyncio.run(
             llm.route_model(
-                SIMPLE_MESSAGE, None, typesafe_settings(), http=typesafe_http(handler)
+                SIMPLE_MESSAGE,
+                None,
+                typesafe_settings(),
+                http=typesafe_http(
+                    lambda _: httpx.Response(200, json=typesafe_answer("simple", 0.9))
+                ),
             )
         )
+        self.assertEqual((model, reason), ("test-sonnet", "simple"))
+
+    def test_fast_path_still_spares_claude_classifier(self) -> None:
+        client = SimpleNamespace(messages=FakeStreamingMessages([], router_raises=True))
+        model, reason = asyncio.run(llm.route_model(SIMPLE_MESSAGE, client, make_settings()))
         self.assertEqual((model, reason), ("test-sonnet", "fast-path"))
+        self.assertEqual(client.messages.create_calls, [])
 
     def test_claude_classifier_still_used_without_typesafe_key(self) -> None:
         settings = make_settings()
@@ -718,6 +729,33 @@ class TestModelsHealth(ChatStreamTestCase):
         self.assertEqual(data["ANTHROPIC_ROUTER_MODEL"]["status"], "ok")
         self.assertEqual(data["ANTHROPIC_MODEL_SIMPLE"]["status"], "error")
         self.assertIn("not available", data["ANTHROPIC_MODEL_SIMPLE"]["detail"])
+        self.assertEqual(data["TYPESAFE_API_KEY"]["status"], "unset")
+
+    def test_reports_typesafe_credential_check(self) -> None:
+        class FakeModelsAPI:
+            async def retrieve(self, model_id):
+                return SimpleNamespace(id=model_id)
+
+        FakeAnthropic.messages_api = FakeStreamingMessages(["x"])
+        FakeAnthropic.models_api = FakeModelsAPI()
+        self.addCleanup(lambda: setattr(FakeAnthropic, "models_api", None))
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(401, json={"error": "invalid key"})
+
+        with patch.object(health_route, "typesafe_http_client", lambda: typesafe_http(handler)):
+            with self.build_client(typesafe_settings()) as client:
+                response = client.get(
+                    "/health/models", headers={"X-Admin-Token": "test-admin-token"}
+                )
+
+        self.assertEqual(response.status_code, 200)
+        row = response.json()["TYPESAFE_API_KEY"]
+        self.assertEqual(row["status"], "error")
+        self.assertIn("401", row["detail"])
+        self.assertEqual(str(seen[0].url), "https://typesafe.test/v1/models")
 
 
 class TestFollowupsSplit(unittest.TestCase):
