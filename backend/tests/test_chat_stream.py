@@ -20,9 +20,9 @@ os.environ["USE_RAG"] = "false"
 from anthropic import AnthropicError
 from app import chat_service, content, llm, session_store
 from app import main as app_main
-from app.routes import health as health_route
 from app.config import Settings
 from app.constants import GENERIC_CHAT_ERROR
+from app.routes import health as health_route
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
