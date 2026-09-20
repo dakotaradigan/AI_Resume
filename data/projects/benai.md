@@ -43,7 +43,7 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 - **Response Time**: Client inquiries resolved in minutes instead of hours
 - **Internal Email Reduction**: Reduces internal email across teams that previously answered questions by hand
 - **Hours Saved**: ~2,000 hours a year saved across multiple teams that no longer search several sources manually
-- **Catalog as Strategic Advantage**: Matches advisor criteria to the best-fit solution rather than the familiar default, unlocking Parametric's full offering catalog that teams historically underused
+- **Catalog as Strategic Advantage**: Matches client criteria to the best-fit solution rather than the familiar default, unlocking Parametric's full offering catalog that teams historically underused
 - **Innovation**: Visible client-facing AI capability demonstrating technical leadership
 - **Retention**: Enabled organic SMAP ecosystem retention through better service
 

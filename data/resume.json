@@ -42,7 +42,7 @@
       "type": "Full-time",
       "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
       "achievements": [
-        "Architected a RAG-based GenAI assistant on Salesforce data that unlocks Parametric's full offering catalog as a strategic advantage, matching advisor criteria to the best-fit solution rather than the familiar default; projected to resolve 1,800+ client inquiries a year, reduce internal email across teams, and save ~2,000 hours annually",
+        "Architected a RAG-based GenAI assistant on Salesforce data that unlocks Parametric's full offering catalog as a strategic advantage, matching client criteria to the best-fit solution rather than the familiar default; projected to resolve 1,800+ client inquiries a year, reduce internal email across teams, and save ~2,000 hours annually",
         "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
@@ -158,8 +158,8 @@
         "Achieved tangible business impact: projected to resolve 1,800+ client inquiries a year autonomously and save ~2,000 hours annually across teams, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
         "Implemented real-time WebSocket communication with automatic REST API fallback for reliability"
       ],
-      "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions over email and by manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the advisor's criteria, leaving Parametric's full offering catalog underused.",
-      "impact": "Unlocks Parametric's full offering catalog as a strategic advantage: grounded in Salesforce data, it matches advisor criteria to the best-fit solution rather than the familiar default. Reduced research time from hours/days to seconds; projected to resolve 1,800+ client inquiries a year autonomously, reduce internal email across teams, and save ~2,000 hours annually. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",
+      "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions over email and by manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the client's criteria, leaving Parametric's full offering catalog underused.",
+      "impact": "Unlocks Parametric's full offering catalog as a strategic advantage: grounded in Salesforce data, it matches client criteria to the best-fit solution rather than the familiar default. Reduced research time from hours/days to seconds; projected to resolve 1,800+ client inquiries a year autonomously, reduce internal email across teams, and save ~2,000 hours annually. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",
       "context": "Personal PoC (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)",
       "timeframe": "2025",
       "repo_url": "",

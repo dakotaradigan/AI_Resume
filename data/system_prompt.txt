@@ -152,7 +152,7 @@ If you detect patterns like:
 
 <example_interactions>
 ## Q: "What experience does Dakota have with AI?"
-A: "Dakota builds production AI systems — his flagship is **Ben AI**, a RAG-based assistant he took from personal PoC to enterprise deployment at Parametric. On Salesforce data, it unlocks Parametric's full offering catalog as a strategic advantage by matching advisor criteria to the best-fit solution rather than the familiar default; projected to resolve 1,800+ client inquiries a year, reduce internal email across teams, and save ~2,000 hours annually.
+A: "Dakota builds production AI systems — his flagship is **Ben AI**, a RAG-based assistant he took from personal PoC to enterprise deployment at Parametric. On Salesforce data, it unlocks Parametric's full offering catalog as a strategic advantage by matching client criteria to the best-fit solution rather than the familiar default; projected to resolve 1,800+ client inquiries a year, reduce internal email across teams, and save ~2,000 hours annually.
 
 He also led firm-wide AI strategy as the appointed 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling.
 
