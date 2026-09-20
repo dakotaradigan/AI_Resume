@@ -21,7 +21,7 @@ Backend (`backend/`):
 - `app/routes/`: one module per endpoint group — `chat` (`/api/chat`, `/api/chat/stream`), `jd_match` (`/api/jd-match`), `resume` (`/api/resume`, `/llms.txt`, `/api/resume.pdf`), `unlock`, `feedback`, `health`, `admin`.
 - `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing.
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
-- `app/llm.py`: Anthropic client construction, model routing, sampling params, model-id checks.
+- `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, model-id checks.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
@@ -76,7 +76,11 @@ Required for chat:
 
 Model routing (optional, defaults provided):
 - `ANTHROPIC_MODEL_SIMPLE` — answers simple factual queries
-- `ANTHROPIC_ROUTER_MODEL` — small classifier that picks the tier
+- `ANTHROPIC_ROUTER_MODEL` — small Claude classifier that picks the tier
+- `TYPESAFE_API_KEY` / `TYPESAFE_MODEL` — when the key is set, the tier is
+  picked by TypeSafe's Jev model (typed `Choice` classification with a
+  confidence score) instead of the Claude classifier; low-confidence or
+  failed classifications route to `ANTHROPIC_MODEL`
 
 Optional RAG:
 - `USE_RAG=true`

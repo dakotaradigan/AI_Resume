@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 from fastapi.testclient import TestClient
 
 # Prevent importing app.main from initializing an external RAG connection.
@@ -224,6 +225,7 @@ class TestEventOrdering(ChatStreamTestCase):
 
         routing = next(d for name, d in events if name == "status" and d["stage"] == "routing")
         self.assertEqual(routing["reason"], "fast-path")
+        self.assertEqual(routing["router"], "Rules")
         self.assertEqual(routing["model"], "Sonnet")
         # Classifier never called on the fast path
         self.assertEqual(FakeAnthropic.messages_api.create_calls, [])
@@ -240,6 +242,7 @@ class TestEventOrdering(ChatStreamTestCase):
 
         routing = next(d for name, d in events if name == "status" and d["stage"] == "routing")
         self.assertEqual(routing["reason"], "complex")
+        self.assertEqual(routing["router"], "test-router")
         self.assertEqual(len(FakeAnthropic.messages_api.create_calls), 1)
         self.assertEqual(
             FakeAnthropic.messages_api.create_calls[0]["model"], "test-router"
@@ -523,6 +526,120 @@ class TestRouterUnits(unittest.TestCase):
         )
         self.assertEqual(model, "test-sonnet")
         self.assertEqual(reason, "simple")
+
+
+def typesafe_settings() -> Settings:
+    return Settings(
+        anthropic_api_key="test-anthropic-key",
+        anthropic_model="test-opus",
+        anthropic_max_tokens=256,
+        environment="test",
+        data_dir=DATA_DIR,
+        anthropic_model_simple="test-sonnet",
+        anthropic_router_model="test-router",
+        typesafe_api_key="test-typesafe-key",
+        typesafe_base_url="https://typesafe.test",
+        use_rag=False,
+    )
+
+
+def typesafe_http(handler) -> httpx.AsyncClient:
+    """httpx client whose transport is an in-process handler — no network."""
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+def typesafe_answer(choice: str, confidence: float) -> dict:
+    return {
+        "model": "jev-latest",
+        "answers": {
+            "model_route": {
+                "type": "choice",
+                "choice": choice,
+                "probabilities": {"simple": 0.5, "complex": 0.5},
+                "confidence": confidence,
+            }
+        },
+    }
+
+
+class TestTypeSafeRouter(unittest.TestCase):
+    def route(self, handler) -> tuple[str, str]:
+        client = SimpleNamespace(messages=FakeStreamingMessages([], router_raises=True))
+        return asyncio.run(
+            llm.route_model(
+                COMPLEX_MESSAGE, client, typesafe_settings(), http=typesafe_http(handler)
+            )
+        )
+
+    def test_sends_typed_choice_question_with_bearer_auth(self) -> None:
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(200, json=typesafe_answer("complex", 0.9))
+
+        model, reason = self.route(handler)
+
+        self.assertEqual((model, reason), ("test-opus", "complex"))
+        request = seen[0]
+        self.assertEqual(str(request.url), "https://typesafe.test/v1/systemone")
+        self.assertEqual(request.headers["authorization"], "Bearer test-typesafe-key")
+        body = json.loads(request.content)
+        self.assertEqual(body["state"], {"visitor_question": COMPLEX_MESSAGE})
+        self.assertEqual(body["model"], "jev-latest")
+        question = body["questions"]["model_route"]
+        self.assertEqual(question["type"], "choice")
+        self.assertEqual(set(question["criteria"]), {"simple", "complex"})
+        self.assertIn("visitor_question", question["instructions"])
+
+    def test_confident_simple_label_routes_to_simple_model(self) -> None:
+        model, reason = self.route(
+            lambda _: httpx.Response(200, json=typesafe_answer("simple", 0.85))
+        )
+        self.assertEqual((model, reason), ("test-sonnet", "simple"))
+
+    def test_low_confidence_fails_safe_to_primary_model(self) -> None:
+        model, reason = self.route(
+            lambda _: httpx.Response(200, json=typesafe_answer("simple", 0.4))
+        )
+        self.assertEqual((model, reason), ("test-opus", "low-confidence"))
+
+    def test_http_error_fails_safe_to_primary_model(self) -> None:
+        model, reason = self.route(lambda _: httpx.Response(503, json={}))
+        self.assertEqual((model, reason), ("test-opus", "router-error"))
+
+    def test_unknown_label_fails_safe_to_primary_model(self) -> None:
+        model, reason = self.route(
+            lambda _: httpx.Response(200, json=typesafe_answer("other", 0.99))
+        )
+        self.assertEqual((model, reason), ("test-opus", "router-error"))
+
+    def test_fast_path_skips_typesafe(self) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            raise AssertionError("TypeSafe must not be called on the fast path")
+
+        model, reason = asyncio.run(
+            llm.route_model(
+                SIMPLE_MESSAGE, None, typesafe_settings(), http=typesafe_http(handler)
+            )
+        )
+        self.assertEqual((model, reason), ("test-sonnet", "fast-path"))
+
+    def test_claude_classifier_still_used_without_typesafe_key(self) -> None:
+        settings = make_settings()
+        self.assertEqual(settings.typesafe_api_key, "")
+        client = SimpleNamespace(messages=FakeStreamingMessages([], router_label="simple"))
+        model, reason = asyncio.run(llm.route_model(COMPLEX_MESSAGE, client, settings))
+        self.assertEqual((model, reason), ("test-sonnet", "simple"))
+
+
+class TestRouterLabel(unittest.TestCase):
+    def test_labels_each_routing_source(self) -> None:
+        self.assertEqual(llm.router_short_label("simple", typesafe_settings()), "Jev")
+        self.assertEqual(llm.router_short_label("low-confidence", typesafe_settings()), "Jev")
+        self.assertEqual(llm.router_short_label("complex", make_settings()), "test-router")
+        self.assertEqual(llm.router_short_label("fast-path", typesafe_settings()), "Rules")
+        self.assertEqual(llm.router_short_label("router-error", typesafe_settings()), "Fallback")
 
 
 class TestSamplingParams(unittest.TestCase):
