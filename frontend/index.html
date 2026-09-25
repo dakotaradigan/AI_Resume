@@ -33,6 +33,10 @@
   <main class="layout">
     <div class="photo-stage">
     <section id="home" class="hero">
+      <div id="hero-portrait" class="hero-portrait" role="img" aria-label="Portrait of Dakota Radigan" aria-describedby="portrait-help" tabindex="0">
+        <img class="hero-portrait-poses" src="./portrait-poses.webp" width="1254" height="1254" alt="" aria-hidden="true" fetchpriority="high" draggable="false" />
+      </div>
+      <span id="portrait-help" class="sr-only">Move your mouse or drag across the portrait to turn Dakota's head. When focused, use the arrow keys; Home returns to center. Reduced motion keeps the portrait still.</span>
       <div class="hero-kicker">AI STRATEGY, SENIOR PRODUCT MANAGER @ MORGAN STANLEY</div>
       <h1 id="hero-name" class="hero-name">Dakota Radigan</h1>
       <p id="hero-tagline" class="hero-tagline">
@@ -312,6 +316,7 @@
     </form>
   </dialog>
 
+  <script src="./portrait.js" defer></script>
   <script src="./vendor/thinking-orbs.js"></script>
   <script src="./thinking-orb.js"></script>
   <script src="./app.js"></script>

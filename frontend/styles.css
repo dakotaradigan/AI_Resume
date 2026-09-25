@@ -275,7 +275,39 @@ section[id],
   position: relative;
   overflow: visible;
   width: 100%;
-  padding: 152px 16px 12px;
+  padding: 116px 16px 12px;
+}
+
+.hero-portrait {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(144px, 17vw, 184px);
+  aspect-ratio: 1;
+  margin-bottom: 24px;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  touch-action: none;
+}
+
+.hero-portrait:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 5px;
+}
+
+/* Center cell is visible before JavaScript runs, including file previews. */
+.hero-portrait-poses {
+  position: absolute;
+  display: block;
+  width: 300%;
+  height: 300%;
+  max-width: none;
+  left: -100%;
+  top: -100%;
+  pointer-events: none;
+  user-select: none;
 }
 
 .hero-kicker {
