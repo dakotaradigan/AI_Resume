@@ -22,6 +22,7 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 - Model router: a Haiku classifier sends simple lookups to Sonnet 5, synthesis to Opus 4.8, with fail-safe fallback
 - Hybrid retrieval: dense vectors + in-process BM25 fused with reciprocal rank fusion, measured against an owner-approved golden dataset
 - Recruiter tools: job-description fit analysis, screening briefs, password-gated PDF download
+- Requirement map: Jev (TypeSafe) scores every requirement in a pasted JD against the résumé in one typed pass; the page regroups and re-sorts the probabilities without another model call
 - Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with a data-only `get_resume` tool
 - Hardened: strict CSP, server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
 - Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test gate, Docker deploy

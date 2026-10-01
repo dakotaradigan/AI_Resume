@@ -118,6 +118,15 @@ event: delta    {"text": "Dakota is PCAP-certified and uses Python in"}
 event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
     </section>
 
+    <section class="hiw-section" id="requirement-map">
+      <h2 class="hiw-section-title">Requirement map: judgments as data</h2>
+      <p>A pasted job description gets two answers at once. Claude writes the fit analysis in prose. In parallel, Jev receives the résumé and every candidate line of the posting in one request and answers two typed questions per line: is this a requirement at all, and how well does the résumé document it, on four ordered levels from "not documented" to "strong".</p>
+      <p>Jev returns a probability for each level rather than a sentence, so the page can do the rest without another model call: mark your must-haves and the map regroups; sort by evidence and it re-orders. Re-weighting is arithmetic on judgments that already exist. "Not documented" means the résumé is silent, which is a question for Dakota, not a verdict.</p>
+      <pre class="hiw-pre">{"type": "score", "score": 2.71, "confidence": 0.82,
+ "probabilities": {"0": 0.02, "1": 0.05, "2": 0.13, "3": 0.80},
+ "legend": {"0": "Not documented", "1": "Adjacent", "2": "Partial", "3": "Strong"}}</pre>
+    </section>
+
     <section class="hiw-section">
       <h2 class="hiw-section-title">How it finds the right context</h2>
       <p>When someone asks a question, the assistant searches my resume and project notes in two ways: one looks for the exact words they used, and the other looks for ideas with a similar meaning. It combines the best matches and gives Claude the most relevant context before it answers.</p>

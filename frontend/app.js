@@ -1097,6 +1097,7 @@ async function streamChat(url, body, handlers) {
     else if (eventName === "status") handlers.onStatus?.(data);
     else if (eventName === "delta") handlers.onDelta?.(data);
     else if (eventName === "done") handlers.onDone?.(data);
+    else if (eventName === "fitmap") handlers.onFitMap?.(data);
     else if (eventName === "error") handlers.onError?.(data);
   };
 
@@ -1850,6 +1851,9 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
 
   const steps = createStatusSteps(streamHost, "solving");
   steps.addStep("Loading Dakota's full resume...");
+  // Jev's requirement map arrives on its own event, usually while the prose
+  // is still streaming; it is rendered once the analysis is final.
+  let fitMapData = null;
 
   let accumulated = "";
   let answerDiv = null;
@@ -1892,6 +1896,11 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
           } else if (data.stage === "generation" && data.state === "start") {
             steps.addStep(mode === "brief" ? "Writing screening brief..." : "Writing fit analysis...");
           }
+        },
+        onFitMap(data) {
+          fitMapData = data;
+          const count = safeArray(data?.requirements).length;
+          steps.addStep(`Jev scored ${count} requirement${count === 1 ? "" : "s"} against the résumé`);
         },
         onDelta(data) {
           ensureAnswerDiv();
@@ -1940,8 +1949,10 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
     if (mode === "analysis") {
       jdAnalysisMarkdown = String(finalData.reply || "");
       analysisDone = true;
+      const fitMap = fitMapData ? renderFitMap(fitMapData) : null;
+      if (fitMap) msgBody.append(fitMap);
       renderJDActions(msgBody);
-      announceJD("Fit analysis ready.");
+      announceJD(fitMap ? "Fit analysis and requirement map ready." : "Fit analysis ready.");
     } else {
       const briefMarkdown = String(finalData.reply || "");
       streamHost.append(
@@ -2013,6 +2024,183 @@ function renderJDInterstitial(text) {
   }
   // The interstitial consumes no quota and sends nothing until a choice is made.
   requestScrollToBottom();
+}
+
+// ===== Requirement map (Jev) =====
+// Jev scores every requirement in the pasted description against the résumé
+// in one typed pass and returns a probability for each evidence level. The
+// answers are data, so the map regroups (must-haves first) and re-sorts (by
+// evidence) right here, without asking the model again.
+let fitMapCount = 0;
+
+function percentLabel(probability) {
+  return `${Math.round(probability * 100)}%`;
+}
+
+function renderFitMap(data) {
+  const levels = safeArray(data?.levels).map((label) => String(label || ""));
+  const rows = safeArray(data?.requirements)
+    .filter((item) => item && typeof item.text === "string" && item.text.trim())
+    .map((item, index) => {
+      const probabilities = levels.map((_, level) => {
+        const p = Number(safeArray(item.probabilities)[level]);
+        return Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
+      });
+      const level = Math.min(levels.length - 1, Math.max(0, Number(item.level) || 0));
+      return {
+        index,
+        text: item.text.trim(),
+        level,
+        probabilities,
+        expected: Number.isFinite(Number(item.expected)) ? Number(item.expected) : level,
+        mustHave: false,
+        el: null,
+      };
+    });
+  if (levels.length < 2 || rows.length < 2) return null;
+
+  const mapId = ++fitMapCount;
+  const state = { sortByEvidence: false };
+  const section = el("section", { class: "fit-map", "aria-label": "Requirement map" });
+
+  const sortButton = el("button", {
+    class: "fit-map-tool",
+    type: "button",
+    "aria-pressed": "false",
+    text: "Sort by evidence",
+  });
+  sortButton.addEventListener("click", () => {
+    state.sortByEvidence = !state.sortByEvidence;
+    sortButton.setAttribute("aria-pressed", String(state.sortByEvidence));
+    render();
+  });
+  section.append(
+    el("div", { class: "fit-map-head" }, [
+      el("div", { class: "fit-map-heading" }, [
+        el("span", { class: "fit-map-kicker", text: "Requirement map" }),
+        el("span", {
+          class: "fit-map-meta",
+          text: `Judged by Jev · ${rows.length} requirements found in the description`,
+        }),
+      ]),
+      sortButton,
+    ])
+  );
+
+  const summary = el("p", { class: "fit-map-summary", "aria-live": "polite" });
+  section.append(summary);
+
+  // One hue, light to dark: the legend names every step the bars use.
+  section.append(
+    el(
+      "div",
+      { class: "fit-map-legend", "aria-label": "Evidence levels, weakest to strongest" },
+      levels.map((label, level) => el("span", { class: "fit-legend-item" }, [
+        el("span", { class: "fit-swatch", "data-level": String(level), "aria-hidden": "true" }),
+        el("span", { text: label }),
+      ]))
+    )
+  );
+
+  const list = el("div", { class: "fit-map-rows", role: "list" });
+  section.append(list);
+
+  // Rows are built once; render() only reorders and restyles them, so the
+  // toggle the visitor just pressed keeps its identity (and focus).
+  rows.forEach((row) => {
+    const descriptionId = `fit-map-${mapId}-row-${row.index}`;
+    const toggle = el("button", {
+      class: "fit-musthave",
+      type: "button",
+      "aria-pressed": "false",
+      "aria-describedby": descriptionId,
+      text: "Must-have",
+    });
+    toggle.addEventListener("click", () => {
+      row.mustHave = !row.mustHave;
+      toggle.setAttribute("aria-pressed", String(row.mustHave));
+      render();
+      toggle.focus({ preventScroll: true });
+    });
+
+    const bar = el(
+      "div",
+      { class: "fit-bar", "aria-hidden": "true" },
+      row.probabilities.map((probability, level) => {
+        const segment = el("span", {
+          class: "fit-seg",
+          "data-level": String(level),
+          title: `${levels[level]} · ${percentLabel(probability)}`,
+        });
+        segment.style.flexGrow = String(Math.max(probability, 0.001));
+        return segment;
+      })
+    );
+    const distribution = row.probabilities
+      .map((probability, level) => `${levels[level]} ${percentLabel(probability)}`)
+      .join(", ");
+
+    row.el = el("div", { class: "fit-row", role: "listitem" }, [
+      toggle,
+      el("div", { class: "fit-row-main" }, [
+        el("p", { class: "fit-row-text", text: row.text }),
+        bar,
+        el("span", { class: "sr-only", id: descriptionId, text: `Evidence: ${distribution}.` }),
+      ]),
+      el("span", { class: "fit-level" }, [
+        el("span", { class: "fit-swatch", "data-level": String(row.level), "aria-hidden": "true" }),
+        el("span", {
+          text: `${levels[row.level]} · ${percentLabel(row.probabilities[row.level])}`,
+        }),
+      ]),
+    ]);
+  });
+
+  function ordered(group) {
+    const copy = [...group];
+    if (state.sortByEvidence) {
+      copy.sort((a, b) => b.expected - a.expected || a.index - b.index);
+    } else {
+      copy.sort((a, b) => a.index - b.index);
+    }
+    return copy;
+  }
+
+  // "2 strong · 1 partial · 1 not documented", strongest first.
+  function tally(group) {
+    const counts = levels.map(() => 0);
+    group.forEach((row) => { counts[row.level] += 1; });
+    return counts
+      .map((count, level) => (count ? `${count} ${levels[level].toLowerCase()}` : null))
+      .filter(Boolean)
+      .reverse()
+      .join(" · ");
+  }
+
+  function render() {
+    const mustHaves = rows.filter((row) => row.mustHave);
+    const others = rows.filter((row) => !row.mustHave);
+    [...ordered(mustHaves), ...ordered(others)].forEach((row) => {
+      row.el.classList.toggle("is-must", row.mustHave);
+      list.append(row.el);
+    });
+    summary.textContent = mustHaves.length
+      ? `Must-haves: ${tally(mustHaves)}${others.length ? ` · Others: ${tally(others)}` : ""}`
+      : `All ${rows.length} requirements: ${tally(rows)}. Mark your must-haves to regroup.`;
+  }
+  render();
+
+  section.append(
+    el("p", {
+      class: "fit-map-note",
+      text:
+        "Jev scored each requirement against the résumé in one pass: a probability for " +
+        "every level, no prose. Bars show the whole distribution; the label is the most " +
+        "likely level. “Not documented” means the résumé is silent, not that the " +
+        "experience is missing. Worth asking Dakota directly.",
+    })
+  );
+  return section;
 }
 
 // --- Resume PDF download (password-gated; unlocked with the chat password) ---

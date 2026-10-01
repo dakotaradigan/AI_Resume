@@ -29,6 +29,14 @@
   --hairline-on-dark-strong: rgba(255, 255, 255, 0.28);
   --wash-rgb: 11, 19, 40;
 
+  /* Requirement map: one steel hue, light to dark, for the four evidence
+     levels (validated as an ordinal ramp: monotone, visible steps, the light
+     end still 2.4:1 on white). */
+  --fit-0: #86abd3;
+  --fit-1: #6690bf;
+  --fit-2: #4874a7;
+  --fit-3: #2f5a87;
+
   /* The resume drawer's paper */
   --paper: #fbfaf7;
   --paper-ink: #1d2433;
@@ -1378,6 +1386,189 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
   letter-spacing: -0.01em;
 }
 
+/* Requirement map: Jev's per-requirement evidence inside the analysis
+   bubble. Bars are 100%-stacked distributions over the four levels; the
+   label beside each row names the most likely level. */
+.fit-map {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(11, 19, 40, 0.1);
+}
+
+.fit-map-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.fit-map-heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fit-map-kicker {
+  color: var(--label);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.fit-map-meta {
+  color: var(--label);
+  font-size: 12.5px;
+}
+
+.fit-map-tool {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid rgba(11, 19, 40, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.fit-map-tool:hover { border-color: var(--ink); }
+.fit-map-tool[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+
+.fit-map-summary {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.fit-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 12px;
+  color: var(--label);
+  font-size: 12px;
+}
+
+.fit-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fit-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--fit-0);
+}
+
+.fit-swatch[data-level="1"],
+.fit-seg[data-level="1"] { background: var(--fit-1); }
+.fit-swatch[data-level="2"],
+.fit-seg[data-level="2"] { background: var(--fit-2); }
+.fit-swatch[data-level="3"],
+.fit-seg[data-level="3"] { background: var(--fit-3); }
+
+.fit-map-rows {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+  border-top: 1px solid rgba(11, 19, 40, 0.1);
+}
+
+.fit-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "toggle main level";
+  align-items: start;
+  gap: 8px 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(11, 19, 40, 0.08);
+}
+
+.fit-musthave {
+  grid-area: toggle;
+  margin-top: 1px;
+  padding: 5px 10px;
+  border: 1px solid rgba(11, 19, 40, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--label);
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.fit-musthave:hover { border-color: var(--ink); color: var(--ink); }
+.fit-musthave[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+
+.fit-row-main {
+  grid-area: main;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fit-row-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.fit-row.is-must .fit-row-text { font-weight: 500; }
+
+/* A thin 100%-stacked bar: 2px surface gaps separate the segments, the
+   ends are rounded, nothing is drawn around a mark. */
+.fit-bar {
+  display: flex;
+  height: 8px;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.fit-seg {
+  flex: 0 1 auto;
+  min-width: 0;
+  background: var(--fit-0);
+}
+
+.fit-level {
+  grid-area: level;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fit-map-note {
+  margin: 14px 0 0;
+  color: var(--label);
+  font-size: 12px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
 /* ===== Resume drawer ===== */
 .resume-tab {
   position: fixed;
@@ -1997,6 +2188,12 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
   .chat-suggestions .chips .chip,
   .msg-followups .chips .chip { flex: 0 0 auto; white-space: nowrap; }
   .jd-actions .chip { width: 100%; justify-content: center; text-align: center; }
+  .fit-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "main main" "toggle level";
+    align-items: center;
+  }
+  .fit-level { justify-self: end; margin-top: 0; }
   .hood-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .paper-head { align-items: flex-start; }
   .paper-photo::before { width: 64px; height: 64px; }
