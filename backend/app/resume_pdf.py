@@ -9,10 +9,12 @@ from typing import Any
 from app.constants import SITE_URL
 from app.content import load_resume_json_public
 
-# PDF palette: print-friendly values of the site's light-theme tokens.
-_PDF_TEXT = "#232830"
-_PDF_MUTED = "#6b7280"
-_PDF_ACCENT = "#b3641a"
+# PDF palette: print-friendly values of the site's tokens (navy ink, slate
+# muted text, steel accent, hairline rules).
+_PDF_TEXT = "#0b1328"
+_PDF_MUTED = "#52606f"
+_PDF_ACCENT = "#35618e"
+_PDF_RULE = "#d4d8e0"
 
 
 @lru_cache(maxsize=1)
@@ -46,7 +48,7 @@ def render_resume_pdf() -> bytes:
         )
 
     name_style = ParagraphStyle(
-        "name", fontName="Helvetica-Bold", fontSize=21, leading=25,
+        "name", fontName="Helvetica", fontSize=24, leading=28,
         textColor=colors.HexColor(_PDF_TEXT), alignment=TA_LEFT,
     )
     contact_style = ParagraphStyle(
@@ -54,8 +56,8 @@ def render_resume_pdf() -> bytes:
         textColor=colors.HexColor(_PDF_MUTED),
     )
     section_style = ParagraphStyle(
-        "section", fontName="Helvetica-Bold", fontSize=10.5, leading=13,
-        textColor=colors.HexColor(_PDF_ACCENT), spaceBefore=10, spaceAfter=2,
+        "section", fontName="Helvetica-Bold", fontSize=8.5, leading=11,
+        textColor=colors.HexColor(_PDF_MUTED), spaceBefore=12, spaceAfter=2,
     )
     role_style = ParagraphStyle(
         "role", fontName="Helvetica-Bold", fontSize=10, leading=13,
@@ -88,7 +90,7 @@ def render_resume_pdf() -> bytes:
     def section(title: str) -> None:
         story.append(Paragraph(title.upper(), section_style))
         story.append(
-            HRFlowable(width="100%", thickness=0.7, color=colors.HexColor(_PDF_ACCENT))
+            HRFlowable(width="100%", thickness=0.6, color=colors.HexColor(_PDF_RULE))
         )
         story.append(Spacer(1, 3))
 

@@ -24,7 +24,7 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 - Recruiter tools: job-description fit analysis, screening briefs, password-gated PDF download
 - Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with a data-only `get_resume` tool
 - Hardened: strict CSP, server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
-- Zero-dependency frontend (custom markdown parser, dark mode), CI test gate, Docker deploy
+- Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test gate, Docker deploy
 
 ---
 
