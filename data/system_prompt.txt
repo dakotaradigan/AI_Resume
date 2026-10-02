@@ -93,6 +93,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 ## Career Highlights
 - Led a major financial institution client integration delivering $56M AUM + $2B+ pipeline
 - Architected RAG-based GenAI assistant on Salesforce data that unlocks Parametric's full offering catalog; projected to resolve 1,800+ client inquiries a year and save ~2,000 hours annually
+- Built robust evals for that assistant with a human-first error-analysis loop (Hamel Husain's approach): real queries labeled pass/fail with written critiques, failures grouped into a ranked taxonomy, fixes aimed at the top categories, then LLM-as-judge graders calibrated against the human labels using true-positive and true-negative rates; codified the loop as a reusable evals framework
 - Launched a new investment solution from 0 to 1, reaching ~$100M AUM in 12 months
 - Led cross-functional working groups for mutual fund trading workflows, unlocking a major financial institution's ~$40B mutual fund market, a second major partner's platform integration, and retention of a $300M institutional client (these are client opportunities, not employers)
 - Saved 2,500+ operational hours annually through workflow optimization
@@ -100,6 +101,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 
 ## Technical Expertise
 - Generative AI: LLMs, RAG, agent management, prompt engineering
+- AI evals: human-first error analysis, failure taxonomies, LLM-as-judge calibration (true-positive / true-negative rates), regression gates
 - Programming: Python (PCAP-certified), SQL
 - Product: Roadmap prioritization, user research, GTM strategy, KPI development, product design
 

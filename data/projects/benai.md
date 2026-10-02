@@ -37,6 +37,16 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 - **Security**: Prompt injection protection, input/output sanitization
 - **Session Handling**: Context-aware conversation memory with intelligent compression
 
+## Evaluation: How We Know It Works
+Ben AI's quality is measured with a human-first evaluation loop modeled on Hamel Husain's error-analysis approach, not vibe checks:
+- **Error analysis with human judgment**: real advisor queries and Ben AI's answers are reviewed by hand and labeled pass or fail, with a written critique for every failure.
+- **Categorize and rank**: the critiques are grouped into a small set of failure modes and ranked by how often they occur and how much damage they do. A wrong eligibility answer outranks an awkward tone.
+- **Refine against the top categories**: prompts, retrieval, and function-calling logic are changed to fix the most frequent and severe failures first, then the review is repeated.
+- **LLM judges calibrated to people**: once a failure mode is well understood, an LLM-as-judge grader is written for it and validated against the human labels using true-positive and true-negative rates, so a judge that misses real failures never gates a release.
+- **Regression gates and feedback**: validated judges run before each release, and new failure patterns from production feed the next round of error analysis.
+
+The same loop is codified as a reusable evals framework (error analysis, then judges, then operation), so new AI features start from real failures rather than generic metrics.
+
 ## Business Impact
 - **Time Savings**: Reduced advisor research from 30+ minutes to <5 seconds per query
 - **Scale**: Projected to autonomously resolve 1,800+ client inquiries a year

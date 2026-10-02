@@ -43,6 +43,7 @@
       "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
       "achievements": [
         "Designed and built a Python-based RAG assistant leveraging Salesforce data and internal business logic, owning product requirements, application architecture, retrieval logic, data preparation, and evaluations; partnered with engineering on code review and deployment.",
+        "Built robust evals for the assistant on a human-first error-analysis loop: labeled real advisor queries pass/fail with written critiques, grouped the failures into a ranked taxonomy, fixed the top categories first, then calibrated LLM-as-judge graders against the human labels (true-positive and true-negative rates) to gate releases; codified the loop as a reusable evals framework",
         "Made Parametric’s full investment offering catalog more discoverable by matching client requirements to relevant solutions, broadening consideration beyond familiar products; projected to address 1,800+ inquiries and save approximately 2,000 hours annually.",
         "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
       ],
@@ -118,6 +119,7 @@
         "Hybrid retrieval: dense vectors (Qdrant + OpenAI embeddings) fused with in-process BM25 via reciprocal rank fusion; initial owner-approved baseline (25-chunk corpus, 2026-07-19): hit-rate@4 0.886, MRR 0.838",
         "Recruiter tools: paste-a-job-description fit analysis with honest gaps, screening-brief generator, and a password-gated PDF resume download",
         "Production hardening: server-minted HttpOnly visitor identity for quotas, atomic daily budgets, prompt-injection firewall, strict CSP, HMAC-anonymized analytics, CI test gate, Docker deploy",
+        "Human-first evals: a 100-question test set labeled pass/fail with critiques, failure modes ranked by count and severity, and three LLM judges (groundedness, conciseness, redirect behavior) checked against the human labels",
         "Open interfaces: /llms.txt rendered live from resume data and an MCP endpoint exposing a data-only get_resume tool",
         "Warm editorial UI with dark mode and a custom CSS design system (no frameworks, no build step)"
       ],
@@ -147,11 +149,12 @@
     {
       "name": "Ben AI: Intelligent Benchmark Assistant",
       "tagline": "Full-stack AI chatbot: Personal PoC to production deployment reducing advisor research time from hours to seconds",
-      "tech_stack": ["OpenAI Responses API", "RAG Pipeline", "Pinecone Vector DB", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],
+      "tech_stack": ["OpenAI Responses API", "RAG Pipeline", "Pinecone Vector DB", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling", "LLM-as-Judge Evals"],
       "description": "Personal project evolved to production deployment: Built enterprise-grade AI assistant starting as a home PoC (early 2025) to validate RAG architecture for complex financial benchmark queries. After proving technical viability, brought it to Parametric and scaled it to production for advisor workflow automation. Single cohesive project demonstrating end-to-end ownership from initial architecture design through production scaling.",
       "highlights": [
         "Phase 1 (Personal PoC): Built initial proof-of-concept at home to validate RAG + hybrid intelligence architecture for complex benchmark eligibility queries",
         "Phase 2 (Production): Brought validated PoC to Parametric, scaled architecture to handle production workload, reducing advisor research time from 30+ minutes to seconds",
+        "Robust evals, human judgment first: real advisor queries labeled pass/fail with written critiques, failure modes categorized and ranked, prompts and retrieval refined against the top categories, then LLM-as-judge graders validated against the human labels before each release",
         "Designed layered architecture: User Interface → Backend (Request Router, Intent Classification, Session Handler) → AI Orchestration (Function Calling Engine, RAG Pipeline, OpenAI Responses API) → Vector Store + Knowledge Base",
         "Implemented natural language intelligence with intent classification routing and conversation memory",
         "Architected hybrid AI system combining RAG retrieval, LLM reasoning, and deterministic calculations for grounded responses",
@@ -178,7 +181,8 @@
           "Conversation Memory - smart context retention through intelligent compression",
           "Context-Aware Response Generation - tailored answers based on portfolio size, criteria, intent",
           "Hybrid AI Architecture - RAG + LLM + deterministic logic for accurate, grounded responses",
-          "Security Guardrails - prompt injection protection, input sanitization, output validation"
+          "Security Guardrails - prompt injection protection, input sanitization, output validation",
+          "Evaluation Loop - human-labeled error analysis, ranked failure taxonomy, targeted refinement, LLM judges calibrated to the human verdicts"
         ]
       }
     },
@@ -217,6 +221,7 @@
     ],
     "technical": [
       "AI Product Development (LLMs, RAG, AI Agents)",
+      "AI Evals (error analysis, failure taxonomies, LLM-as-judge calibration)",
       "Python & SQL",
       "API & Backend Systems (FastAPI, REST, WebSockets)",
       "Vector Databases & Search (Qdrant, Pinecone)",
