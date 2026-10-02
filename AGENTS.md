@@ -22,6 +22,7 @@ Backend (`backend/`):
 - `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing.
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
 - `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, model-id checks.
+- `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
@@ -81,7 +82,8 @@ Model routing (optional, defaults provided):
   picked by TypeSafe's Jev model (typed `Choice` classification returning a
   probability per label) instead of the Claude classifier. Sonnet is the
   default; `ANTHROPIC_MODEL` is used only when Jev's probability for
-  `complex` reaches the threshold in `llm.py`, or when the router fails
+  `complex` reaches the threshold in `llm.py`, or when the router fails.
+  The same key enables the requirement map on fit analyses (`fit_map.py`)
 
 Optional RAG:
 - `USE_RAG=true`

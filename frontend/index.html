@@ -3,104 +3,126 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#FBFDFF" />
+  <meta name="theme-color" content="#0b1328" />
   <meta name="description" content="Dakota Radigan — AI Strategy, Senior Product Manager at Morgan Stanley. A resume built for humans and AI: chat with it, compare a role against it, or connect your own agent over MCP." />
   <title>Dakota Radigan | AI Strategy, Senior Product Manager @ Morgan Stanley</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1328'/%3E%3Cpath d='M16 6c.8 6 4 9.2 10 10-6 .8-9.2 4-10 10-.8-6-4-9.2-10-10 6-.8 9.2-4 10-10Z' fill='%23fff'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./fonts/fonts.css" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header id="site-header" class="site-header">
-    <div class="brand">
-      <div id="brand-title" class="brand-title">DAKOTA RADIGAN</div>
-    </div>
-    <nav id="nav-links" class="nav-links">
-      <a href="#home">Home</a>
-      <a href="#projects">Projects</a>
-      <a href="#" id="nav-resume">Resume</a>
-      <a href="./how-it-works.html">How It Works</a>
-      <a href="#contact">Contact</a>
-    </nav>
-    <button id="hamburger" class="hamburger" type="button" aria-label="Toggle navigation" aria-expanded="false">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </button>
-  </header>
+  <main>
+  <section id="home" class="hero">
+    <div class="hero-city city-photo" aria-hidden="true"></div>
+    <div class="hero-wash" aria-hidden="true"></div>
 
-  <main class="layout">
-    <div class="photo-stage">
-    <section id="home" class="hero">
-      <div id="hero-portrait" class="hero-portrait" role="img" aria-label="Portrait of Dakota Radigan" aria-describedby="portrait-help" tabindex="0">
-        <img class="hero-portrait-poses" src="./portrait-poses.webp" width="1254" height="1254" alt="" aria-hidden="true" fetchpriority="high" draggable="false" />
-      </div>
-      <span id="portrait-help" class="sr-only">Move your mouse or drag across the portrait to turn Dakota's head. When focused, use the arrow keys; Home returns to center. Reduced motion keeps the portrait still.</span>
-      <div class="hero-kicker">AI STRATEGY, SENIOR PRODUCT MANAGER @ MORGAN STANLEY</div>
-      <h1 id="hero-name" class="hero-name">Dakota Radigan</h1>
-      <p id="hero-tagline" class="hero-tagline">
-        I turn emerging AI capabilities into products, workflows, and systems people actually use.
-      </p>
-      <div class="hero-actions" role="group" aria-label="Ways to explore this resume">
-        <a href="#chat" id="hero-cta" class="hero-action hero-action--primary">Ask my AI</a>
-        <a href="#chat" id="hero-jd-cta" class="hero-action hero-action--secondary">Compare a role</a>
-        <a href="#mcp" class="hero-action hero-action--secondary">Bring your own AI</a>
-        <a href="#" id="hero-resume-cta" class="hero-action hero-action--secondary">View resume</a>
-      </div>
+    <header id="site-header" class="site-header">
+      <a class="brand" href="#home" aria-label="Back to the top">
+        <span class="brand-photo" aria-hidden="true"></span>
+        <span id="brand-title" class="brand-title">DAKOTA RADIGAN</span>
+      </a>
+      <nav id="nav-links" class="nav-links" aria-label="Page navigation">
+        <a href="#projects" class="nav-secondary">Projects</a>
+        <a href="#resume-drawer" id="nav-resume">Resume</a>
+        <a href="./how-it-works.html" class="nav-secondary">How it works</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </header>
 
-      <div id="hero-contact" class="hero-contact">
-        <a id="hero-email" class="hero-contact-item" href="mailto:dakotaradigan@gmail.com">
-          <span class="hero-contact-text">dakotaradigan@gmail.com</span>
-        </a>
-        <span id="hero-location" class="hero-contact-item">
-          <span class="hero-contact-text">Seattle, WA</span>
-        </span>
-        <a id="hero-linkedin" class="hero-contact-item" href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">
-          <span class="hero-contact-text">LinkedIn</span>
-        </a>
-        <a id="hero-github" class="hero-contact-item" href="https://github.com/dakotaradigan" target="_blank" rel="noopener">
-          <span class="hero-contact-text">GitHub</span>
-        </a>
-      </div>
-
-    </section>
-
-    <section id="chat" class="chat-section" aria-labelledby="chat-section-title">
-      <div class="chat-intro">
-        <div class="chat-intro-kicker">SKIP THE PDF</div>
-        <h2 id="chat-section-title" class="chat-intro-title">Ask my AI about my work.</h2>
-      </div>
-
-      <div class="chat-card">
-        <div class="chat-header">
-          <span class="chat-header-title">Dakota's AI Resume</span>
-          <span class="ai-disclaimer">Powered by Claude + Jev · AI-generated, may make mistakes</span>
-        </div>
-        <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Chat messages"></div>
-        <div id="step-announcer" class="sr-only" role="status" aria-live="polite"></div>
-        <div id="suggestions" class="chat-suggestions">
-          <div class="suggestions-banner">Not sure where to start? Try one of these:</div>
-          <div class="chips">
-            <button class="chip" type="button">What's Dakota's background?</button>
-            <button class="chip" type="button">Tell me about Dakota's AI projects</button>
-            <button class="chip" type="button">What can Dakota do for my company?</button>
-            <button class="chip" type="button">How was this site built?</button>
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <div class="hero-portrait-ring">
+          <div id="hero-portrait" class="hero-portrait" role="img" aria-label="Portrait of Dakota Radigan" aria-describedby="portrait-help" tabindex="0">
+            <img class="hero-portrait-poses" src="./portrait-poses.webp" width="1254" height="1254" alt="" aria-hidden="true" fetchpriority="high" draggable="false" />
           </div>
         </div>
-        <form id="chat-form" class="chat-form">
-          <input id="chat-input" type="text" placeholder="Ask about skills, projects, or impact..." autocomplete="off" required />
-          <button type="submit" class="send-button" aria-label="Send message">
-            <span class="send-icon" aria-hidden="true">&#8599;</span>
-          </button>
-        </form>
+        <span id="portrait-help" class="sr-only">Move your mouse or drag across the portrait to turn Dakota's head. When focused, use the arrow keys; Home returns to center. Reduced motion keeps the portrait still.</span>
+        <div class="hero-kicker">AI Strategy, Senior Product Manager @ Morgan Stanley</div>
+        <h1 id="hero-name" class="hero-name">
+          <span class="hero-name-line hero-name-first">Dakota</span>
+          <span class="hero-name-line hero-name-last">Radigan</span>
+        </h1>
+        <p id="hero-tagline" class="hero-tagline">I turn emerging AI capabilities into products, workflows, and systems people actually use.</p>
+        <div class="hero-actions" role="group" aria-label="Ways to explore this resume">
+          <a href="#resume-drawer" id="hero-resume-cta" class="hero-action hero-action--primary">
+            View resume
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          </a>
+          <a href="#chat" id="hero-jd-cta" class="hero-action hero-action--secondary">Check fit for a role</a>
+          <a href="#mcp" class="hero-action hero-action--secondary">Bring your own AI</a>
+        </div>
       </div>
-    </section>
+
+      <section id="chat" class="chat-section" aria-labelledby="chat-section-title">
+        <div class="chat-card">
+          <div class="chat-header">
+            <span class="chat-header-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8Z"/></svg>
+            </span>
+            <div class="chat-header-copy">
+              <h2 id="chat-section-title" class="chat-header-title">Ask about my experience</h2>
+              <p class="ai-disclaimer">Dakota's AI &middot; Claude + Jev &middot; may make mistakes</p>
+            </div>
+          </div>
+          <div id="composer-mode-bar" class="composer-mode-bar" hidden>
+            <span class="composer-mode-title">Check fit for a role</span>
+            <button id="back-to-chat" class="composer-back" type="button">Back to chat</button>
+          </div>
+          <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Chat messages"></div>
+          <div id="step-announcer" class="sr-only" role="status" aria-live="polite"></div>
+          <div id="suggestions" class="chat-suggestions">
+            <div class="chips">
+              <button class="chip" type="button">What's Dakota's background?</button>
+              <button class="chip" type="button">Tell me about Dakota's AI projects</button>
+              <button class="chip" type="button">What can Dakota do for my company?</button>
+              <button class="chip" type="button">How was this site built?</button>
+            </div>
+          </div>
+          <form id="chat-form" class="chat-form" data-mode="chat">
+            <label id="chat-input-label" class="sr-only" for="chat-input">Question about Dakota</label>
+            <textarea id="chat-input" rows="1" placeholder="Ask about skills, projects, or impact..." autocomplete="off" aria-describedby="composer-hint" required></textarea>
+            <button type="submit" class="send-button" aria-label="Send message">
+              <span class="send-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
+              </span>
+              <span class="send-label" hidden>Analyze fit</span>
+            </button>
+            <p id="composer-hint" class="composer-hint">Enter to send &middot; Shift + Enter for a new line</p>
+          </form>
+        </div>
+        <p class="chat-disclosure">
+          Chats are saved for Dakota to review, anonymized, with no account or
+          email attached to you. Pasted job descriptions aren&#39;t kept; only
+          the analysis is.
+        </p>
+      </section>
     </div>
 
-    <!-- What I do: four pillars, editorial treatment (no cards). -->
+    <div id="hero-contact" class="hero-contact">
+      <a id="hero-email" class="hero-contact-item" href="mailto:dakotaradigan@gmail.com">
+        <span class="hero-contact-label">EMAIL</span>
+        <span class="hero-contact-text">dakotaradigan@gmail.com</span>
+      </a>
+      <span id="hero-location" class="hero-contact-item">
+        <span class="hero-contact-label">BASED IN</span>
+        <span class="hero-contact-text">Seattle, WA</span>
+      </span>
+      <a id="hero-linkedin" class="hero-contact-item" href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">
+        <span class="hero-contact-label">LINKEDIN</span>
+        <span class="hero-contact-text">linkedin.com/in/dakota-radigan</span>
+      </a>
+      <a id="hero-github" class="hero-contact-item" href="https://github.com/dakotaradigan" target="_blank" rel="noopener">
+        <span class="hero-contact-label">GITHUB</span>
+        <span class="hero-contact-text">github.com/dakotaradigan</span>
+      </a>
+    </div>
+  </section>
+
+  <div class="page">
+    <!-- What I do: four pillars, thin rules instead of cards. -->
     <section id="what" class="home-section" aria-labelledby="what-title">
-      <h2 id="what-title" class="section-label home-section-label">What I do</h2>
+      <span class="section-kicker">What I do</span>
+      <h2 id="what-title" class="section-title">AI strategy, product leadership, and the code to prove it.</h2>
       <div class="pillars-grid">
         <div class="pillar">
           <h3 class="pillar-title">AI Strategy</h3>
@@ -124,9 +146,9 @@
     <!-- Explore my work your way: the same career data, four interfaces. -->
     <section id="explore" class="home-section" aria-labelledby="explore-title">
       <div class="home-section-head">
-        <span class="section-label">Choose your interface</span>
-        <h2 id="explore-title" class="section-title home-section-title">Explore my work your way.</h2>
-        <p class="home-section-sub">Same underlying experience. Different interfaces.</p>
+        <span class="section-kicker">Choose your interface</span>
+        <h2 id="explore-title" class="section-title">Explore my work your way.</h2>
+        <p class="section-sub">Same underlying experience. Different interfaces.</p>
       </div>
       <div class="interface-grid">
         <button class="interface-card" type="button" data-explore="chat">
@@ -147,36 +169,36 @@
         <button class="interface-card" type="button" data-explore="resume">
           <h3 class="interface-title">Read the resume</h3>
           <p class="interface-text">The traditional human-readable version. One page, no follow-up questions.</p>
-          <span class="interface-go" aria-hidden="true">Open the old way &rarr;</span>
+          <span class="interface-go" aria-hidden="true">Open the resume &rarr;</span>
         </button>
       </div>
     </section>
 
-    <!-- Things I've built: cards rendered by app.js from the same /api/resume
+    <!-- Things I've built: rows rendered by app.js from the same /api/resume
          payload the agent answers from — no separately maintained claims. -->
     <section id="projects" class="home-section" aria-labelledby="projects-title" hidden>
       <div class="home-section-head">
-        <span class="section-label">In my free time</span>
-        <h2 id="projects-title" class="section-title home-section-title">Things I've built.</h2>
-        <p class="home-section-sub">Side projects, built for fun — separate from the AI I build at work.</p>
+        <span class="section-kicker">In my free time</span>
+        <h2 id="projects-title" class="section-title">Things I've built.</h2>
+        <p class="section-sub">Side projects, built for fun — separate from the AI I build at work.</p>
       </div>
       <div id="project-grid" class="project-grid"></div>
     </section>
 
     <!-- MCP: the agent-facing interface, presented as a product feature. -->
     <section id="mcp" class="home-section" aria-labelledby="mcp-title">
-      <div class="mcp-columns">
+      <div class="mcp-panel">
         <div class="mcp-copy">
-          <span class="section-label">For AI agents</span>
-          <h2 id="mcp-title" class="section-title home-section-title">Built for humans. And&nbsp;agents.</h2>
+          <span class="section-kicker">For AI agents</span>
+          <h2 id="mcp-title" class="section-title">Built for humans. And&nbsp;agents.</h2>
           <p class="mcp-lede">Most resumes are documents designed for people to read. This one is also available as structured data through MCP, so compatible AI tools can evaluate my experience directly.</p>
           <p class="mcp-note">The MCP server doesn't run my AI assistant for you. It exposes my resume — experience, projects, skills, education, certifications — as structured, AI-readable data, and your own AI does the reasoning: comparing me against a role, mapping strengths and gaps, or preparing interview questions.</p>
         </div>
-        <div class="mcp-panel">
+        <div class="mcp-endpoint-card">
           <span class="mcp-panel-label">Remote MCP server &middot; streamable HTTP &middot; no auth</span>
           <div class="mcp-endpoint-row">
             <code class="mcp-endpoint" id="mcp-endpoint">https://www.dakotaradigan.io/mcp</code>
-            <button id="mcp-copy" class="chip mcp-copy-btn" type="button">Copy</button>
+            <button id="mcp-copy" class="mcp-copy-btn" type="button">Copy</button>
           </div>
           <p class="mcp-flow" aria-label="How the MCP connection works">
             <span>your AI client</span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span><code>get_resume</code></span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span>structured career data</span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span>your AI reasons</span>
@@ -186,17 +208,18 @@
       </div>
     </section>
 
-    <!-- Under the hood: teaser only; the detail lives on How It Works. -->
+    <!-- Under the hood: teaser only; the detail lives on How it works. -->
     <section id="under-the-hood" class="home-section" aria-labelledby="hood-title">
-      <h2 id="hood-title" class="section-label home-section-label">Under the hood</h2>
+      <span class="section-kicker">Under the hood</span>
+      <h2 id="hood-title" class="section-title">Honest answers, by design.</h2>
       <div class="hood-grid">
         <div class="hood-item">
           <h3 class="hood-title">Hybrid retrieval</h3>
           <p class="hood-text">Semantic + lexical search to find better context.</p>
         </div>
         <div class="hood-item">
-          <h3 class="hood-title">Model routing</h3>
-          <p class="hood-text">Jev picks the right Claude model for each question, with a confidence score.</p>
+          <h3 class="hood-title">Typed judgments</h3>
+          <p class="hood-text">Jev picks the Claude model for each question and scores every job requirement against the résumé: probabilities, not prose.</p>
         </div>
         <div class="hood-item">
           <h3 class="hood-title">Evaluations</h3>
@@ -213,9 +236,9 @@
     </section>
 
     <!-- Where I do my best work: direction, right before contact. -->
-    <section id="focus" class="home-section home-section--focus" aria-labelledby="focus-title">
-      <span class="section-label">Direction</span>
-      <h2 id="focus-title" class="section-title home-section-title">Where I do my best work.</h2>
+    <section id="focus" class="home-section" aria-labelledby="focus-title">
+      <span class="section-kicker">Direction</span>
+      <h2 id="focus-title" class="section-title">Where I do my best work.</h2>
       <p class="focus-lede">Problems where AI changes not just a feature, but how the product or workflow should work.</p>
       <ul class="focus-areas" role="list">
         <li>AI-native products</li>
@@ -224,23 +247,29 @@
         <li>AI in financial services &amp; complex enterprise systems</li>
       </ul>
     </section>
-
+  </div>
   </main>
 
-  <!-- "The old way": a sheet of typewritten paper in a slide-out drawer.
-       Content is rendered by app.js from the same /api/resume payload the
-       chat agent uses — one source of truth, two eras of presentation. -->
-  <button id="resume-tab" class="resume-tab" type="button" aria-haspopup="dialog" aria-controls="resume-drawer" aria-expanded="false">
-    <span class="resume-tab-label">See my resume</span>
-    <span class="resume-tab-sub">— the old way</span>
+  <button id="resume-tab" class="resume-tab" type="button" aria-label="View my resume" aria-haspopup="dialog" aria-controls="resume-drawer" aria-expanded="false">
+    <span class="resume-tab-label">RESUME</span>
   </button>
 
-  <div id="resume-drawer" class="resume-drawer" aria-hidden="true">
+  <!-- The resume drawer is rendered by app.js from the same /api/resume
+       payload the chat agent uses — one source of truth, two presentations. -->
+  <div id="resume-drawer" class="resume-drawer" aria-hidden="true" inert>
     <div class="resume-drawer-backdrop" data-drawer-close></div>
-    <aside class="resume-drawer-panel" role="dialog" aria-modal="true" aria-label="Dakota Radigan's resume, classic paper edition">
+    <aside class="resume-drawer-panel" role="dialog" aria-modal="true" aria-label="Dakota Radigan's resume">
       <div class="resume-drawer-bar">
-        <span class="resume-drawer-note">THE OLD WAY &middot; one page, no follow-up questions</span>
-        <button id="resume-drawer-close" class="resume-drawer-close" type="button" aria-label="Close resume">&times;</button>
+        <span class="resume-drawer-note">RESUME</span>
+        <div class="resume-drawer-actions">
+          <button class="resume-pdf-link" type="button" data-pdf-download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10.5"/><path d="M8 11l4 4 4-4"/><path d="M5 19.5h14"/></svg>
+            PDF
+          </button>
+          <button id="resume-drawer-close" class="resume-drawer-close" type="button" aria-label="Close resume">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+          </button>
+        </div>
       </div>
       <div class="resume-paper-scroll" tabindex="-1">
         <article id="resume-paper" class="resume-paper"></article>
@@ -249,69 +278,61 @@
   </div>
 
   <footer id="contact" class="site-footer">
-    <div class="footer-content">
-      <span class="footer-kicker">GET IN TOUCH</span>
-      <h2 class="footer-heading">Let's Connect</h2>
-      <p class="footer-subtitle">Working on one of those problems — or hiring someone who should be? I'd like to hear about it.</p>
-      <div class="footer-buttons">
-        <a class="footer-btn" href="mailto:dakotaradigan@gmail.com">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4.5 7.5h15v10h-15v-10Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
-            <path d="m5.5 8.5 6.5 5 6.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Email
+    <div class="footer-grid">
+      <div class="footer-intro">
+        <span class="footer-kicker">GET IN TOUCH</span>
+        <h2 class="footer-heading">Let's talk.</h2>
+        <p class="footer-subtitle">Working on one of those problems, or hiring someone who should be? I'd like to hear about it.</p>
+      </div>
+      <div class="footer-links">
+        <a class="footer-link-row" href="mailto:dakotaradigan@gmail.com">
+          <span class="footer-link-label">Email</span>
+          <span class="footer-link-meta">dakotaradigan@gmail.com <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
         </a>
-        <a class="footer-btn" href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.6"/>
-            <path d="M8 11v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-            <path d="M8 8.2h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-            <path d="M12 18v-4.1c0-1.6.9-2.6 2.4-2.6 1.4 0 2.2 1 2.2 2.6V18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 11v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          LinkedIn
+        <a class="footer-link-row" href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">
+          <span class="footer-link-label">LinkedIn</span>
+          <span class="footer-link-meta">View profile <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
         </a>
-        <a class="footer-btn" href="https://github.com/dakotaradigan" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2.7c-5.1 0-9.2 4.2-9.2 9.4 0 4.1 2.6 7.6 6.2 8.9.5.1.7-.2.7-.5v-1.8c-2.5.6-3.1-1.1-3.1-1.1-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.4-2-.2-4.2-1-4.2-4.6 0-1 .3-1.8.9-2.5-.1-.2-.4-1.1.1-2.3 0 0 .7-.2 2.4 1 .7-.2 1.4-.3 2.2-.3.7 0 1.5.1 2.2.3 1.7-1.2 2.4-1 2.4-1 .5 1.2.2 2.1.1 2.3.6.7.9 1.5.9 2.5 0 3.6-2.2 4.4-4.2 4.6.4.3.7.9.7 1.8v2.6c0 .3.2.6.7.5 3.6-1.2 6.2-4.8 6.2-8.9 0-5.2-4.1-9.4-9.2-9.4Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-          </svg>
-          GitHub
+        <a class="footer-link-row" href="https://github.com/dakotaradigan" target="_blank" rel="noopener">
+          <span class="footer-link-label">GitHub</span>
+          <span class="footer-link-meta">dakotaradigan <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
         </a>
-        <button id="pdf-download" class="footer-btn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 4v10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="m8 11 4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M5 19.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-          Resume PDF
+        <button id="pdf-download" class="footer-link-row" type="button" data-pdf-download>
+          <span class="footer-link-label">Resume PDF</span>
+          <span class="footer-link-meta">Download <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10.5"/><path d="M8 11l4 4 4-4"/><path d="M5 19.5h14"/></svg></span>
         </button>
-        <button id="feedback-btn" class="footer-btn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Feedback
+        <a class="footer-link-row" href="#resume-drawer" data-footer-resume>
+          <span class="footer-link-label">Read the full resume</span>
+          <span class="footer-link-meta">Opens here <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
+        </a>
+        <button id="feedback-btn" class="footer-link-row" type="button">
+          <span class="footer-link-label">Send feedback</span>
+          <span class="footer-link-meta">Opens your email app <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
         </button>
       </div>
     </div>
     <div class="footer-bottom">
-      <div class="footer-separator" aria-hidden="true"></div>
       <p class="footer-powered">
         <span class="footer-powered-label">Powered by</span>
         <span class="footer-powered-stack"><span>Claude</span><span class="footer-powered-plus" aria-hidden="true">+</span><span>Jev</span></span>
-        <span class="footer-powered-note">LLM answers · System One routing</span>
+        <span class="footer-powered-note">LLM answers &middot; System One routing</span>
       </p>
       <p class="footer-copyright">&copy; 2026 Dakota Radigan. All rights reserved.</p>
     </div>
   </footer>
 
-  <dialog id="feedback-dialog" class="feedback-dialog">
+  <dialog id="feedback-dialog" class="feedback-dialog" aria-labelledby="feedback-dialog-title">
     <form id="feedback-form" method="dialog">
-      <h3 class="feedback-dialog-title">Send Feedback</h3>
-      <p class="feedback-dialog-desc">Your message will open in your email client.</p>
-      <textarea id="feedback-text" class="feedback-textarea" rows="5" placeholder="What did you think? Suggestions, bugs, or kind words..." required></textarea>
-      <div class="feedback-dialog-actions">
-        <button type="button" id="feedback-cancel" class="feedback-dialog-btn feedback-dialog-btn--cancel">Cancel</button>
-        <button type="submit" class="feedback-dialog-btn feedback-dialog-btn--send">Send</button>
+      <span class="feedback-dialog-kicker">Feedback</span>
+      <h3 id="feedback-dialog-title" class="feedback-dialog-title">Send Dakota a note</h3>
+      <p class="feedback-dialog-desc">Suggestions, a bug, or a kind word. It goes straight to Dakota.</p>
+      <textarea id="feedback-text" class="feedback-textarea" rows="4" placeholder="What did you think? Suggestions, bugs, or kind words…" aria-label="Your note" required></textarea>
+      <div class="feedback-dialog-footer">
+        <span class="feedback-dialog-meta">Opens in your email app</span>
+        <span class="feedback-dialog-actions">
+          <button type="button" id="feedback-cancel" class="feedback-dialog-btn feedback-dialog-btn--cancel">Cancel</button>
+          <button type="submit" class="feedback-dialog-btn feedback-dialog-btn--send">Send</button>
+        </span>
       </div>
     </form>
   </dialog>

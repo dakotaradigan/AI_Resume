@@ -3,55 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#FBFDFF" />
+  <meta name="theme-color" content="#0b1328" />
   <meta name="description" content="How Dakota Radigan's AI resume works: live responses, context search, human-reviewed evaluation, and safe fallbacks." />
   <title>How This Site Works | Dakota Radigan</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1328'/%3E%3Cpath d='M16 6c.8 6 4 9.2 10 10-6 .8-9.2 4-10 10-.8-6-4-9.2-10-10 6-.8 9.2-4 10-10Z' fill='%23fff'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./fonts/fonts.css" />
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./how-it-works.css" />
 </head>
 <body>
-  <header id="site-header" class="site-header">
-    <div class="brand">
-      <div class="brand-title"><a class="brand-link" href="./index.html">DAKOTA RADIGAN</a></div>
+  <main>
+  <section class="hero hero--band">
+    <div class="hero-city city-photo" aria-hidden="true"></div>
+    <div class="hero-wash" aria-hidden="true"></div>
+
+    <header id="site-header" class="site-header">
+      <a class="brand" href="./index.html" aria-label="Back to the resume">
+        <span class="brand-photo" aria-hidden="true"></span>
+        <span class="brand-title">DAKOTA RADIGAN</span>
+      </a>
+      <nav class="nav-links" aria-label="Page navigation">
+        <a href="./index.html" class="nav-secondary">Home</a>
+        <a href="./index.html#chat">Chat</a>
+        <a href="./index.html#contact">Contact</a>
+      </nav>
+    </header>
+
+    <div class="band-copy">
+      <span class="hero-kicker">Under the hood</span>
+      <h1 class="band-title">How this site works</h1>
+      <p class="band-lede">A plain-English look at how the assistant finds the right context, chooses an answer, checks its work, and handles failures.</p>
     </div>
-    <nav class="nav-links hiw-nav">
-      <a href="./index.html">Home</a>
-      <a href="./index.html#chat">Chat</a>
-      <a href="./index.html#contact">Contact</a>
-    </nav>
-  </header>
+  </section>
 
-  <main class="layout hiw-layout">
-    <section class="hiw-hero">
-      <div class="section-label">UNDER THE HOOD</div>
-      <h1 class="hiw-title">How this site works</h1>
-      <p class="hiw-subtitle">A plain-English look at how the assistant finds the right context, chooses an answer, checks its work, and handles failures.</p>
-    </section>
-
+  <div class="page hiw-page">
     <section class="hiw-tldr" aria-label="Summary">
-      <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Responds in real time</h2>
+      <div class="hiw-point">
+        <h2 class="hiw-point-title">Responds in real time</h2>
         <p>Answers appear as they are written, and the status reflects what the assistant is actually doing — not a fake typing animation.</p>
       </div>
-      <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Finds the right context</h2>
+      <div class="hiw-point">
+        <h2 class="hiw-point-title">Finds the right context</h2>
         <p>Searches for both exact words and related ideas, then combines the strongest matches before answering.</p>
       </div>
-      <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Human judgment first</h2>
+      <div class="hiw-point">
+        <h2 class="hiw-point-title">Human judgment first</h2>
         <p>I review test answers first, then compare the AI judges against those human decisions.</p>
       </div>
-      <div class="resume-card hiw-card">
-        <h2 class="hiw-card-title">Built to fail safely</h2>
+      <div class="hiw-point">
+        <h2 class="hiw-point-title">Built to fail safely</h2>
         <p>If context search is unavailable, the assistant uses the full resume instead, so visitors can still get an answer.</p>
       </div>
     </section>
 
     <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">Architecture</h2></div>
+      <h2 class="hiw-section-title">Architecture</h2>
       <p>One FastAPI service serves the static frontend and the API. Guardrails (rate limits, quotas, validation) run before any model call; retrieval and model routing run concurrently; the answer streams back over SSE.</p>
       <svg class="hiw-diagram" viewBox="0 0 360 560" role="img" aria-labelledby="diag-title diag-desc">
         <title id="diag-title">Architecture diagram</title>
@@ -61,13 +67,13 @@
             <path d="M0 0 L10 5 L0 10 z" class="hiw-arrowhead"/>
           </marker>
         </defs>
-        <rect x="90" y="16" width="180" height="56" rx="10" class="hiw-box"/>
+        <rect x="90" y="16" width="180" height="56" rx="12" class="hiw-box"/>
         <text x="180" y="40" text-anchor="middle" class="hiw-label">Browser</text>
         <text x="180" y="58" text-anchor="middle" class="hiw-sublabel">vanilla JS · no framework</text>
 
         <line x1="180" y1="72" x2="180" y2="112" class="hiw-line" marker-end="url(#arrow)"/>
 
-        <rect x="60" y="114" width="240" height="72" rx="10" class="hiw-box"/>
+        <rect x="60" y="114" width="240" height="72" rx="12" class="hiw-box"/>
         <text x="180" y="142" text-anchor="middle" class="hiw-label">FastAPI gateway</text>
         <text x="180" y="160" text-anchor="middle" class="hiw-sublabel">guardrails · quotas · model router</text>
         <text x="180" y="176" text-anchor="middle" class="hiw-sublabel">Jev (TypeSafe) picks the model</text>
@@ -75,13 +81,13 @@
         <line x1="120" y1="186" x2="95" y2="240" class="hiw-line" marker-end="url(#arrow)"/>
         <line x1="240" y1="186" x2="265" y2="240" class="hiw-line" marker-end="url(#arrow)"/>
 
-        <rect x="20" y="242" width="155" height="88" rx="10" class="hiw-box"/>
+        <rect x="20" y="242" width="155" height="88" rx="12" class="hiw-box"/>
         <text x="97" y="270" text-anchor="middle" class="hiw-label">Context search</text>
         <text x="97" y="288" text-anchor="middle" class="hiw-sublabel">exact words + meaning</text>
         <text x="97" y="304" text-anchor="middle" class="hiw-sublabel">combines best matches</text>
         <text x="97" y="320" text-anchor="middle" class="hiw-sublabel">resume + project notes</text>
 
-        <rect x="195" y="242" width="145" height="88" rx="10" class="hiw-box"/>
+        <rect x="195" y="242" width="145" height="88" rx="12" class="hiw-box"/>
         <text x="267" y="270" text-anchor="middle" class="hiw-label">Claude</text>
         <text x="267" y="288" text-anchor="middle" class="hiw-sublabel">Opus — complex</text>
         <text x="267" y="304" text-anchor="middle" class="hiw-sublabel">Sonnet — simple</text>
@@ -90,20 +96,20 @@
         <line x1="97" y1="330" x2="97" y2="380" class="hiw-line" marker-end="url(#arrow)"/>
         <line x1="267" y1="330" x2="267" y2="380" class="hiw-line" marker-end="url(#arrow)"/>
 
-        <rect x="60" y="382" width="240" height="64" rx="10" class="hiw-box"/>
+        <rect x="60" y="382" width="240" height="64" rx="12" class="hiw-box"/>
         <text x="180" y="408" text-anchor="middle" class="hiw-label">Answer assembly</text>
         <text x="180" y="426" text-anchor="middle" class="hiw-sublabel">grounded reply · sources · follow-ups</text>
 
         <path d="M 180 446 C 180 480, 180 490, 180 520" class="hiw-line hiw-line-sse" marker-end="url(#arrow)"/>
         <text x="196" y="490" class="hiw-sublabel hiw-sse-label">SSE stream back</text>
 
-        <rect x="120" y="522" width="120" height="30" rx="10" class="hiw-box"/>
+        <rect x="120" y="522" width="120" height="30" rx="12" class="hiw-box"/>
         <text x="180" y="541" text-anchor="middle" class="hiw-sublabel">tokens render live</text>
       </svg>
     </section>
 
     <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">Streaming &amp; model routing</h2></div>
+      <h2 class="hiw-section-title">Streaming &amp; model routing</h2>
       <p>Every chat is a real server-sent-event stream: the browser shows retrieval status, then tokens as Claude produces them. What you see in the status steps is what actually happened — a cached answer says "answered from cache," it doesn't fake a search.</p>
       <p>Routing is a typed decision, not a generated one. Each question goes to <a href="https://typesafe.ai" target="_blank" rel="noopener">Jev</a>, TypeSafe's System One model, with one multiple-choice question: can a capable general model answer this, or does it need to weigh several roles or projects against each other? Jev returns a probability for each answer in a single sub-second pass, with no text to parse. Sonnet is the default; Opus is used only when Jev is clearly convinced the question is complex, and a failed classification fails safe to the most capable model. Routing runs concurrently with retrieval, so it adds no time to first token.</p>
       <pre class="hiw-pre">event: status   {"stage": "rag_search", "state": "done", "sources": [...]}
@@ -112,19 +118,28 @@ event: delta    {"text": "Dakota is PCAP-certified and uses Python in"}
 event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
     </section>
 
+    <section class="hiw-section" id="requirement-map">
+      <h2 class="hiw-section-title">Requirement map: judgments as data</h2>
+      <p>A pasted job description gets two answers at once. Claude writes the fit analysis in prose. In parallel, Jev receives the résumé and every candidate line of the posting in one request and answers two typed questions per line: is this a requirement at all, and how well does the résumé document it, on four ordered levels from "not documented" to "strong".</p>
+      <p>Jev returns a probability for each level rather than a sentence, so the page can do the rest without another model call: mark your must-haves and the map regroups; sort by evidence and it re-orders. Re-weighting is arithmetic on judgments that already exist. "Not documented" means the résumé is silent, which is a question for Dakota, not a verdict.</p>
+      <pre class="hiw-pre">{"type": "score", "score": 2.71, "confidence": 0.82,
+ "probabilities": {"0": 0.02, "1": 0.05, "2": 0.13, "3": 0.80},
+ "legend": {"0": "Not documented", "1": "Adjacent", "2": "Partial", "3": "Strong"}}</pre>
+    </section>
+
     <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">How it finds the right context</h2></div>
+      <h2 class="hiw-section-title">How it finds the right context</h2>
       <p>When someone asks a question, the assistant searches my resume and project notes in two ways: one looks for the exact words they used, and the other looks for ideas with a similar meaning. It combines the best matches and gives Claude the most relevant context before it answers.</p>
       <p>If search is temporarily unavailable, the site uses the full resume instead, so visitors can still get an answer.</p>
     </section>
 
     <section class="hiw-section">
-      <div class="section-header"><h2 class="section-title">Human-judged LLM</h2></div>
+      <h2 class="hiw-section-title">Human-judged LLM</h2>
       <p>I reviewed a 100-question test set by hand, using pass/fail labels and written critiques to identify recurring problems. I then built three focused LLM graders and compare their verdicts with the human labels. The graders are still being tuned, so human judgment remains the standard. This workflow is inspired by <a href="https://hamel.dev/blog/posts/llm-judge/" target="_blank" rel="noopener noreferrer">Hamel Husain's human-first evaluation approach</a>.</p>
     </section>
 
     <section class="hiw-section" id="connect-mcp">
-      <div class="section-header"><h2 class="section-title">Connect your own AI</h2></div>
+      <h2 class="hiw-section-title">Connect your own AI</h2>
       <p>The MCP endpoint doesn't run my AI assistant for you. It exposes my resume as structured, AI-readable data so your own agent or preferred AI tool can reason over it. The flow is deliberately simple:</p>
       <ol class="hiw-steps">
         <li>Your MCP client connects to the remote server at <code>/mcp</code> (streamable HTTP, no authentication).</li>
@@ -149,9 +164,47 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
     </section>
 
     <section class="hiw-section hiw-cta">
-      <a class="hero-action hero-action--primary" href="./index.html#chat">Ask the assistant about any of this</a>
+      <a class="button-primary" href="./index.html#chat">Ask the assistant about any of this
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+      </a>
     </section>
+  </div>
   </main>
 
+  <footer id="contact" class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-intro">
+        <span class="footer-kicker">GET IN TOUCH</span>
+        <h2 class="footer-heading">Let's talk.</h2>
+        <p class="footer-subtitle">Working on one of those problems, or hiring someone who should be? I'd like to hear about it.</p>
+      </div>
+      <div class="footer-links">
+        <a class="footer-link-row" href="mailto:dakotaradigan@gmail.com">
+          <span class="footer-link-label">Email</span>
+          <span class="footer-link-meta">dakotaradigan@gmail.com <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
+        </a>
+        <a class="footer-link-row" href="https://linkedin.com/in/dakota-radigan" target="_blank" rel="noopener">
+          <span class="footer-link-label">LinkedIn</span>
+          <span class="footer-link-meta">View profile <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
+        </a>
+        <a class="footer-link-row" href="https://github.com/dakotaradigan" target="_blank" rel="noopener">
+          <span class="footer-link-label">GitHub</span>
+          <span class="footer-link-meta">dakotaradigan <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
+        </a>
+        <a class="footer-link-row" href="./index.html">
+          <span class="footer-link-label">Back to the resume</span>
+          <span class="footer-link-meta">Chat, fit analysis, MCP <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg></span>
+        </a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p class="footer-powered">
+        <span class="footer-powered-label">Powered by</span>
+        <span class="footer-powered-stack"><span>Claude</span><span class="footer-powered-plus" aria-hidden="true">+</span><span>Jev</span></span>
+        <span class="footer-powered-note">LLM answers &middot; System One routing</span>
+      </p>
+      <p class="footer-copyright">&copy; 2026 Dakota Radigan. All rights reserved.</p>
+    </div>
+  </footer>
 </body>
 </html>

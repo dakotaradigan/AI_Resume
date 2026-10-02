@@ -1,7 +1,16 @@
+// Dakota's resume site: the chat turn, the job-fit analysis, the resume
+// drawer, and the page chrome. Plain JS, no build step. Resume text reaches
+// the page only through el()/textContent; bot markdown is escaped before it
+// is parsed.
+
 const chatLog = document.getElementById("chat-log");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
-const sendButton = chatForm.querySelector("button");
+const sendButton = chatForm.querySelector('button[type="submit"]');
+const composerModeBar = document.getElementById("composer-mode-bar");
+const composerHint = document.getElementById("composer-hint");
+const chatInputLabel = document.getElementById("chat-input-label");
+const suggestionsEl = document.getElementById("suggestions");
 
 const resumePaper = document.getElementById("resume-paper");
 const resumeDrawer = document.getElementById("resume-drawer");
@@ -9,18 +18,12 @@ const resumeTab = document.getElementById("resume-tab");
 
 const brandTitle = document.getElementById("brand-title");
 const heroName = document.getElementById("hero-name");
-const heroTagline = document.getElementById("hero-tagline");
 const heroEmail = document.getElementById("hero-email");
 const heroLocation = document.getElementById("hero-location");
-const suggestionsEl = document.getElementById("suggestions");
 
-const siteHeader = document.getElementById("site-header");
-const navLinks = document.getElementById("nav-links");
-const hamburger = document.getElementById("hamburger");
-
-// Hero tagline: keep it crisp and consistent (UI copy), independent from the longer resume summary.
-const HERO_TAGLINE =
-  "I turn emerging AI capabilities into products, workflows, and systems people actually use.";
+// The server enforces both; these only shape the composer's behaviour.
+const CHAT_MAX_CHARS = 2000;
+const JD_MAX_CHARS = 15000;
 
 const SESSION_STORAGE_KEY = "resume-assistant-session-id";
 
@@ -279,7 +282,6 @@ function el(tag, attrs = {}, children = []) {
     if (v === null || v === undefined) return;
     if (k === "class") node.className = v;
     else if (k === "text") node.textContent = v;
-    else if (k.startsWith("data-")) node.setAttribute(k, v);
     else node.setAttribute(k, v);
   });
   (Array.isArray(children) ? children : [children]).forEach((child) => {
@@ -316,10 +318,147 @@ function safeExternalUrl(value) {
   }
 }
 
-// ===== Paper resume ("the old way") =====
+function scrollBehavior() {
+  const reduced =
+    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reduced ? "auto" : "smooth";
+}
+
+// ===== Composer: chat mode and fit mode =====
+// One textarea serves both. Chat mode sends on Enter; fit mode takes a
+// pasted job description (Ctrl / Cmd + Enter to analyze). Each mode keeps
+// its own draft so switching never loses a half-typed message.
+let sending = false;
+const composerDrafts = { chat: "", fit: "" };
+const chatPlaceholder = chatInput.placeholder;
+
+function isSending() {
+  return sending;
+}
+
+function getComposerMode() {
+  return chatForm.dataset.mode || "chat";
+}
+
+function autosizeComposer() {
+  chatInput.style.height = "auto";
+  chatInput.style.height = `${chatInput.scrollHeight}px`;
+}
+
+/** Starter chips step aside while the visitor is typing or in fit mode. */
+function syncSuggestions() {
+  if (!suggestionsEl || !suggestionsEl.isConnected) return;
+  suggestionsEl.hidden = getComposerMode() === "fit" || chatInput.value.trim().length > 0;
+}
+
+function removeSuggestions() {
+  suggestionsEl?.remove();
+}
+
+function setComposerMode(mode) {
+  if (chatInput.disabled) return;
+  const nextMode = mode === "fit" ? "fit" : "chat";
+  const previousMode = getComposerMode();
+  composerDrafts[previousMode] = chatInput.value;
+  chatForm.dataset.mode = nextMode;
+  chatInput.value = composerDrafts[nextMode];
+  chatInput.setCustomValidity("");
+  const isFit = nextMode === "fit";
+  chatInput.rows = isFit ? 4 : 1;
+  chatInput.placeholder = isFit
+    ? "Paste the job description, including the role and requirements…"
+    : chatPlaceholder;
+  chatInputLabel.textContent = isFit ? "Job description" : "Question about Dakota";
+  composerModeBar.hidden = !isFit;
+  composerHint.textContent = isFit
+    ? "Up to 15,000 characters · Enter for a new line · Ctrl / ⌘ + Enter to analyze"
+    : "Enter to send · Shift + Enter for a new line";
+  sendButton.setAttribute("aria-label", isFit ? "Analyze fit" : "Send message");
+  sendButton.querySelector(".send-icon").hidden = isFit;
+  sendButton.querySelector(".send-label").hidden = !isFit;
+  syncSuggestions();
+  autosizeComposer();
+}
+
+function setSending(isNowSending) {
+  sending = isNowSending;
+  chatInput.disabled = isNowSending;
+  chatForm.setAttribute("aria-busy", String(isNowSending));
+  if (sendButton) sendButton.disabled = isNowSending;
+  const backButton = document.getElementById("back-to-chat");
+  if (backButton) backButton.disabled = isNowSending;
+}
+
+function looksLikeJD(text) {
+  if (text.length <= 800) return false;
+  const signals =
+    /responsibilit|qualificat|requirement|we are looking for|years of experience|preferred|about the role|equal opportunity|benefits/gi;
+  const hits = text.match(signals) || [];
+  return new Set(hits.map((h) => h.toLowerCase())).size >= 2;
+}
+
+/** What a submit means, given the composer mode. Explicit fit mode never
+ * depends on JD wording; the paste heuristic only guards chat mode. */
+function composerSubmission(value, mode) {
+  const text = value.trim();
+  if (!text) return { kind: "empty", text };
+  if (text.length > JD_MAX_CHARS) {
+    return {
+      kind: "error",
+      error: "Use up to 15,000 characters for a fit analysis. Please shorten the description.",
+    };
+  }
+  if (mode === "fit") return { kind: "analysis", text };
+  if (looksLikeJD(text)) return { kind: "interstitial", text };
+  if (text.length > CHAT_MAX_CHARS) {
+    return {
+      kind: "error",
+      error: "Keep chat messages under 2,000 characters, or choose Check fit for a role to analyze a job description.",
+    };
+  }
+  return { kind: "chat", text };
+}
+
+function shouldSubmitOnEnter(event, mode) {
+  // Never submit while an IME is confirming a character; keyCode 229 is the
+  // Safari fallback where isComposing can already have turned false.
+  if (
+    event.key !== "Enter" || event.isComposing || event.keyCode === 229 ||
+    event.shiftKey || event.altKey
+  ) {
+    return false;
+  }
+  if (mode === "fit") return Boolean(event.ctrlKey || event.metaKey);
+  return true;
+}
+
+function scrollToChat() {
+  document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+}
+
+/** Scroll to the chat card and focus the composer. */
+function focusChat() {
+  scrollToChat();
+  window.setTimeout(() => chatInput.focus({ preventScroll: true }), 300);
+}
+
+/** A deliberate job-fit action: switch the composer into analysis mode. */
+function startFit() {
+  if (isSending()) return;
+  setComposerMode("fit");
+  focusChat();
+}
+
+/** Scroll to the chat, then send a prepared question (project row actions). */
+function askAssistant(question) {
+  scrollToChat();
+  window.setTimeout(() => sendMessage(question), 350);
+}
+
+// ===== Resume drawer =====
 // The drawer renders the same /api/resume payload the agent answers from,
-// but as a single typewritten sheet. Citations from chat answers open the
-// drawer and drag a highlighter mark across the cited part of the page.
+// typeset as an editorial résumé. Citations from chat answers open the drawer
+// and sweep a highlight across the cited part of the page.
 
 const drawerState = { open: false, lastFocus: null };
 
@@ -344,11 +483,10 @@ function paperSection(id, title, children) {
 
 function renderResumePaper(data) {
   if (!resumePaper) return;
-  resumePaper.innerHTML = "";
+  resumePaper.replaceChildren();
 
   const personal = data.personal || {};
 
-  const contact = el("p", { class: "paper-contact" });
   const contactBits = [];
   if (personal.location) contactBits.push(el("span", { text: personal.location }));
   if (personal.email) {
@@ -358,16 +496,17 @@ function renderResumePaper(data) {
   }
   if (personal.linkedin) contactBits.push(paperLink(personal.linkedin, "LinkedIn"));
   if (personal.github) contactBits.push(paperLink(personal.github, "GitHub"));
-  contactBits.forEach((bit, i) => {
-    if (i) contact.append(" \u00B7 ");
-    contact.append(bit);
-  });
+  // Spaced by the flex gap, not a text separator.
+  const contact = el("p", { class: "paper-contact" }, contactBits);
 
   resumePaper.append(
     el("header", { class: "paper-head" }, [
-      el("h2", { class: "paper-name", text: personal.name || "" }),
-      personal.title ? el("p", { class: "paper-title", text: personal.title }) : null,
-      contactBits.length ? contact : null,
+      el("div", { class: "paper-head-copy" }, [
+        el("h2", { class: "paper-name", text: personal.name || "" }),
+        personal.title ? el("p", { class: "paper-title", text: personal.title }) : null,
+        contactBits.length ? contact : null,
+      ]),
+      el("span", { class: "paper-photo", "aria-hidden": "true" }),
     ])
   );
 
@@ -376,29 +515,59 @@ function renderResumePaper(data) {
   }
 
   const expEntries = safeArray(data.experience).map((exp) => {
-    const head = el("div", { class: "paper-entry-head" }, [
-      el("span", { class: "paper-entry-role", text: exp.role || "" }),
-      exp.duration ? el("span", { class: "paper-entry-meta", text: exp.duration }) : null,
-    ]);
-    const subText = [exp.company, exp.location].filter(Boolean).join(" \u2014 ");
-    const sub = subText ? el("div", { class: "paper-entry-sub", text: subText }) : null;
     const achievements = safeArray(exp.achievements);
-    const bullets = achievements.length
-      ? el("ul", { class: "paper-bullets" }, achievements.map((a) => el("li", { text: a })))
-      : null;
-    return el("div", { class: "paper-entry" }, [head, sub, bullets]);
-  });
-  resumePaper.append(paperSection("paper-experience", "Experience", expEntries));
-
-  const eduEntries = safeArray(data.education).map((ed) => {
-    const head = el("div", { class: "paper-entry-head" }, [
-      el("span", { class: "paper-entry-role", text: ed.school || "" }),
-      ed.graduation ? el("span", { class: "paper-entry-meta", text: ed.graduation }) : null,
+    const subText = [exp.company, exp.location].filter(Boolean).join(" · ");
+    const details = el("div", { class: "paper-entry-head" }, [
+      el("div", { class: "paper-entry-role", text: exp.role || "" }),
+      subText ? el("div", { class: "paper-entry-sub", text: subText }) : null,
+      exp.description ? el("p", { class: "paper-entry-description", text: exp.description }) : null,
+      achievements.length
+        ? el("ul", { class: "paper-bullets" }, achievements.map((a) => el("li", { text: a })))
+        : null,
     ]);
-    const sub = ed.degree ? el("div", { class: "paper-entry-sub", text: ed.degree }) : null;
-    return el("div", { class: "paper-entry" }, [head, sub]);
+    return el("div", {
+      id: buildResumeAnchor("paper-experience", `${exp.role || ""} at ${exp.company || ""}`),
+      class: "paper-entry paper-markable",
+    }, [
+      el("span", { class: "paper-entry-meta", text: exp.duration || "" }),
+      details,
+    ]);
   });
-  resumePaper.append(paperSection("paper-education", "Education", eduEntries));
+  if (expEntries.length) {
+    resumePaper.append(paperSection("paper-experience", "Experience", expEntries));
+  }
+
+  // Projects share the experience layout: timeframe on the left, the name as
+  // the heading. Project names here are full sentences, too long for the
+  // narrow column the design gives short product names.
+  const projectEntries = safeArray(data.projects).map((project) => {
+    const description = project.impact || project.description || project.problem_solved || "";
+    return el("div", {
+      id: buildResumeAnchor("paper-project", project.name || ""),
+      class: "paper-entry paper-project paper-markable",
+    }, [
+      el("span", { class: "paper-entry-meta", text: project.timeframe || "" }),
+      el("div", { class: "paper-entry-head" }, [
+        el("div", { class: "paper-entry-role", text: project.name || "" }),
+        project.tagline ? el("div", { class: "paper-entry-sub", text: project.tagline }) : null,
+        description ? el("p", { class: "paper-project-description", text: description }) : null,
+      ]),
+    ]);
+  });
+  if (projectEntries.length) {
+    resumePaper.append(paperSection("paper-projects", "Projects", projectEntries));
+  }
+
+  const eduEntries = safeArray(data.education).map((ed) => el("div", { class: "paper-entry" }, [
+    el("span", { class: "paper-entry-meta", text: ed.graduation || "" }),
+    el("div", { class: "paper-entry-head" }, [
+      el("div", { class: "paper-entry-role", text: ed.school || "" }),
+      ed.degree ? el("div", { class: "paper-entry-sub", text: ed.degree }) : null,
+    ]),
+  ]));
+  if (eduEntries.length) {
+    resumePaper.append(paperSection("paper-education", "Education", eduEntries));
+  }
 
   const certEntries = safeArray(data.certifications).map((c) => {
     const name = c.name || "";
@@ -406,33 +575,51 @@ function renderResumePaper(data) {
       id: buildResumeAnchor("paper-certification", name),
       class: "paper-markable",
     });
-    li.append(c.credential_url ? paperLink(c.credential_url, name) : el("strong", { text: name }));
+    // One cell beside the dash: the bullet row is a two-column grid.
+    const line = el("span", { class: "paper-cert" });
+    line.append(c.credential_url ? paperLink(c.credential_url, name) : el("strong", { text: name }));
     const extras = [c.issuer, c.date].filter(Boolean).join(", ");
-    if (extras) li.append(` \u2014 ${extras}`);
+    if (extras) line.append(` — ${extras}`);
     const status = String(c.status || "").trim();
-    if (status && status.toLowerCase() !== "completed") li.append(` (${status.toLowerCase()})`);
+    if (status && status.toLowerCase() !== "completed") line.append(` (${status.toLowerCase()})`);
+    li.append(line);
     return li;
   });
-  resumePaper.append(
-    paperSection("paper-certifications", "Certifications", [
-      el("ul", { class: "paper-bullets paper-bullets--certs" }, certEntries),
-    ])
-  );
+  if (certEntries.length) {
+    resumePaper.append(
+      paperSection("paper-certifications", "Certifications", [
+        el("ul", { class: "paper-bullets paper-bullets--certs" }, certEntries),
+      ])
+    );
+  }
 
-  const skillLines = Object.entries(data.skills || {}).map(([key, items]) => {
-    const line = el("p", { class: "paper-skill-line" });
-    line.append(el("strong", { text: `${key.replace(/_/g, " ").toUpperCase()}: ` }));
-    line.append(safeArray(items).join(", "));
-    return line;
+  const skillLines = Object.entries(data.skills || {}).map(([key, items]) => el(
+    "p",
+    { class: "paper-skill-line" },
+    [
+      el("strong", { text: key.replace(/_/g, " ") }),
+      el("span", { text: safeArray(items).join(", ") }),
+    ]
+  ));
+  if (skillLines.length) {
+    resumePaper.append(paperSection("paper-skills", "Skills", skillLines));
+  }
+
+  const askButton = el("button", { class: "paper-signoff", type: "button" }, [
+    el("span", { class: "paper-signoff-copy" }, [
+      el("strong", { text: "Something not on the page?" }),
+      el("span", { text: "Ask Dakota's AI. It knows the details behind each line." }),
+    ]),
+    el("span", { class: "paper-signoff-arrow", text: "→", "aria-hidden": "true" }),
+  ]);
+  askButton.addEventListener("click", () => {
+    closeResumeDrawer();
+    window.setTimeout(() => {
+      document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
+      chatInput.focus({ preventScroll: true });
+    }, 80);
   });
-  resumePaper.append(paperSection("paper-skills", "Skills", skillLines));
-
-  resumePaper.append(
-    el("p", {
-      class: "paper-signoff",
-      text: "\u2014 typed the old-fashioned way. the agent upstairs is faster. \u2014",
-    })
-  );
+  resumePaper.append(askButton);
 }
 
 function clearPaperMarks() {
@@ -453,6 +640,9 @@ function openResumeDrawer() {
   drawerState.lastFocus = document.activeElement;
   resumeDrawer.classList.add("is-open");
   resumeDrawer.setAttribute("aria-hidden", "false");
+  // `inert` keeps the closed drawer's links and close button out of the tab
+  // order and the accessibility tree.
+  resumeDrawer.inert = false;
   resumeTab?.setAttribute("aria-expanded", "true");
   document.body.classList.add("resume-drawer-open");
   document.getElementById("resume-drawer-close")?.focus({ preventScroll: true });
@@ -463,6 +653,7 @@ function closeResumeDrawer() {
   drawerState.open = false;
   resumeDrawer.classList.remove("is-open");
   resumeDrawer.setAttribute("aria-hidden", "true");
+  resumeDrawer.inert = true;
   resumeTab?.setAttribute("aria-expanded", "false");
   document.body.classList.remove("resume-drawer-open");
   clearPaperMarks();
@@ -477,6 +668,15 @@ function initResumeDrawer() {
   resumeTab?.addEventListener("click", () => {
     drawerState.open ? closeResumeDrawer() : openResumeDrawer();
   });
+  // The tab floats over the page, so once the footer scrolls into view it
+  // would sit on the "Let's talk." heading. Step aside while any part of
+  // the footer is visible; the nav link and hero CTA still open the drawer.
+  const footer = document.getElementById("contact");
+  if (resumeTab && footer && "IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      resumeTab.classList.toggle("resume-tab--away", entries.some((e) => e.isIntersecting));
+    }).observe(footer);
+  }
   document.getElementById("resume-drawer-close")?.addEventListener("click", closeResumeDrawer);
   resumeDrawer.querySelector("[data-drawer-close]")?.addEventListener("click", closeResumeDrawer);
   document.addEventListener("keydown", (e) => {
@@ -502,6 +702,14 @@ function initResumeDrawer() {
     }
   });
 }
+
+// Every "see the resume" affordance opens the same drawer.
+document.querySelectorAll("#hero-resume-cta, #nav-resume, [data-footer-resume]").forEach((node) => {
+  node.addEventListener("click", (e) => {
+    e.preventDefault();
+    openResumeDrawer();
+  });
+});
 
 const CITATION_RULES = [
   {
@@ -563,8 +771,8 @@ const CITATION_RULES = [
 ];
 
 /**
- * Citation click: slide the paper out and run a highlighter across the cited
- * part of the sheet. Whole sections get their heading marked; specific lines
+ * Citation click: slide the drawer out and sweep a highlight across the cited
+ * part of the page. Whole sections get their heading marked; specific lines
  * (individual certifications) get marked directly.
  */
 function highlightCitationTarget(targetId) {
@@ -630,68 +838,31 @@ function renderAnswerCitations(data) {
   ]);
 }
 
-/**
- * Scroll to the chat card and focus the input. The hero CTAs, the interface
- * cards, and the project cards all funnel here; jdMode swaps the placeholder
- * to cue a JD paste (the fit analysis lives inside the chat thread).
- */
-function focusChat({ jdMode = false } = {}) {
-  document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-  if (jdMode && chatInput) {
-    chatInput.placeholder = "Paste the full job description here...";
-  }
-  // Retry focus until the input is visible and focused
-  let attempts = 0;
-  const tryFocus = () => {
-    if (chatInput) {
-      chatInput.focus({ preventScroll: true });
-      if (document.activeElement === chatInput || attempts > 10) return;
-    }
-    attempts++;
-    setTimeout(tryFocus, 150);
-  };
-  setTimeout(tryFocus, 300);
-}
-
-/** Scroll to the chat, then send a prepared question (project card actions). */
-function askAssistant(question) {
-  document.getElementById("chat")?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
-  window.setTimeout(() => sendMessage(question), 350);
-}
-
-// Hero CTA — scroll to chat and focus input
-document.getElementById("hero-cta")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  focusChat();
-});
-
-// Hero CTA — the fit analysis lives in the chat agent: jump there and cue
-// the recruiter to paste the JD.
+// Hero CTA — the fit analysis lives in the chat card: switch it into fit
+// mode and cue the recruiter to paste the JD.
 document.getElementById("hero-jd-cta")?.addEventListener("click", (e) => {
   e.preventDefault();
-  focusChat({ jdMode: true });
+  startFit();
 });
 
-// Hero CTA — slide out the paper resume ("the old way").
-document.getElementById("hero-resume-cta")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  openResumeDrawer();
+document.getElementById("back-to-chat")?.addEventListener("click", () => {
+  setComposerMode("chat");
+  chatInput.focus({ preventScroll: true });
 });
 
-// Nav "Resume" link opens the same drawer.
-document.getElementById("nav-resume")?.addEventListener("click", (e) => {
-  e.preventDefault();
-  openResumeDrawer();
-});
-
-// "Explore my work your way" cards reuse the same three actions; the MCP
-// card is a plain in-page anchor and needs no JS.
+// "Explore my work your way" rows reuse the same actions; the MCP row is a
+// plain in-page anchor and needs no JS.
 document.querySelectorAll("[data-explore]").forEach((cardEl) => {
   cardEl.addEventListener("click", () => {
     const mode = cardEl.dataset.explore;
-    if (mode === "chat") focusChat();
-    else if (mode === "jd") focusChat({ jdMode: true });
-    else if (mode === "resume") openResumeDrawer();
+    if (mode === "chat") {
+      setComposerMode("chat");
+      focusChat();
+    } else if (mode === "jd") {
+      startFit();
+    } else if (mode === "resume") {
+      openResumeDrawer();
+    }
   });
 });
 
@@ -714,59 +885,12 @@ if (mcpCopyBtn) {
   });
 }
 
-function initNavbar() {
-  // Frosted glass on scroll
-  if (siteHeader) {
-    let wasScrolled = false;
-    window.addEventListener("scroll", () => {
-      const isScrolled = window.scrollY > 20;
-      if (isScrolled !== wasScrolled) {
-        wasScrolled = isScrolled;
-        siteHeader.classList.toggle("is-scrolled", isScrolled);
-      }
-    }, { passive: true });
-  }
-
-  // Hamburger toggle
-  if (hamburger && navLinks) {
-    hamburger.addEventListener("click", () => {
-      const isOpen = navLinks.classList.toggle("is-open");
-      hamburger.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    });
-
-    // Close on nav link click (mobile)
-    navLinks.querySelectorAll("a").forEach((link) => {
-      link.addEventListener("click", () => {
-        navLinks.classList.remove("is-open");
-        hamburger.setAttribute("aria-expanded", "false");
-      });
-    });
-
-    // Close on outside click
-    document.addEventListener("click", (e) => {
-      if (!(e.target instanceof Node)) return;
-      if (navLinks.contains(e.target) || hamburger.contains(e.target)) return;
-      navLinks.classList.remove("is-open");
-      hamburger.setAttribute("aria-expanded", "false");
-    });
-
-    // Close on Escape key
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && navLinks.classList.contains("is-open")) {
-        navLinks.classList.remove("is-open");
-        hamburger.setAttribute("aria-expanded", "false");
-        hamburger.focus();
-      }
-    });
-  }
-}
-
-// ===== "Things I've built" project cards =====
+// ===== "Things I've built" rows =====
 // Display copy is tightened for the homepage (problem → built → why it
-// matters), but every card is keyed to a project in the /api/resume payload
-// and only renders when that project exists — cards can't outlive or drift
+// matters), but every row is keyed to a project in the /api/resume payload
+// and only renders when that project exists — rows can't outlive or drift
 // from the source data. Claims stay within what resume.json states.
-// Exception: `standalone` cards describe work that lives in its own repo
+// Exception: `standalone` rows describe work that lives in its own repo
 // (not in resume.json), so they render unconditionally and link out instead
 // of offering "Ask my AI" (the assistant only knows the resume data).
 const PROJECT_CARDS = [
@@ -820,7 +944,7 @@ function renderProjectCards(data) {
   );
   if (!cards.length) return; // section stays hidden
 
-  grid.innerHTML = "";
+  grid.replaceChildren();
   cards.forEach((card) => {
     let action = null;
     if (card.link) {
@@ -838,14 +962,18 @@ function renderProjectCards(data) {
     }
     grid.append(
       el("article", { class: "project-card" }, [
-        el("h3", { class: "project-title", text: card.title }),
-        el("p", { class: "project-blurb", text: card.blurb }),
-        el(
-          "div",
-          { class: "project-tags" },
-          card.tags.map((t) => el("span", { class: "project-tag", text: t }))
-        ),
-        action ? el("div", { class: "project-action" }, [action]) : null,
+        el("div", { class: "project-side" }, [
+          el("h3", { class: "project-title", text: card.title }),
+          el(
+            "div",
+            { class: "project-tags" },
+            card.tags.map((t) => el("span", { class: "project-tag", text: t }))
+          ),
+        ]),
+        el("div", { class: "project-body" }, [
+          el("p", { class: "project-blurb", text: card.blurb }),
+          action ? el("div", { class: "project-action" }, [action]) : null,
+        ]),
       ])
     );
   });
@@ -862,8 +990,19 @@ async function loadAndRenderResume() {
     const name = (personal.name || "").trim();
     const email = (personal.email || "").trim();
     if (brandTitle && name) brandTitle.textContent = name.toUpperCase();
-    if (heroName && name) heroName.textContent = name;
-    if (heroTagline) heroTagline.textContent = HERO_TAGLINE;
+    if (heroName && name) {
+      // First and last name on their own lines, as the hero sets them.
+      const splitAt = name.lastIndexOf(" ");
+      const firstLine = splitAt > 0 ? name.slice(0, splitAt) : name;
+      const lastLine = splitAt > 0 ? name.slice(splitAt + 1) : "";
+      const firstNode = heroName.querySelector(".hero-name-first");
+      const lastNode = heroName.querySelector(".hero-name-last");
+      if (firstNode) firstNode.textContent = firstLine;
+      if (lastNode) {
+        lastNode.textContent = lastLine;
+        lastNode.hidden = !lastLine;
+      }
+    }
     if (heroEmail && email) {
       const t = heroEmail.querySelector(".hero-contact-text");
       if (t) t.textContent = email;
@@ -877,22 +1016,14 @@ async function loadAndRenderResume() {
     renderProjectCards(data);
   } catch (err) {
     console.warn("Resume data unavailable (did you start the backend?)", err);
-    // No sheet to show: hide the drawer tab so it never opens onto blank paper.
+    // No page to show: hide EVERY "see the resume" affordance — the hero
+    // CTA, nav link and footer row open the same drawer as the edge tab, and
+    // would otherwise present a blank sheet.
     resumeTab?.setAttribute("hidden", "");
+    document.getElementById("hero-resume-cta")?.setAttribute("hidden", "");
+    document.getElementById("nav-resume")?.setAttribute("hidden", "");
+    document.querySelector("[data-footer-resume]")?.setAttribute("hidden", "");
   }
-}
-
-function setSending(isSending) {
-  chatInput.disabled = isSending;
-  if (sendButton) {
-    sendButton.disabled = isSending;
-  }
-}
-
-function scrollBehavior() {
-  const reduced =
-    window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  return reduced ? "auto" : "smooth";
 }
 
 /**
@@ -966,6 +1097,7 @@ async function streamChat(url, body, handlers) {
     else if (eventName === "status") handlers.onStatus?.(data);
     else if (eventName === "delta") handlers.onDelta?.(data);
     else if (eventName === "done") handlers.onDone?.(data);
+    else if (eventName === "fitmap") handlers.onFitMap?.(data);
     else if (eventName === "error") handlers.onError?.(data);
   };
 
@@ -991,7 +1123,7 @@ async function streamChat(url, body, handlers) {
  * first answer token arrives; the answer is never delayed.
  */
 function createStatusSteps(container, orbState = "working") {
-  container.innerHTML = "";
+  container.replaceChildren();
   container.classList.add("has-steps");
   // One live status row — active orb + a single line that updates in
   // place — rather than a stacked checklist. The orb is removed on
@@ -1143,10 +1275,8 @@ function renderFollowups(data) {
         action: () => {
           // JD analyses draw from their own budget, so this works even
           // when the chat quota is exhausted — paste the JD right here.
-          if (chatInput) {
-            chatInput.placeholder = "Paste the full job description here...";
-            chatInput.focus({ preventScroll: true });
-          }
+          setComposerMode("fit");
+          chatInput.focus({ preventScroll: true });
         },
       },
       {
@@ -1196,7 +1326,7 @@ function renderUnlockForm(thinkingEl, detail, message, onUnlocked) {
   const body = thinkingEl.querySelector(".msg-body");
   if (!body) return;
   thinkingEl.classList.remove("is-thinking");
-  body.textContent = "";
+  body.replaceChildren();
 
   const prompt = el("p", { class: "unlock-prompt", text: detail || "You've hit the free chat limit." });
   const passwordInput = el("input", {
@@ -1260,7 +1390,9 @@ function renderUnlockForm(thinkingEl, detail, message, onUnlocked) {
 }
 
 async function sendMessage(message, { isRetry = false } = {}) {
-  suggestionsEl?.remove();
+  if (isSending()) return;
+  setComposerMode("chat");
+  removeSuggestions();
   removePreviousFollowups();
   if (!isRetry) addMessage(message, "user");
   const thinkingEl = addMessage("Thinking...", "bot");
@@ -1281,6 +1413,9 @@ async function sendMessage(message, { isRetry = false } = {}) {
   let maxAnswerHeight = 0;
   let finalData = null;
   let streamError = null;
+  // Set when the free-limit unlock form takes over this bubble: the form
+  // owns focus then, and yanking it back would send the password into chat.
+  let unlockShown = false;
 
   // Screen readers: never re-announce the growing answer, only completions.
   chatLog?.setAttribute("aria-live", "off");
@@ -1381,6 +1516,7 @@ async function sendMessage(message, { isRetry = false } = {}) {
     if (!result.ok) {
       const errorData = await result.res.json().catch(() => ({}));
       if (result.res.status === 403) {
+        unlockShown = true;
         renderUnlockForm(thinkingEl, errorData.detail, message);
       } else {
         const body = thinkingEl.querySelector(".msg-body");
@@ -1438,7 +1574,11 @@ async function sendMessage(message, { isRetry = false } = {}) {
     }
 
     if (announcer) {
-      const firstSentence = String(finalData.reply || "").split(/(?<=[.!?])\s/)[0] || "";
+      // No lookbehind: take up to the first sentence terminator that
+      // precedes whitespace (older Safari cannot parse lookbehind).
+      const replyText = String(finalData.reply || "");
+      const sentenceMatch = replyText.match(/^[\s\S]*?[.!?](?=\s)/);
+      const firstSentence = sentenceMatch ? sentenceMatch[0] : replyText;
       announcer.textContent = `Answer ready. ${firstSentence.slice(0, 150)}`;
     }
 
@@ -1460,42 +1600,65 @@ async function sendMessage(message, { isRetry = false } = {}) {
     chatLog?.setAttribute("aria-live", "polite");
     thinkingEl?.classList?.remove("is-thinking");
     setSending(false);
-    chatInput.focus();
+    if (!unlockShown) chatInput.focus({ preventScroll: true });
   }
 }
 
 chatForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  const message = chatInput.value.trim();
-  if (!message) return;
-  chatInput.value = "";
-  // Detect pasted job descriptions BEFORE any fetch: chat caps at 2,000 chars,
-  // and the fit analysis is the better tool for a JD anyway.
-  if (looksLikeJD(message)) {
-    renderJDInterstitial(message);
+  if (isSending()) return;
+  const submission = composerSubmission(chatInput.value, getComposerMode());
+  if (submission.kind === "empty") return;
+  if (submission.kind === "error") {
+    chatInput.setCustomValidity(submission.error);
+    chatInput.reportValidity();
     return;
   }
-  sendMessage(message);
+  chatInput.setCustomValidity("");
+  // Keep an explicit job description visible while it runs. The JD flow
+  // clears it only after success, so a failed request can be retried.
+  if (submission.kind !== "analysis") {
+    chatInput.value = "";
+    autosizeComposer();
+  }
+  if (submission.kind === "analysis") {
+    sendJDMatch(submission.text);
+  } else if (submission.kind === "interstitial") {
+    renderJDInterstitial(submission.text);
+  } else {
+    sendMessage(submission.text);
+  }
+});
+chatInput.addEventListener("input", () => {
+  chatInput.setCustomValidity("");
+  autosizeComposer();
+  syncSuggestions();
+});
+chatInput.addEventListener("keydown", (e) => {
+  if (shouldSubmitOnEnter(e, getComposerMode())) {
+    e.preventDefault();
+    chatForm.requestSubmit();
+  }
 });
 
 // Seed a friendly greeting.
-const introMsg = addMessage("Hi! Ask about Dakota's experience, projects, or skills.", "bot");
+const introMsg = addMessage(
+  "Hey, thanks for stopping by. I'm Dakota's AI, and I answer from his real résumé. " +
+  "Ask about his experience, a project, or how he'd fit your role.",
+  "bot"
+);
 introMsg.classList.add("intro");
 
 // Robust chat stick-to-bottom behavior.
 initChatAutoScroll();
 
-// Navbar: frosted glass on scroll + hamburger.
-initNavbar();
-
-// Explore link: focus chat input after scroll completes.
-document.querySelector(".hero-explore")?.addEventListener("click", () => {
-  setTimeout(() => chatInput?.focus(), 400);
-});
-
 // Suggestion chips - click to send, remove on use.
 suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
-  chip.addEventListener("click", () => sendMessage(chip.textContent.trim()));
+  chip.addEventListener("click", () => {
+    if (isSending()) return;
+    setComposerMode("chat");
+    sendMessage(chip.textContent.trim());
+  });
 });
 
 // Feedback dialog
@@ -1529,8 +1692,6 @@ if (feedbackDialog && feedbackOpenBtn) {
 }
 
 // --- JD fit analysis (runs inside the chat thread) ---
-const JD_MAX_CHARS = 15000;
-
 let jdBusy = false;
 let jdAnalysisMarkdown = ""; // raw markdown of the last completed analysis
 let jdLastText = ""; // first line of the last analyzed JD feeds the email subject
@@ -1538,14 +1699,6 @@ let jdLastText = ""; // first line of the last analyzed JD feeds the email subje
 function announceJD(text) {
   const announcer = document.getElementById("step-announcer");
   if (announcer) announcer.textContent = text;
-}
-
-function looksLikeJD(text) {
-  if (text.length <= 800) return false;
-  const signals =
-    /responsibilit|qualificat|requirement|we are looking for|years of experience|preferred|about the role|equal opportunity|benefits/gi;
-  const hits = text.match(signals) || [];
-  return new Set(hits.map((h) => h.toLowerCase())).size >= 2;
 }
 
 function copyToClipboard(text) {
@@ -1666,9 +1819,14 @@ function renderJDActions(host) {
 }
 
 async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
-  if (jdBusy) return;
+  if (jdBusy || isSending()) return;
   jdBusy = true;
+  setSending(true);
+  removeSuggestions();
+  removePreviousFollowups();
   if (mode === "analysis") jdLastText = jdText;
+  let unlockShown = false;
+  let analysisDone = false;
 
   // The analysis streams into a regular bot message so the whole flow
   // lives in the conversation.
@@ -1676,7 +1834,15 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
   msg.classList.add("jd-analysis");
   const msgBody = msg.querySelector(".msg-body");
   if (mode === "analysis") {
-    msgBody.append(el("h3", { class: "jd-results-heading", text: "Fit analysis" }));
+    const roleLabel = jdText
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean)
+      ?.slice(0, 80) || "Pasted role";
+    msgBody.append(el("div", { class: "jd-results-header" }, [
+      el("h3", { class: "jd-results-heading", text: "Fit analysis" }),
+      el("span", { class: "jd-role-label", text: roleLabel }),
+    ]));
   }
   const streamHost = el("div", {
     class: mode === "analysis" ? "jd-stream" : "jd-stream jd-stream--brief",
@@ -1685,6 +1851,9 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
 
   const steps = createStatusSteps(streamHost, "solving");
   steps.addStep("Loading Dakota's full resume...");
+  // Jev's requirement map arrives on its own event, usually while the prose
+  // is still streaming; it is rendered once the analysis is final.
+  let fitMapData = null;
 
   let accumulated = "";
   let answerDiv = null;
@@ -1728,6 +1897,11 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
             steps.addStep(mode === "brief" ? "Writing screening brief..." : "Writing fit analysis...");
           }
         },
+        onFitMap(data) {
+          fitMapData = data;
+          const count = safeArray(data?.requirements).length;
+          steps.addStep(`Jev scored ${count} requirement${count === 1 ? "" : "s"} against the résumé`);
+        },
         onDelta(data) {
           ensureAnswerDiv();
           accumulated += data.text || "";
@@ -1754,6 +1928,7 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
       if (result.res && result.res.status === 403) {
         const host = el("div", { class: "jd-unlock" }, [el("div", { class: "msg-body" })]);
         streamHost.append(host);
+        unlockShown = true;
         renderUnlockForm(host, detail, null, () => sendJDMatch(jdText, { mode }));
         announceJD("Password required for another analysis.");
         return;
@@ -1773,8 +1948,11 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
 
     if (mode === "analysis") {
       jdAnalysisMarkdown = String(finalData.reply || "");
+      analysisDone = true;
+      const fitMap = fitMapData ? renderFitMap(fitMapData) : null;
+      if (fitMap) msgBody.append(fitMap);
       renderJDActions(msgBody);
-      announceJD("Fit analysis ready.");
+      announceJD(fitMap ? "Fit analysis and requirement map ready." : "Fit analysis ready.");
     } else {
       const briefMarkdown = String(finalData.reply || "");
       streamHost.append(
@@ -1793,12 +1971,21 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
     );
   } finally {
     jdBusy = false;
+    setSending(false);
+    // A successful analysis of the explicit-fit draft retires that draft and
+    // hands the composer back to chat, where the follow-up actions live. A
+    // failed one keeps the description in place so it can be retried.
+    if (analysisDone && getComposerMode() === "fit") {
+      if (chatInput.value.trim() === jdText) chatInput.value = "";
+      setComposerMode("chat");
+    }
+    if (!unlockShown) chatInput.focus({ preventScroll: true });
   }
 }
 
 /** Chat interstitial when a pasted message looks like a job description. */
 function renderJDInterstitial(text) {
-  suggestionsEl?.remove();
+  removeSuggestions();
   removePreviousFollowups();
   const msg = addMessage(
     "This looks like a job description. I can run a structured fit analysis against Dakota's full resume instead of a chat reply.",
@@ -1809,23 +1996,25 @@ function renderJDInterstitial(text) {
 
   const analyzeChip = el("button", { class: "chip chip--primary", type: "button", text: "Analyze fit" });
   analyzeChip.addEventListener("click", () => {
+    if (isSending()) return;
     msg.remove();
     sendJDMatch(clipped);
   });
 
   const justChat = el("button", { class: "chip", type: "button", text: "Just chat" });
-  if (text.length > 2000) {
+  if (text.length > CHAT_MAX_CHARS) {
     justChat.disabled = true;
     justChat.title = "Chat is limited to 2,000 characters";
   } else {
     justChat.addEventListener("click", () => {
+      if (isSending()) return;
       msg.remove();
       sendMessage(text);
     });
   }
 
   body?.append(el("div", { class: "chips jd-interstitial-chips" }, [analyzeChip, justChat]));
-  if (text.length > 2000) {
+  if (text.length > CHAT_MAX_CHARS) {
     body?.append(
       el("p", {
         class: "jd-interstitial-note",
@@ -1837,18 +2026,195 @@ function renderJDInterstitial(text) {
   requestScrollToBottom();
 }
 
+// ===== Requirement map (Jev) =====
+// Jev scores every requirement in the pasted description against the résumé
+// in one typed pass and returns a probability for each evidence level. The
+// answers are data, so the map regroups (must-haves first) and re-sorts (by
+// evidence) right here, without asking the model again.
+let fitMapCount = 0;
+
+function percentLabel(probability) {
+  return `${Math.round(probability * 100)}%`;
+}
+
+function renderFitMap(data) {
+  const levels = safeArray(data?.levels).map((label) => String(label || ""));
+  const rows = safeArray(data?.requirements)
+    .filter((item) => item && typeof item.text === "string" && item.text.trim())
+    .map((item, index) => {
+      const probabilities = levels.map((_, level) => {
+        const p = Number(safeArray(item.probabilities)[level]);
+        return Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
+      });
+      const level = Math.min(levels.length - 1, Math.max(0, Number(item.level) || 0));
+      return {
+        index,
+        text: item.text.trim(),
+        level,
+        probabilities,
+        expected: Number.isFinite(Number(item.expected)) ? Number(item.expected) : level,
+        mustHave: false,
+        el: null,
+      };
+    });
+  if (levels.length < 2 || rows.length < 2) return null;
+
+  const mapId = ++fitMapCount;
+  const state = { sortByEvidence: false };
+  const section = el("section", { class: "fit-map", "aria-label": "Requirement map" });
+
+  const sortButton = el("button", {
+    class: "fit-map-tool",
+    type: "button",
+    "aria-pressed": "false",
+    text: "Sort by evidence",
+  });
+  sortButton.addEventListener("click", () => {
+    state.sortByEvidence = !state.sortByEvidence;
+    sortButton.setAttribute("aria-pressed", String(state.sortByEvidence));
+    render();
+  });
+  section.append(
+    el("div", { class: "fit-map-head" }, [
+      el("div", { class: "fit-map-heading" }, [
+        el("span", { class: "fit-map-kicker", text: "Requirement map" }),
+        el("span", {
+          class: "fit-map-meta",
+          text: `Judged by Jev · ${rows.length} requirements found in the description`,
+        }),
+      ]),
+      sortButton,
+    ])
+  );
+
+  const summary = el("p", { class: "fit-map-summary", "aria-live": "polite" });
+  section.append(summary);
+
+  // One hue, light to dark: the legend names every step the bars use.
+  section.append(
+    el(
+      "div",
+      { class: "fit-map-legend", "aria-label": "Evidence levels, weakest to strongest" },
+      levels.map((label, level) => el("span", { class: "fit-legend-item" }, [
+        el("span", { class: "fit-swatch", "data-level": String(level), "aria-hidden": "true" }),
+        el("span", { text: label }),
+      ]))
+    )
+  );
+
+  const list = el("div", { class: "fit-map-rows", role: "list" });
+  section.append(list);
+
+  // Rows are built once; render() only reorders and restyles them, so the
+  // toggle the visitor just pressed keeps its identity (and focus).
+  rows.forEach((row) => {
+    const descriptionId = `fit-map-${mapId}-row-${row.index}`;
+    const toggle = el("button", {
+      class: "fit-musthave",
+      type: "button",
+      "aria-pressed": "false",
+      "aria-describedby": descriptionId,
+      text: "Must-have",
+    });
+    toggle.addEventListener("click", () => {
+      row.mustHave = !row.mustHave;
+      toggle.setAttribute("aria-pressed", String(row.mustHave));
+      render();
+      toggle.focus({ preventScroll: true });
+    });
+
+    const bar = el(
+      "div",
+      { class: "fit-bar", "aria-hidden": "true" },
+      row.probabilities.map((probability, level) => {
+        const segment = el("span", {
+          class: "fit-seg",
+          "data-level": String(level),
+          title: `${levels[level]} · ${percentLabel(probability)}`,
+        });
+        segment.style.flexGrow = String(Math.max(probability, 0.001));
+        return segment;
+      })
+    );
+    const distribution = row.probabilities
+      .map((probability, level) => `${levels[level]} ${percentLabel(probability)}`)
+      .join(", ");
+
+    row.el = el("div", { class: "fit-row", role: "listitem" }, [
+      toggle,
+      el("div", { class: "fit-row-main" }, [
+        el("p", { class: "fit-row-text", text: row.text }),
+        bar,
+        el("span", { class: "sr-only", id: descriptionId, text: `Evidence: ${distribution}.` }),
+      ]),
+      el("span", { class: "fit-level" }, [
+        el("span", { class: "fit-swatch", "data-level": String(row.level), "aria-hidden": "true" }),
+        el("span", {
+          text: `${levels[row.level]} · ${percentLabel(row.probabilities[row.level])}`,
+        }),
+      ]),
+    ]);
+  });
+
+  function ordered(group) {
+    const copy = [...group];
+    if (state.sortByEvidence) {
+      copy.sort((a, b) => b.expected - a.expected || a.index - b.index);
+    } else {
+      copy.sort((a, b) => a.index - b.index);
+    }
+    return copy;
+  }
+
+  // "2 strong · 1 partial · 1 not documented", strongest first.
+  function tally(group) {
+    const counts = levels.map(() => 0);
+    group.forEach((row) => { counts[row.level] += 1; });
+    return counts
+      .map((count, level) => (count ? `${count} ${levels[level].toLowerCase()}` : null))
+      .filter(Boolean)
+      .reverse()
+      .join(" · ");
+  }
+
+  function render() {
+    const mustHaves = rows.filter((row) => row.mustHave);
+    const others = rows.filter((row) => !row.mustHave);
+    [...ordered(mustHaves), ...ordered(others)].forEach((row) => {
+      row.el.classList.toggle("is-must", row.mustHave);
+      list.append(row.el);
+    });
+    summary.textContent = mustHaves.length
+      ? `Must-haves: ${tally(mustHaves)}${others.length ? ` · Others: ${tally(others)}` : ""}`
+      : `All ${rows.length} requirements: ${tally(rows)}. Mark your must-haves to regroup.`;
+  }
+  render();
+
+  section.append(
+    el("p", {
+      class: "fit-map-note",
+      text:
+        "Jev scored each requirement against the résumé in one pass: a probability for " +
+        "every level, no prose. Bars show the whole distribution; the label is the most " +
+        "likely level. “Not documented” means the résumé is silent, not that the " +
+        "experience is missing. Worth asking Dakota directly.",
+    })
+  );
+  return section;
+}
+
 // --- Resume PDF download (password-gated; unlocked with the chat password) ---
 
 function clearPdfChatHelpers() {
-  suggestionsEl?.remove();
+  removeSuggestions();
   chatLog?.querySelector(".msg.intro")?.remove();
   removePreviousFollowups();
   autoScrollEnabled = true;
 }
 
 async function downloadResumePdf() {
-  const btn = document.getElementById("pdf-download");
-  if (btn) btn.disabled = true;
+  const controls = document.querySelectorAll("[data-pdf-download]");
+  controls.forEach((control) => { control.disabled = true; });
   try {
     const res = await fetch("/api/resume.pdf", { credentials: "same-origin" });
     if (res.ok) {
@@ -1868,9 +2234,10 @@ async function downloadResumePdf() {
       /* non-JSON error body */
     }
 
-    // The starter helpers float over the bottom of the chat card. Once the
-    // PDF flow needs the chat, clear them so its status and unlock form stay
-    // visible—especially on narrow screens.
+    // The unlock form lives in the chat: close the drawer if the request
+    // came from there, clear the starter helpers, and bring the form into
+    // view.
+    closeResumeDrawer();
     clearPdfChatHelpers();
 
     // 403 = locked: reuse the chat unlock form inside a bot message, then
@@ -1886,19 +2253,23 @@ async function downloadResumePdf() {
     });
   } catch (err) {
     console.error("PDF download failed", err);
+    closeResumeDrawer();
     clearPdfChatHelpers();
     const host = addMessage("Unable to download the PDF right now. Please try again soon.", "bot");
     requestScrollToBottom();
     host.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   } finally {
-    if (btn) btn.disabled = false;
+    controls.forEach((control) => { control.disabled = false; });
   }
 }
 
-document.getElementById("pdf-download")?.addEventListener("click", downloadResumePdf);
+// Footer and drawer PDF controls share one download flow.
+document.querySelectorAll("[data-pdf-download]").forEach((control) => {
+  control.addEventListener("click", downloadResumePdf);
+});
 
-// Paper resume drawer: tab, close button, backdrop, Escape, focus trap.
+// Resume drawer: tab, close button, backdrop, Escape, focus trap.
 initResumeDrawer();
 
-// Render the typewritten paper resume from /api/resume.
+// Render the resume drawer and project rows from /api/resume.
 loadAndRenderResume();

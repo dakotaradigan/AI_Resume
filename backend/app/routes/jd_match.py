@@ -21,6 +21,7 @@ from app.chat_service import (
 from app.constants import BUSY_MESSAGE, GENERIC_CHAT_ERROR, JD_LIMIT_MESSAGE, JD_SENTINEL
 from app.content import load_jd_match_prompt, load_resume_context, load_system_prompt
 from app.dependencies import app_settings
+from app.fit_map import build_fit_map
 from app.identity import get_client_ip, set_visitor_cookie
 from app.llm import build_api_messages, make_anthropic_client, sampling_kwargs
 from app.schemas import ChatRequest, JDMatchRequest
@@ -33,6 +34,9 @@ router = APIRouter(prefix="/api")
 # Strip BOTH tag forms (opening and closing) case-insensitively so pasted
 # text can't forge or break the prompt delimiter.
 _JD_TAG_RE = re.compile(r"</?\s*job_description", re.IGNORECASE)
+
+# How long a finished analysis waits for a straggling requirement map.
+FIT_MAP_GRACE_SECONDS = 3.0
 
 
 def sanitize_jd_text(jd_text: str) -> str:
@@ -47,6 +51,11 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
     the chat quota; password unlock bypasses it. The pasted JD is untrusted:
     delimiter tags are stripped and it rides in the user turn only. Briefs
     are quota-free but require a prior analysis in this session.
+
+    When Jev is configured, an analysis also carries a requirement map
+    (``fitmap`` event): Jev's per-requirement evidence levels, judged in
+    parallel with the prose and sent as soon as they are ready, before
+    ``done``. The map is optional; its failure never touches the analysis.
     """
     settings = app_settings(request)
     store = get_session_store()
@@ -125,9 +134,10 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
         yield sse("session", {"session_id": session_id})
         yield sse("status", {"stage": "context_load", "state": "start"})
         try:
+            resume_context = load_resume_context()
             system_message = (
                 f"{load_system_prompt()}\n\n{load_jd_match_prompt()}"
-                f"\n\n[RESUME DATA]\n{load_resume_context()}"
+                f"\n\n[RESUME DATA]\n{resume_context}"
             )
         except RuntimeError:
             logger.exception("Failed to load prompt or resume data")
@@ -136,6 +146,20 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
             return
         yield sse("status", {"stage": "context_load", "state": "done"})
         yield sse("status", {"stage": "generation", "state": "start"})
+
+        # The requirement map runs beside the prose stream, never in series
+        # with it: Jev judges every candidate line in one request while
+        # Claude writes. It is emitted the moment it is ready.
+        fit_task: asyncio.Task | None = None
+        if payload.mode != "brief" and settings.typesafe_api_key:
+            fit_task = asyncio.create_task(build_fit_map(sanitized, resume_context, settings))
+
+        def _take_fit_map() -> dict | None:
+            nonlocal fit_task
+            if fit_task is None or not fit_task.done():
+                return None
+            fit_map, fit_task = fit_task.result(), None
+            return fit_map
 
         # Always the primary model: JD analysis is the synthesis-heavy case.
         client = make_anthropic_client(settings)
@@ -149,7 +173,18 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
             ) as stream:
                 async for text in stream.text_stream:
                     yield sse("delta", {"text": text})
+                    fit_map = _take_fit_map()
+                    if fit_map:
+                        yield sse("fitmap", fit_map)
                 final = await stream.get_final_message()
+
+            if fit_task is not None:
+                # Jev is normally long done by now. Give it a short grace so
+                # the finished analysis is never held hostage to a slow map.
+                await asyncio.wait({fit_task}, timeout=FIT_MAP_GRACE_SECONDS)
+                fit_map = _take_fit_map()
+                if fit_map:
+                    yield sse("fitmap", fit_map)
 
             reply_text = "".join(
                 block.text for block in final.content if block.type == "text"
@@ -190,6 +225,10 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
             logger.exception("Unexpected error during JD analysis")
             await _release_budgets()
             yield sse("error", {"detail": "An unexpected error occurred. Please try again."})
+        finally:
+            # A map with no analysis to sit beside is never sent.
+            if fit_task is not None and not fit_task.done():
+                fit_task.cancel()
 
     streaming_response = StreamingResponse(
         event_gen(),
