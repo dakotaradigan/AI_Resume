@@ -909,7 +909,7 @@ const PROJECT_CARDS = [
     blurb:
       "This site proved a resume can be an agent — OfferBirds turns that into a product. Anyone uploads a resume and gets a hosted AI agent at their own handle, to share instead of a PDF. In build, not live yet: multi-tenant RAG with strict tenant isolation and plan-aware model routing.",
     tags: ["multi-tenant SaaS", "RAG", "tenant isolation", "model routing", "MCP"],
-    link: "https://github.com/dakotaradigan/offerbirds",
+    link: "https://offerbirds.com",
     actionLabel: "Follow the build",
   },
   {
