@@ -26,7 +26,7 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 - Requirement map: Jev (TypeSafe) scores every requirement in a pasted JD against the résumé in one typed pass; the page regroups and re-sorts the probabilities without another model call
 - Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with a data-only `get_resume` tool
 - Hardened: strict CSP, signed server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
-- Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test gate, Docker deploy
+- Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test and security gates (pip-audit, bandit, gitleaks), Docker deploy
 
 ---
 

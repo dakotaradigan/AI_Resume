@@ -175,6 +175,7 @@ Security and privacy:
 - Keep admin endpoints authenticated in deployed environments.
 - Do not trust `X-Forwarded-For` unless a trusted proxy overwrites it.
 - Keep dependencies current, especially FastAPI, Starlette, and multipart/form parsing packages.
+- CI runs pip-audit, bandit (medium+) and a full-history gitleaks scan on every push; a red there blocks like a failing test.
 - Preserve XSS protections in the frontend markdown rendering path.
 
 ## Git Policy

@@ -24,3 +24,34 @@ jobs:
         run: ruff check backend evals/scripts scripts
       - name: Test
         run: PYTHONPATH=backend USE_RAG=false python -m unittest discover -s backend/tests -t backend -p 'test*.py' -v
+
+  # Security gates: dependency advisories, SAST and secret scanning on every
+  # push. A red here blocks a merge like a failing test. There is no
+  # lockfile, so pip-audit resolves requirements.txt the way a fresh Docker
+  # build does and audits that set.
+  security:
+    runs-on: ubuntu-latest
+    # gitleaks-action lists the PR's commits via the API on pull_request
+    # runs; without pull-requests: read it 403s before scanning.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # gitleaks scans the full history, not just HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependency audit (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+      - name: SAST (bandit, medium+ severity)
+        run: |
+          pip install bandit
+          bandit -q -r backend/app -ll
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
