@@ -216,3 +216,6 @@ Production-deployed portfolio app with:
 - Optional Qdrant/OpenAI RAG pipeline with static-context fallback.
 - Session handling, message compaction, rate limiting, chat unlock flow, and analytics export.
 - Evals framework with judge prompts and historical result artifacts.
+- Uptime probe (`.github/workflows/uptime.yml`): every 30 minutes it checks
+  `/health`, the home page, and that HSTS is present (production-mode drift),
+  and opens one `uptime` issue on failure.
