@@ -16,6 +16,27 @@ PRODUCTION_ORIGINS = [
     "https://www.dakotaradigan.ai",
 ]
 
+# One constant, pinned by tests/test_security_headers.py. default-src does
+# not cover the last four directives: without object-src a script injection
+# could embed a plugin; without frame-ancestors a parent page could frame
+# the site (X-Frame-Options covers older browsers only); without base-uri an
+# injected <base> tag could redirect every relative URL; without form-action
+# a form could post what it collects to another origin.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    # Fonts are self-hosted (frontend/fonts), so styles and fonts never
+    # leave this origin.
+    "style-src 'self' 'unsafe-inline'; "
+    "font-src 'self'; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "object-src 'none'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Clickjacking, MIME-sniffing, and XSS protections on every response."""
@@ -40,16 +61,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Strict-Transport-Security"] = (
                 "max-age=63072000; includeSubDomains"
             )
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self'; "
-            # Fonts are self-hosted (frontend/fonts), so styles and fonts never
-            # leave this origin.
-            "style-src 'self' 'unsafe-inline'; "
-            "font-src 'self'; "
-            "img-src 'self' data:; "
-            "connect-src 'self'"
-        )
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
         return response
 
 
