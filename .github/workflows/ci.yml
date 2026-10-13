@@ -21,6 +21,6 @@ jobs:
         # Pin ruff so new default rules in a fresh release can't break CI.
         run: pip install -r requirements.txt ruff==0.16.1
       - name: Lint
-        run: ruff check backend evals/scripts
+        run: ruff check backend evals/scripts scripts
       - name: Test
         run: PYTHONPATH=backend USE_RAG=false python -m unittest discover -s backend/tests -t backend -p 'test*.py' -v

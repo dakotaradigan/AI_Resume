@@ -36,6 +36,9 @@ Frontend:
 - `frontend/index.html`: static page shell.
 - `frontend/app.js`: chat UX, resume rendering, feedback UI, markdown rendering.
 - `frontend/styles.css`: visual system and responsive layout.
+- `frontend/share-card.png`: the link-preview image behind the Open Graph and
+  Twitter tags in both pages; regenerate with `scripts/build_share_card.py`
+  after changing the name, kicker, or tagline.
 
 Data and evals:
 - `data/resume.json`: structured public resume source data.

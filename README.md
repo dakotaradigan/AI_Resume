@@ -53,7 +53,8 @@ Set `REDIS_URL` to use Railway Redis for shared sessions, rate limits, and daily
 1. Replace `data/resume.json` with your career data
 2. Edit `data/system_prompt.txt` with your name and talking points
 3. Update `frontend/index.html` hero section
-4. Deploy to Railway and point your domain
+4. Edit the copy in `scripts/build_share_card.py` and run it to redraw the link-preview card
+5. Deploy to Railway and point your domain
 
 ---
 
