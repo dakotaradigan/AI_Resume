@@ -68,6 +68,9 @@ class Settings:
     visitor_cookie_name: str = "resume_assistant_visitor_id"
     visitor_ttl_seconds: int = 2592000  # 30 days
     session_hash_secret: str = ""  # HMAC key for the visitor cookie and analytics ids
+    # Entries older than this are pruned from queries.jsonl and feedback.jsonl
+    # at startup and once a day; 0 keeps everything.
+    analytics_retention_days: int = 90
     session_hash_secret_generated: bool = False  # True when no SESSION_HASH_SECRET was set
 
     # RAG settings (Phase 3)
@@ -164,6 +167,7 @@ def get_settings() -> Settings:
         # analytics ids stop correlating. Production should set a stable value.
         session_hash_secret=os.getenv("SESSION_HASH_SECRET") or secrets.token_hex(16),
         session_hash_secret_generated=not os.getenv("SESSION_HASH_SECRET"),
+        analytics_retention_days=_to_int(os.getenv("ANALYTICS_RETENTION_DAYS"), 90),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         qdrant_url=os.getenv("QDRANT_URL"),

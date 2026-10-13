@@ -13,6 +13,11 @@ This folder contains query logging for understanding what visitors ask about.
 
 The `.jsonl` data files are gitignored and never committed. They stay local to protect user privacy.
 
+Entries older than `ANALYTICS_RETENTION_DAYS` (default 90; 0 keeps everything)
+are pruned at startup and once a day. Export what the evals need before it
+ages out. On Railway the container disk is ephemeral unless a volume is
+attached, so a redeploy starts these files empty anyway.
+
 ## Usage
 
 View recent queries:

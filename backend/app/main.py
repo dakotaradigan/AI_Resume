@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 from pathlib import Path
 
+from analytics.analytics import prune_analytics
 from fastapi import FastAPI
 from starlette.routing import Route as StarletteRoute
 from starlette.staticfiles import StaticFiles
@@ -23,6 +25,20 @@ from app.session_store import get_session_store
 logger = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+RETENTION_INTERVAL_SECONDS = 24 * 60 * 60
+
+
+async def _retention_loop(retention_days: int) -> None:
+    """Prune the analytics files at startup, then once a day. 0 disables.
+    One instance is the supported topology, so a task in the lifespan is the
+    whole scheduler."""
+    if retention_days <= 0:
+        return
+    while True:
+        dropped = await asyncio.to_thread(prune_analytics, retention_days)
+        if any(dropped.values()):
+            logger.info("Analytics retention (%d days): dropped %s", retention_days, dropped)
+        await asyncio.sleep(RETENTION_INTERVAL_SECONDS)
 
 
 def _log_startup_warnings(settings: Settings) -> None:
@@ -94,10 +110,14 @@ def build_app() -> FastAPI:
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
-        # The MCP session manager requires a running lifespan; the session
-        # store is closed on shutdown.
+        # The MCP session manager requires a running lifespan; the retention
+        # task and the session store are stopped on shutdown.
+        retention = asyncio.create_task(_retention_loop(settings.analytics_retention_days))
         async with mcp_server.session_manager.run():
             yield
+        retention.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await retention
         await get_session_store().close()
 
     app = FastAPI(

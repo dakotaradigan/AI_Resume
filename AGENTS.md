@@ -110,6 +110,7 @@ Optional infrastructure and controls:
 - `MAX_JD_CHARS` / `JD_DAILY_LIMIT` (JD fit analysis)
 - `VISITOR_COOKIE_NAME` / `VISITOR_TTL_SECONDS` (server-minted quota identity)
 - `SESSION_HASH_SECRET` (stable HMAC key that signs the visitor cookie and anonymizes analytics ids; set in production, or every restart resets quotas and unlocks)
+- `ANALYTICS_RETENTION_DAYS` (entries older than this are pruned from the analytics files at startup and daily; default 90, 0 keeps everything)
 - `ENVIRONMENT`
 - `DATA_DIR`
 
@@ -170,7 +171,7 @@ Code quality:
 
 Security and privacy:
 - Never expose secrets from `.env`.
-- Treat analytics logs and eval datasets/results as sensitive user data.
+- Treat analytics logs and eval datasets/results as sensitive user data. The app prunes the analytics files past `ANALYTICS_RETENTION_DAYS`; export what the evals need before it ages out.
 - Do not commit generated analytics, local caches, `.DS_Store`, virtualenvs, or ignored eval artifacts.
 - Avoid query-string admin tokens; prefer `X-Admin-Token`.
 - Keep admin endpoints authenticated in deployed environments.

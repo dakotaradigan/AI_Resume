@@ -50,6 +50,7 @@ def make_settings(
         # The test client has no proxy in front; without this a production
         # app refuses to boot (tests/test_boot_guard.py).
         allow_untrusted_client_ips=True,
+        analytics_retention_days=0,  # the suite must never prune a local log
     )
 
 

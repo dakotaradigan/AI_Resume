@@ -80,6 +80,7 @@ def configured_app(**env: str):
         # The test client has no proxy in front; a production app refuses to
         # boot otherwise (tests/test_boot_guard.py).
         "ALLOW_UNTRUSTED_CLIENT_IPS": "true",
+        "ANALYTICS_RETENTION_DAYS": "0",  # never prune a local log from the suite
         "USE_RAG": "false",
     }
     base_env.update(env)

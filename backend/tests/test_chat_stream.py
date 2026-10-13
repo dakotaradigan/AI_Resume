@@ -55,6 +55,7 @@ def make_settings(*, free_chat_limit: int = 20, use_rag: bool = False) -> Settin
         qdrant_url=None,
         qdrant_api_key="",
         use_rag=use_rag,
+        analytics_retention_days=0,  # the suite must never prune a local log
     )
 
 
