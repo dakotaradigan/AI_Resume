@@ -23,7 +23,7 @@ from app.config import Settings
 from app.constants import BUSY_MESSAGE, IP_DAILY_LIMIT_MESSAGE
 from app.content import load_resume_context, load_system_prompt
 from app.identity import get_client_ip, resolve_visitor_id
-from app.llm import route_model, system_blocks
+from app.llm import estimate_cost_usd, route_model, system_blocks
 from app.retrieval import retrieve_rag_context
 from app.schemas import ChatRequest
 from app.session_store import SessionStore
@@ -300,6 +300,7 @@ async def persist_chat(
     model_id: str = "",
     route_reason: str = "",
     cacheable: bool = True,
+    usage: dict[str, int] | None = None,
 ) -> None:
     """Post-generation bookkeeping. reply_text must already be FOLLOWUPS-stripped.
     (The daily budget was reserved up front in the guardrails.)"""
@@ -313,6 +314,16 @@ async def persist_chat(
     await store.append_message(session_id, "assistant", reply_text)
     await compact_session_history(session_id, store)
 
+    cost_usd = estimate_cost_usd(model_id, usage) if usage and model_id else None
+    if usage:
+        logger.info(
+            "Model usage: model=%s route=%s input=%d cache_read=%d cache_write=%d "
+            "output=%d est_cost_usd=%s",
+            model_id, route_reason, usage["input_tokens"],
+            usage["cache_read_input_tokens"], usage["cache_creation_input_tokens"],
+            usage["output_tokens"], cost_usd,
+        )
+
     # Log query for analytics (gitignored files; hashed id, never the live
     # bearer session id)
     await asyncio.to_thread(
@@ -322,6 +333,8 @@ async def persist_chat(
         reply_text,
         model_id,
         route_reason,
+        usage=usage,
+        cost_usd=cost_usd,
     )
 
 

@@ -30,6 +30,7 @@ from app.llm import (
     model_short_label,
     router_short_label,
     sampling_kwargs,
+    usage_record,
 )
 from app.schemas import ChatRequest, ChatResponse
 from app.session_store import get_session_store
@@ -136,7 +137,7 @@ async def chat(payload: ChatRequest, request: Request, response: Response) -> Ch
         store, settings, session_id, message, reply_text,
         history_was_empty=not history, cache_key=cache_key,
         model_id=model_id, route_reason=route_reason,
-        cacheable=had_text,
+        cacheable=had_text, usage=usage_record(api_response),
     )
 
     return ChatResponse(
@@ -262,7 +263,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                 store, settings, session_id, message, reply_text,
                 history_was_empty=not history, cache_key=cache_key,
                 model_id=used_model, route_reason=route_reason,
-                cacheable=had_text,
+                cacheable=had_text, usage=usage_record(final),
             )
             yield sse("done", {
                 "reply": reply_text, "used_rag": used_rag, "sources": sources,

@@ -23,7 +23,13 @@ from app.content import load_jd_match_prompt, load_resume_context, load_system_p
 from app.dependencies import app_settings
 from app.fit_map import build_fit_map
 from app.identity import get_client_ip, set_visitor_cookie
-from app.llm import build_api_messages, make_anthropic_client, sampling_kwargs, system_blocks
+from app.llm import (
+    build_api_messages,
+    make_anthropic_client,
+    sampling_kwargs,
+    system_blocks,
+    usage_record,
+)
 from app.schemas import ChatRequest, JDMatchRequest
 from app.session_store import get_session_store
 
@@ -203,6 +209,7 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
                 store, settings, session_id, stored_user_text, reply_text,
                 history_was_empty=False, cache_key="",
                 model_id=settings.anthropic_model, route_reason="jd-match",
+                usage=usage_record(final),
             )
             if payload.mode != "brief":
                 # Unlock brief mode for this session via a server-owned flag.

@@ -39,6 +39,8 @@ def log_query(
     response: str = "",
     model: str = "",
     route_reason: str = "",
+    usage: dict[str, int] | None = None,
+    cost_usd: float | None = None,
 ) -> None:
     """
     Log a user query for analytics.
@@ -49,6 +51,9 @@ def log_query(
         response: Full bot response (used by evals judges)
         model: Model that generated the response (router evals)
         route_reason: Why the router picked that model (router evals)
+        usage: Token counts for the generation call (input, output, cache
+            read, cache write), when the response carried them
+        cost_usd: List-price estimate for that call (cost per route evals)
     """
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -60,6 +65,10 @@ def log_query(
         entry["model"] = model
     if route_reason:
         entry["route_reason"] = route_reason
+    if usage:
+        entry["usage"] = usage
+    if cost_usd is not None:
+        entry["cost_usd"] = cost_usd
 
     try:
         with open(ANALYTICS_FILE, "a", encoding="utf-8") as f:

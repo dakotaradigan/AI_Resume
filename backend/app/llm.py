@@ -91,6 +91,29 @@ _NO_SAMPLING_MODEL_MARKERS = ("sonnet-5", "opus-4-7", "opus-4-8", "fable", "myth
 # 4,096, so a classifier-sized prompt would silently not cache).
 _CACHE_MARKER = {"type": "ephemeral"}
 
+# Anthropic list prices per million tokens (input, output) as of 2026-10, by
+# model-family marker, first match wins. Cache reads bill at a tenth of the
+# input price and cache writes at 1.25x (five-minute entries). The result is
+# an estimate for the analytics record, not billing truth: the invoice is.
+_PRICES_PER_MTOK: tuple[tuple[str, float, float], ...] = (
+    ("haiku-5-5", 0.10, 0.50),
+    ("haiku", 1.00, 5.00),
+    ("sonnet-4-6", 3.00, 15.00),
+    ("sonnet", 2.00, 10.00),
+    ("opus-5-5", 4.00, 20.00),
+    ("opus", 5.00, 25.00),
+    ("fable", 10.00, 50.00),
+    ("mythos", 10.00, 50.00),
+)
+_CACHE_READ_FACTOR = 0.1
+_CACHE_WRITE_FACTOR = 1.25
+USAGE_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+)
+
 # Anthropic model ids are lowercase words joined by hyphens (claude-opus-4-8).
 # Anything else — capitals, dots, spaces — 404s on every request, which
 # presents as "chat is down" while deploys look green.
@@ -144,6 +167,33 @@ def system_blocks(
         context_block["cache_control"] = dict(_CACHE_MARKER)
     blocks.append(context_block)
     return blocks
+
+
+def usage_record(message: Any) -> dict[str, int] | None:
+    """Token counts from a messages response as plain ints, or None when the
+    response carries no usage block. ``input_tokens`` is the uncached part;
+    cached reads and writes are counted separately."""
+    usage = getattr(message, "usage", None)
+    if usage is None:
+        return None
+    return {field: int(getattr(usage, field, 0) or 0) for field in USAGE_FIELDS}
+
+
+def estimate_cost_usd(model_id: str, usage: dict[str, int]) -> float | None:
+    """List-price estimate for one call, or None for an unknown model family."""
+    lowered = model_id.lower()
+    for marker, input_price, output_price in _PRICES_PER_MTOK:
+        if marker in lowered:
+            break
+    else:
+        return None
+    billed_input = (
+        usage.get("input_tokens", 0)
+        + usage.get("cache_read_input_tokens", 0) * _CACHE_READ_FACTOR
+        + usage.get("cache_creation_input_tokens", 0) * _CACHE_WRITE_FACTOR
+    )
+    cost = billed_input * input_price + usage.get("output_tokens", 0) * output_price
+    return round(cost / 1_000_000, 6)
 
 
 def sampling_kwargs(model_id: str, temperature: float) -> dict[str, Any]:

@@ -31,5 +31,17 @@ cat backend/analytics/queries.jsonl | jq -r '.query' | sort | uniq -c | sort -rn
 
 Each line is a JSON object (JSONL format):
 ```json
-{"timestamp": "2026-01-25T10:30:00Z", "session_id": "abc123", "query": "What AI projects has Dakota built?", "response_preview": "Dakota has hands-on experience..."}
+{"timestamp": "2026-01-25T10:30:00Z", "session_id": "abc123", "query": "What AI projects has Dakota built?", "response": "Dakota has hands-on experience...", "model": "claude-sonnet-5", "route_reason": "simple", "usage": {"input_tokens": 120, "output_tokens": 40, "cache_read_input_tokens": 3900, "cache_creation_input_tokens": 0}, "cost_usd": 0.00142}
+```
+
+`session_id` is an HMAC of the live id, never the id itself. `model`,
+`route_reason`, `usage` and `cost_usd` are present when a model generated
+the reply (starter-cache hits have none). `cost_usd` is a list-price
+estimate from `app.llm.estimate_cost_usd`, for cost-per-route analysis,
+not billing truth.
+
+Spend per model over the log (requires jq):
+```bash
+jq -r 'select(.cost_usd) | [.model, .cost_usd] | @tsv' backend/analytics/queries.jsonl \
+  | awk '{sum[$1] += $2; n[$1]++} END {for (m in sum) printf "%s\t%d turns\t$%.4f\n", m, n[m], sum[m]}'
 ```

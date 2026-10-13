@@ -233,6 +233,14 @@ class TestJDSanitization(JDMatchTestCase):
         self.assertIn("[RESUME DATA]\n", system[1]["text"])
         self.assertEqual(system[1]["cache_control"], {"type": "ephemeral"})
 
+    def test_analysis_records_usage_on_the_primary_model(self) -> None:
+        with self.build_client(jd_settings()) as client:
+            self.run_jd(client, REALISTIC_JD, "s1")
+        kwargs = chat_service.log_query.call_args.kwargs
+        self.assertEqual(kwargs["usage"]["cache_read_input_tokens"], 3900)
+        # "test-opus" at $5/$25 per MTok: (120 + 390) * 5 + 40 * 25, per million.
+        self.assertEqual(kwargs["cost_usd"], 0.00355)
+
     def test_analysis_uses_primary_model_without_router(self) -> None:
         with self.build_client(jd_settings()) as client:
             self.run_jd(client, REALISTIC_JD, "s1")

@@ -28,7 +28,7 @@ Backend (`backend/`):
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
 - `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tool, JSON logging, app-state accessors.
 - `rag/`: retrieval library — `chunking.py` (resume/project chunking), `keyword_index.py` (BM25), `pipeline.py` (`RAGPipeline`, Qdrant + embeddings + rank fusion).
-- `analytics/analytics.py`: local analytics logging and export helpers.
+- `analytics/analytics.py`: local analytics logging (per-turn model, route, token usage, estimated cost) and export helpers.
 - `tests/`: unittest suite (`test_*.py`), including an optional Qdrant integration test.
 - `main.py`: thin compatibility shim so `uvicorn main:app` still works for existing deploy configs.
 
