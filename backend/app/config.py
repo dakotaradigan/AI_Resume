@@ -46,6 +46,9 @@ class Settings:
     admin_token: str = ""  # Protect admin endpoints when set (recommended in prod)
     redis_url: str = ""  # Shared session store for multi-instance deployments
     trust_proxy_headers: bool = False  # Trust X-Forwarded-For only behind a safe proxy
+    # The explicit override for a production box that faces clients with no
+    # proxy in front (the socket peer is the visitor). Never true on Railway.
+    allow_untrusted_client_ips: bool = False
 
     # Chat limit protection
     chat_password: str = ""  # Password to unlock unlimited chat access
@@ -143,6 +146,9 @@ def get_settings() -> Settings:
         admin_token=os.getenv("ADMIN_TOKEN", ""),
         redis_url=os.getenv("REDIS_URL", ""),
         trust_proxy_headers=_to_bool(os.getenv("TRUST_PROXY_HEADERS"), default=False),
+        allow_untrusted_client_ips=_to_bool(
+            os.getenv("ALLOW_UNTRUSTED_CLIENT_IPS"), default=False
+        ),
         # Chat limit protection
         chat_password=os.getenv("CHAT_PASSWORD", ""),
         free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),

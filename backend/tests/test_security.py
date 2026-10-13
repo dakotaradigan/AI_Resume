@@ -47,6 +47,9 @@ def make_settings(
         qdrant_url=None,
         qdrant_api_key="",
         use_rag=False,
+        # The test client has no proxy in front; without this a production
+        # app refuses to boot (tests/test_boot_guard.py).
+        allow_untrusted_client_ips=True,
     )
 
 

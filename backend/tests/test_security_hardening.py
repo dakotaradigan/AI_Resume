@@ -77,6 +77,9 @@ def configured_app(**env: str):
         "OPENAI_API_KEY": "",
         "QDRANT_URL": "",
         "TRUST_PROXY_HEADERS": "",
+        # The test client has no proxy in front; a production app refuses to
+        # boot otherwise (tests/test_boot_guard.py).
+        "ALLOW_UNTRUSTED_CLIENT_IPS": "true",
         "USE_RAG": "false",
     }
     base_env.update(env)

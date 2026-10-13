@@ -61,6 +61,31 @@ def _log_startup_warnings(settings: Settings) -> None:
         )
 
 
+def _check_boot_requirements(settings: Settings) -> None:
+    """Refuse to serve a production box whose client IPs would be wrong.
+
+    Behind Railway every request arrives from the proxy. With proxy headers
+    untrusted, the per-minute rate limit keys every visitor to that one
+    address (one bucket for the whole site, failing closed for everyone)
+    and the per-IP daily cap is silently off. A box that faces clients
+    directly says so with ALLOW_UNTRUSTED_CLIENT_IPS=true. Railway only
+    switches traffic to a deployment that answers /health (railway.json),
+    so a refusal here keeps the previous build serving.
+    """
+    if (
+        settings.environment == "production"
+        and not settings.trust_proxy_headers
+        and not settings.allow_untrusted_client_ips
+    ):
+        raise RuntimeError(
+            "Refusing to start: ENVIRONMENT=production with TRUST_PROXY_HEADERS "
+            "unset. Behind a proxy every visitor shares one rate-limit bucket "
+            "and the per-IP daily cap is off. Set TRUST_PROXY_HEADERS=true "
+            "(Railway, Cloudflare) or ALLOW_UNTRUSTED_CLIENT_IPS=true for a box "
+            "with no proxy in front."
+        )
+
+
 def build_app() -> FastAPI:
     configure_logging()
     mcp_server = build_mcp_server()
@@ -82,6 +107,7 @@ def build_app() -> FastAPI:
         lifespan=lifespan,
     )
     settings = get_settings()
+    _check_boot_requirements(settings)
     _log_startup_warnings(settings)
 
     # Snapshot of settings for route handlers (see app.dependencies).

@@ -102,6 +102,7 @@ Optional infrastructure and controls:
 - `CHAT_PASSWORD`
 - `FREE_CHAT_LIMIT`
 - `PER_IP_DAILY_LIMIT` (per-client-IP daily cap on token-spending requests; needs `TRUST_PROXY_HEADERS=true` to take effect)
+- `TRUST_PROXY_HEADERS` / `ALLOW_UNTRUSTED_CLIENT_IPS` (a production box refuses to boot with proxy headers untrusted unless the override says it has no proxy in front; Railway only switches traffic to a deployment that answers `/health`, per `railway.json`)
 - `RATE_LIMIT_REQUESTS_PER_MINUTE`
 - `SESSION_MAX_AGE_SECONDS`
 - `API_TIMEOUT_SECONDS`
