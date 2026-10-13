@@ -22,6 +22,7 @@ from tests.test_chat_stream import (
     FakeStreamingMessages,
     make_settings,
     parse_sse,
+    system_text,
 )
 
 REALISTIC_JD = (
@@ -213,8 +214,24 @@ class TestJDSanitization(JDMatchTestCase):
         self.assertEqual(response.status_code, 200)
 
         stream_call = FakeAnthropic.messages_api.stream_calls[0]
-        self.assertNotIn(marker, stream_call["system"])
+        self.assertNotIn(marker, system_text(stream_call))
         self.assertIn(marker, stream_call["messages"][-1]["content"][0]["text"])
+
+    def test_analysis_shares_the_cached_prompt_block_with_chat(self) -> None:
+        with self.build_client(jd_settings()) as client:
+            self.run_jd(client, REALISTIC_JD, "s1")
+        system = FakeAnthropic.messages_api.stream_calls[0]["system"]
+        self.assertEqual(
+            system[0],
+            {
+                "type": "text",
+                "text": content.load_system_prompt(),
+                "cache_control": {"type": "ephemeral"},
+            },
+        )
+        self.assertTrue(system[1]["text"].startswith(content.load_jd_match_prompt()))
+        self.assertIn("[RESUME DATA]\n", system[1]["text"])
+        self.assertEqual(system[1]["cache_control"], {"type": "ephemeral"})
 
     def test_analysis_uses_primary_model_without_router(self) -> None:
         with self.build_client(jd_settings()) as client:

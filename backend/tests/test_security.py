@@ -50,6 +50,11 @@ def make_settings(
     )
 
 
+def system_text(call: dict) -> str:
+    """The prose of a call's ``system`` blocks, for substring assertions."""
+    return "\n".join(block["text"] for block in call["system"])
+
+
 class FakeMessages:
     def __init__(self) -> None:
         self.calls: list[dict] = []
@@ -245,7 +250,7 @@ class TestSensitiveDataBoundaries(SecurityTestCase):
             self.assertEqual(resume_response.status_code, 200)
             self.assertNotIn("phone", resume_response.json()["personal"])
             self.assertEqual(chat_response.status_code, 200)
-            model_system_message = FakeAnthropic.messages_api.calls[-1]["system"]
+            model_system_message = system_text(FakeAnthropic.messages_api.calls[-1])
             self.assertNotIn("PRIVATE-PHONE-SENTINEL", model_system_message)
 
     def test_rag_chunks_exclude_phone(self) -> None:
@@ -288,7 +293,7 @@ class TestSensitiveDataBoundaries(SecurityTestCase):
 
         self.assertEqual(response.status_code, 200)
         model_call = FakeAnthropic.messages_api.calls[-1]
-        self.assertNotIn(injection, model_call["system"])
+        self.assertNotIn(injection, system_text(model_call))
         self.assertEqual(
             model_call["messages"][-1]["content"][0]["text"],
             injection,

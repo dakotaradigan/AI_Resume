@@ -20,6 +20,7 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 
 - Real SSE token streaming with a live pipeline status timeline
 - Model router: a Haiku classifier sends simple lookups to Sonnet 5, synthesis to Opus 4.8, with fail-safe fallback
+- Prompt caching: the system prompt and the static résumé context are cache-marked on every chat and fit-analysis call, so repeated input tokens bill at a tenth of the base price
 - Hybrid retrieval: dense vectors + in-process BM25 fused with reciprocal rank fusion, measured against an owner-approved golden dataset
 - Recruiter tools: job-description fit analysis, screening briefs, password-gated PDF download
 - Requirement map: Jev (TypeSafe) scores every requirement in a pasted JD against the résumé in one typed pass; the page regroups and re-sorts the probabilities without another model call

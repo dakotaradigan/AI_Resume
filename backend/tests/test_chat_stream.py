@@ -133,6 +133,11 @@ class FakeAnthropic:
         self.models = type(self).models_api
 
 
+def system_text(call: dict) -> str:
+    """The prose of a call's ``system`` blocks, for substring assertions."""
+    return "\n".join(block["text"] for block in call["system"])
+
+
 def parse_sse(raw: str) -> list[tuple[str, dict]]:
     events: list[tuple[str, dict]] = []
     for frame in raw.strip().split("\n\n"):
@@ -498,6 +503,53 @@ class TestNonStreamingContract(ChatStreamTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["reply"], "Plain answer.")
+
+
+class TestPromptCaching(ChatStreamTestCase):
+    """The system prompt and the static résumé context are cache-marked
+    blocks; retrieved context never is (it changes with every question)."""
+
+    MARKER = {"type": "ephemeral"}
+
+    def test_static_context_marks_both_blocks(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Hi."])
+        with self.build_client(make_settings()) as client:
+            self.stream_events(client, SIMPLE_MESSAGE, "s1")
+        system = FakeAnthropic.messages_api.stream_calls[0]["system"]
+        self.assertEqual(len(system), 2)
+        self.assertEqual(system[0]["text"], content.load_system_prompt())
+        self.assertEqual(system[0]["cache_control"], self.MARKER)
+        self.assertTrue(system[1]["text"].startswith("[RESUME DATA]\n"))
+        self.assertEqual(system[1]["cache_control"], self.MARKER)
+
+    def test_json_chat_sends_the_same_blocks(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Hi."])
+        with self.build_client(make_settings()) as client:
+            self.stream_events(client, SIMPLE_MESSAGE, "s1")
+            response = client.post(
+                "/api/chat", json={"message": SIMPLE_MESSAGE, "session_id": "s2"}
+            )
+        self.assertEqual(response.status_code, 200)
+        # SIMPLE_MESSAGE takes the no-model fast path, so the only create()
+        # call is the generation itself.
+        self.assertEqual(
+            FakeAnthropic.messages_api.create_calls[0]["system"],
+            FakeAnthropic.messages_api.stream_calls[0]["system"],
+        )
+
+    def test_retrieved_context_is_not_cache_marked(self) -> None:
+        class FakePipeline:
+            def search(self, query, limit, score_threshold):
+                return [{"title": "Parametric", "text": "Built Ben AI.", "score": 0.9}]
+
+        system, used_rag, sources = chat_service.build_chat_context(
+            "What did he build?", FakePipeline(), make_settings(use_rag=True)
+        )
+        self.assertTrue(used_rag)
+        self.assertEqual([s["title"] for s in sources], ["Parametric"])
+        self.assertEqual(system[0]["cache_control"], self.MARKER)
+        self.assertTrue(system[1]["text"].startswith("[RETRIEVED CONTEXT]\n"))
+        self.assertNotIn("cache_control", system[1])
 
 
 class TestRouterUnits(unittest.TestCase):

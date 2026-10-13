@@ -80,6 +80,17 @@ _ROUTE_TIMEOUT_SECONDS = 2.0
 # that set non-default sampling params like temperature with 400 Bad Request.
 _NO_SAMPLING_MODEL_MARKERS = ("sonnet-5", "opus-4-7", "opus-4-8", "fable", "mythos")
 
+# Prompt caching. The system prompt is byte-identical on every chat and JD
+# call, and the static résumé context on every call that did not retrieve,
+# so both are cache breakpoints: repeated input tokens then bill at a tenth
+# of the base price (a write costs 1.25x; the 5-minute entry is refreshed by
+# every hit). Retrieved context changes with the question and never carries
+# a marker, because a breakpoint after per-request text only pays the write
+# premium. The prompt alone is ~3.9K tokens, above the 1,024-token minimum
+# the Opus 4.8 and Sonnet 5 families cache (Opus 4.6 and Haiku 4.5 need
+# 4,096, so a classifier-sized prompt would silently not cache).
+_CACHE_MARKER = {"type": "ephemeral"}
+
 # Anthropic model ids are lowercase words joined by hyphens (claude-opus-4-8).
 # Anything else — capitals, dots, spaces — 404s on every request, which
 # presents as "chat is down" while deploys look green.
@@ -117,6 +128,22 @@ def router_short_label(route_reason: str, settings: Settings) -> str:
     if settings.typesafe_api_key:
         return "Jev"
     return model_short_label(settings.anthropic_router_model)
+
+
+def system_blocks(
+    prompt: str, context: str, *, context_is_static: bool
+) -> list[dict[str, Any]]:
+    """The ``system`` argument for a messages call: the stable prompt as a
+    cache-marked block, then the context block, marked too when it is the
+    static résumé rather than per-question retrieval."""
+    blocks: list[dict[str, Any]] = [
+        {"type": "text", "text": prompt, "cache_control": dict(_CACHE_MARKER)}
+    ]
+    context_block: dict[str, Any] = {"type": "text", "text": context}
+    if context_is_static:
+        context_block["cache_control"] = dict(_CACHE_MARKER)
+    blocks.append(context_block)
+    return blocks
 
 
 def sampling_kwargs(model_id: str, temperature: float) -> dict[str, Any]:

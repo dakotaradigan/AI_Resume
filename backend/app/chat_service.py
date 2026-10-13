@@ -23,7 +23,7 @@ from app.config import Settings
 from app.constants import BUSY_MESSAGE, IP_DAILY_LIMIT_MESSAGE
 from app.content import load_resume_context, load_system_prompt
 from app.identity import get_client_ip, resolve_visitor_id
-from app.llm import route_model
+from app.llm import route_model, system_blocks
 from app.retrieval import retrieve_rag_context
 from app.schemas import ChatRequest
 from app.session_store import SessionStore
@@ -253,8 +253,8 @@ def build_chat_context(
     message: str,
     rag_pipeline: RAGPipeline | None,
     settings: Settings,
-) -> tuple[str, bool, list[dict[str, Any]]]:
-    """Build the full system message (prompt + resume context) for one turn.
+) -> tuple[list[dict[str, Any]], bool, list[dict[str, Any]]]:
+    """Build the system blocks (prompt, then resume context) for one turn.
 
     Blocking (RAG embed + search); call via asyncio.to_thread.
     """
@@ -269,7 +269,8 @@ def build_chat_context(
         context_label = "RESUME DATA"
         used_rag = False
         sources = []
-    return f"{system_prompt}\n\n[{context_label}]\n{resume_context}", used_rag, sources
+    context = f"[{context_label}]\n{resume_context}"
+    return system_blocks(system_prompt, context, context_is_static=not used_rag), used_rag, sources
 
 
 async def prepare_generation(
@@ -277,14 +278,14 @@ async def prepare_generation(
     rag_pipeline: RAGPipeline | None,
     client: AsyncAnthropic,
     settings: Settings,
-) -> tuple[str, bool, list[dict[str, Any]], str, str]:
+) -> tuple[list[dict[str, Any]], bool, list[dict[str, Any]], str, str]:
     """Run context retrieval and model routing concurrently (routing must not
     add serial time-to-first-token)."""
-    (system_message, used_rag, sources), (model_id, route_reason) = await asyncio.gather(
+    (system, used_rag, sources), (model_id, route_reason) = await asyncio.gather(
         asyncio.to_thread(build_chat_context, message, rag_pipeline, settings),
         route_model(message, client, settings),
     )
-    return system_message, used_rag, sources, model_id, route_reason
+    return system, used_rag, sources, model_id, route_reason
 
 
 async def persist_chat(

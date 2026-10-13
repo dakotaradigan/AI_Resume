@@ -23,7 +23,7 @@ from app.content import load_jd_match_prompt, load_resume_context, load_system_p
 from app.dependencies import app_settings
 from app.fit_map import build_fit_map
 from app.identity import get_client_ip, set_visitor_cookie
-from app.llm import build_api_messages, make_anthropic_client, sampling_kwargs
+from app.llm import build_api_messages, make_anthropic_client, sampling_kwargs, system_blocks
 from app.schemas import ChatRequest, JDMatchRequest
 from app.session_store import get_session_store
 
@@ -135,9 +135,12 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
         yield sse("status", {"stage": "context_load", "state": "start"})
         try:
             resume_context = load_resume_context()
-            system_message = (
-                f"{load_system_prompt()}\n\n{load_jd_match_prompt()}"
-                f"\n\n[RESUME DATA]\n{resume_context}"
+            # The first block is byte-identical to the chat path's, so a JD
+            # analysis and a chat turn share one cache entry for the prompt.
+            system = system_blocks(
+                load_system_prompt(),
+                f"{load_jd_match_prompt()}\n\n[RESUME DATA]\n{resume_context}",
+                context_is_static=True,
             )
         except RuntimeError:
             logger.exception("Failed to load prompt or resume data")
@@ -168,7 +171,7 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
                 model=settings.anthropic_model,
                 max_tokens=settings.anthropic_max_tokens,
                 **sampling_kwargs(settings.anthropic_model, 0.1),
-                system=system_message,
+                system=system,
                 messages=build_api_messages(history, user_text),
             ) as stream:
                 async for text in stream.text_stream:

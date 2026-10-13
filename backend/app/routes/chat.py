@@ -74,7 +74,7 @@ async def chat(payload: ChatRequest, request: Request, response: Response) -> Ch
 
     client = make_anthropic_client(settings)
     try:
-        system_message, used_rag, sources, model_id, route_reason = (
+        system, used_rag, sources, model_id, route_reason = (
             await prepare_generation(message, rag_pipeline(request), client, settings)
         )
     except RuntimeError as exc:
@@ -96,7 +96,7 @@ async def chat(payload: ChatRequest, request: Request, response: Response) -> Ch
                     model=attempt_model,
                     max_tokens=settings.anthropic_max_tokens,
                     **sampling_kwargs(attempt_model, 0.1),
-                    system=system_message,
+                    system=system,
                     messages=build_api_messages(history, message),
                 )
                 model_id = attempt_model
@@ -195,7 +195,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
         yield sse("status", {"stage": "rag_search", "state": "start"})
         client = make_anthropic_client(settings)
         try:
-            system_message, used_rag, sources, model_id, route_reason = (
+            system, used_rag, sources, model_id, route_reason = (
                 await prepare_generation(message, pipeline, client, settings)
             )
         except RuntimeError:
@@ -232,7 +232,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                         model=attempt_model,
                         max_tokens=settings.anthropic_max_tokens,
                         **sampling_kwargs(attempt_model, 0.1),
-                        system=system_message,
+                        system=system,
                         messages=build_api_messages(history, message),
                     ) as stream:
                         async for text in stream.text_stream:
