@@ -24,7 +24,7 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 - Hybrid retrieval: dense vectors + in-process BM25 fused with reciprocal rank fusion, measured against an owner-approved golden dataset
 - Recruiter tools: job-description fit analysis, screening briefs, password-gated PDF download
 - Requirement map: Jev (TypeSafe) scores every requirement in a pasted JD against the résumé in one typed pass; the page regroups and re-sorts the probabilities without another model call
-- Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with a data-only `get_resume` tool
+- Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with `get_resume` plus `ask` and `analyze_fit`, which run the same guarded, metered pipeline as the page
 - Hardened: strict CSP, signed server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
 - Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test and security gates (pip-audit, bandit, gitleaks), Docker deploy
 

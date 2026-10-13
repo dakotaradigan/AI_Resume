@@ -8,15 +8,18 @@ from datetime import date
 from typing import AsyncIterator
 
 from anthropic import AnthropicError, RateLimitError
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import StreamingResponse
 
 from app import chat_service
 from app.chat_service import (
+    EMPTY_REPLY_FALLBACK,
+    UNEXPECTED_ERROR_MESSAGE,
     persist_cached_reply,
     persist_chat,
     prepare_generation,
     run_chat_guardrails,
+    run_json_chat_turn,
     split_followups,
     sse,
     starter_cache_key,
@@ -39,110 +42,18 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 
-EMPTY_REPLY_FALLBACK = (
-    "I couldn't generate a response just now. "
-    "Please try asking in a different way."
-)
-
-
 @router.post("/chat")
 async def chat(payload: ChatRequest, request: Request, response: Response) -> ChatResponse:
+    """Non-streaming chat. The turn itself lives in chat_service so the MCP
+    ``ask`` tool runs the identical pipeline."""
     settings = app_settings(request)
-    store = get_session_store()
-    ctx = await run_chat_guardrails(payload, request, store, settings)
-    session_id, message = ctx.session_id, ctx.message
-    today = date.today().isoformat()
-    set_visitor_cookie(response, ctx.visitor_id, settings)
-
-    async def _refund_on_error() -> None:
-        # The visitor got an error, not an answer: return the reserved daily
-        # budget unit AND the chat-quota unit consumed in the guardrails, so
-        # an upstream 5xx never burns one of their few free exchanges.
-        await store.release_daily_conversation(today)
-        await store.release_chat_limit(ctx.visitor_id)
-
-    # Starter question cache: instant responses for suggestion chips.
-    # Only used when it's the first message in a session (no history yet).
-    cache_key = starter_cache_key(message)
-    history = await store.get_history(session_id)
-    cached_reply = chat_service.get_cached_starter(cache_key) if not history else None
-    if cached_reply is not None:
-        # Cache hit makes no model call, so return the daily unit reserved in
-        # the guardrails — a free response must not consume the model budget.
-        await store.release_daily_conversation(today)
-        await persist_cached_reply(store, settings, session_id, message, cached_reply)
-        return ChatResponse(reply=cached_reply, session_id=session_id)
-
-    client = make_anthropic_client(settings)
-    try:
-        system, used_rag, sources, model_id, route_reason = (
-            await prepare_generation(message, rag_pipeline(request), client, settings)
-        )
-    except RuntimeError as exc:
-        logger.exception("Failed to load prompt or resume data")
-        await _refund_on_error()
-        raise HTTPException(status_code=500, detail=GENERIC_CHAT_ERROR) from exc
-
-    # Same routed-model fallback as the streaming path: a failure on the
-    # cheaper model retries once on the known-good primary model.
-    candidate_models = [model_id]
-    if model_id != settings.anthropic_model:
-        candidate_models.append(settings.anthropic_model)
-
-    try:
-        api_response = None
-        for attempt_index, attempt_model in enumerate(candidate_models):
-            try:
-                api_response = await client.messages.create(
-                    model=attempt_model,
-                    max_tokens=settings.anthropic_max_tokens,
-                    **sampling_kwargs(attempt_model, 0.1),
-                    system=system,
-                    messages=build_api_messages(history, message),
-                )
-                model_id = attempt_model
-                break
-            except AnthropicError:
-                if attempt_index + 1 >= len(candidate_models):
-                    raise
-                logger.warning(
-                    "Routed model %s failed; falling back to primary model",
-                    attempt_model,
-                )
-        reply_text = "".join(
-            block.text for block in api_response.content if block.type == "text"
-        )
-    except RateLimitError as exc:
-        logger.warning("Anthropic rate limit or spending cap hit")
-        await _refund_on_error()
-        raise HTTPException(status_code=503, detail=BUSY_MESSAGE) from exc
-    except AnthropicError as exc:
-        logger.exception("Anthropic API request failed after retries")
-        await _refund_on_error()
-        raise HTTPException(status_code=502, detail=GENERIC_CHAT_ERROR) from exc
-    except Exception as exc:  # pragma: no cover - unexpected errors
-        logger.exception("Unexpected error during chat request")
-        await _refund_on_error()
-        raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred. Please try again.",
-        ) from exc
-
-    had_text = bool(reply_text)
-    if not reply_text:
-        reply_text = EMPTY_REPLY_FALLBACK
-    reply_text, _ = split_followups(reply_text)
-
-    await persist_chat(
-        store, settings, session_id, message, reply_text,
-        history_was_empty=not history, cache_key=cache_key,
-        model_id=model_id, route_reason=route_reason,
-        cacheable=had_text, usage=usage_record(api_response),
+    result = await run_json_chat_turn(
+        payload, request, get_session_store(), settings, rag_pipeline(request)
     )
-
+    set_visitor_cookie(response, result.visitor_id, settings)
     return ChatResponse(
-        reply=reply_text, session_id=session_id,
-        sources=[s["title"] for s in sources], used_rag=used_rag,
+        reply=result.reply, session_id=result.session_id,
+        sources=[s["title"] for s in result.sources], used_rag=result.used_rag,
     )
 
 
@@ -289,7 +200,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
         except Exception:  # pragma: no cover - unexpected errors
             logger.exception("Unexpected error during streamed chat")
             await _refund_on_error()
-            yield sse("error", {"detail": "An unexpected error occurred. Please try again."})
+            yield sse("error", {"detail": UNEXPECTED_ERROR_MESSAGE})
 
     streaming_response = StreamingResponse(
         event_gen(),

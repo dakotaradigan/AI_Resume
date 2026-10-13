@@ -19,14 +19,15 @@ Backend (`backend/`):
 - `app/main.py`: application factory (`build_app`) and ASGI entrypoint (`uvicorn app.main:app`); wires middleware, routers, the MCP route, and the static frontend mount.
 - `app/config.py`: environment-backed settings (`Settings`, `get_settings`).
 - `app/routes/`: one module per endpoint group — `chat` (`/api/chat`, `/api/chat/stream`), `jd_match` (`/api/jd-match`), `resume` (`/api/resume`, `/llms.txt`, `/api/resume.pdf`), `unlock`, `feedback`, `health`, `admin`.
-- `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing.
+- `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing, and `run_json_chat_turn`, the complete non-streaming turn behind `/api/chat` and the MCP `ask` tool.
+- `app/jd_service.py`: the fit-analysis turn shared by `/api/jd-match` and the MCP `analyze_fit` tool — guardrails and budgets, prompt assembly, persistence, and the non-streaming `run_json_jd_turn`.
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
 - `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, prompt-cache system blocks, model-id checks.
 - `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
-- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tool, JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
+- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tools (`get_resume`, and `ask`/`analyze_fit` on the shared guarded pipelines with an IP-derived visitor identity), JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
 - `rag/`: retrieval library — `chunking.py` (resume/project chunking), `keyword_index.py` (BM25), `pipeline.py` (`RAGPipeline`, Qdrant + embeddings + rank fusion).
 - `analytics/analytics.py`: local analytics logging (per-turn model, route, token usage, estimated cost) and export helpers.
 - `tests/`: unittest suite (`test_*.py`), including an optional Qdrant integration test.

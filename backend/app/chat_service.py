@@ -1,7 +1,7 @@
 """Shared chat-turn logic: guardrails, context building, persistence, SSE.
 
-Used by /api/chat, /api/chat/stream, and /api/jd-match so quota accounting and
-error handling stay identical across endpoints.
+Used by /api/chat, /api/chat/stream, /api/jd-match and the MCP tools so quota
+accounting and error handling stay identical across every entry point.
 """
 
 from __future__ import annotations
@@ -15,15 +15,23 @@ from typing import Any
 from uuid import uuid4
 
 from analytics.analytics import anonymize_session_id, log_query
-from anthropic import AsyncAnthropic
+from anthropic import AnthropicError, AsyncAnthropic, RateLimitError
 from fastapi import HTTPException, Request
 from rag import RAGPipeline
 
 from app.config import Settings
-from app.constants import BUSY_MESSAGE, IP_DAILY_LIMIT_MESSAGE
+from app.constants import BUSY_MESSAGE, GENERIC_CHAT_ERROR, IP_DAILY_LIMIT_MESSAGE
 from app.content import load_resume_context, load_system_prompt
 from app.identity import get_client_ip, resolve_visitor_id
-from app.llm import estimate_cost_usd, route_model, system_blocks
+from app.llm import (
+    build_api_messages,
+    estimate_cost_usd,
+    make_anthropic_client,
+    route_model,
+    sampling_kwargs,
+    system_blocks,
+    usage_record,
+)
 from app.retrieval import retrieve_rag_context
 from app.schemas import ChatRequest
 from app.session_store import SessionStore
@@ -40,6 +48,12 @@ COMPACT_CHAR_LIMIT = 800
 # follow-up line: "FOLLOWUPS: q1 | q2 | q3". It is stripped from every stored,
 # cached, and returned reply; the parsed questions ride on the SSE done event.
 FOLLOWUPS_MARKER = "FOLLOWUPS:"
+
+EMPTY_REPLY_FALLBACK = (
+    "I couldn't generate a response just now. "
+    "Please try asking in a different way."
+)
+UNEXPECTED_ERROR_MESSAGE = "An unexpected error occurred. Please try again."
 
 # Pre-cached responses for starter suggestion chips (populated lazily on first hit).
 # Key = lowercased/stripped question text, Value = cached reply string.
@@ -102,11 +116,16 @@ async def run_chat_guardrails(
     *,
     max_chars: int | None = None,
     consume_quota: bool = True,
+    visitor_id: str | None = None,
 ) -> ChatTurnContext:
     """Run every pre-generation guardrail. Raises HTTPException before any
-    stream starts, so error handling is identical for both chat endpoints."""
+    stream starts, so error handling is identical for both chat endpoints.
+
+    ``visitor_id`` overrides the cookie identity for callers that hold no
+    cookies (the MCP tools derive one from the client IP)."""
     session_id = payload.session_id or str(uuid4())
-    visitor_id, _ = resolve_visitor_id(request, settings)
+    if visitor_id is None:
+        visitor_id, _ = resolve_visitor_id(request, settings)
 
     # Session cleanup: remove old sessions periodically
     expired_count = await store.cleanup_expired(settings.session_max_age_seconds)
@@ -360,3 +379,123 @@ async def persist_cached_reply(
         reply_text,
     )
 
+
+
+@dataclass(frozen=True)
+class JsonChatResult:
+    reply: str
+    session_id: str
+    visitor_id: str
+    sources: list[dict[str, Any]]
+    used_rag: bool
+
+
+async def run_json_chat_turn(
+    payload: ChatRequest,
+    request: Request,
+    store: SessionStore,
+    settings: Settings,
+    pipeline: RAGPipeline | None,
+    *,
+    visitor_id: str | None = None,
+) -> JsonChatResult:
+    """One complete non-streaming chat turn: guardrails, starter cache,
+    retrieval plus routing, generation with the primary-model fallback,
+    refunds on failure, persistence.
+
+    Shared by POST /api/chat and the MCP ``ask`` tool, so quota accounting is
+    identical by construction. Raises HTTPException with the same statuses
+    and visitor-facing messages as the route."""
+    ctx = await run_chat_guardrails(payload, request, store, settings, visitor_id=visitor_id)
+    session_id, message = ctx.session_id, ctx.message
+    today = date.today().isoformat()
+
+    async def _refund_on_error() -> None:
+        # The visitor got an error, not an answer: return the reserved daily
+        # budget unit AND the chat-quota unit consumed in the guardrails, so
+        # an upstream 5xx never burns one of their few free exchanges.
+        await store.release_daily_conversation(today)
+        await store.release_chat_limit(ctx.visitor_id)
+
+    # Starter question cache: instant responses for suggestion chips.
+    # Only used when it's the first message in a session (no history yet).
+    cache_key = starter_cache_key(message)
+    history = await store.get_history(session_id)
+    cached_reply = get_cached_starter(cache_key) if not history else None
+    if cached_reply is not None:
+        # Cache hit makes no model call, so return the daily unit reserved in
+        # the guardrails: a free response must not consume the model budget.
+        await store.release_daily_conversation(today)
+        await persist_cached_reply(store, settings, session_id, message, cached_reply)
+        return JsonChatResult(
+            reply=cached_reply, session_id=session_id, visitor_id=ctx.visitor_id,
+            sources=[], used_rag=False,
+        )
+
+    client = make_anthropic_client(settings)
+    try:
+        system, used_rag, sources, model_id, route_reason = (
+            await prepare_generation(message, pipeline, client, settings)
+        )
+    except RuntimeError as exc:
+        logger.exception("Failed to load prompt or resume data")
+        await _refund_on_error()
+        raise HTTPException(status_code=500, detail=GENERIC_CHAT_ERROR) from exc
+
+    # Same routed-model fallback as the streaming path: a failure on the
+    # cheaper model retries once on the known-good primary model.
+    candidate_models = [model_id]
+    if model_id != settings.anthropic_model:
+        candidate_models.append(settings.anthropic_model)
+
+    try:
+        api_response = None
+        for attempt_index, attempt_model in enumerate(candidate_models):
+            try:
+                api_response = await client.messages.create(
+                    model=attempt_model,
+                    max_tokens=settings.anthropic_max_tokens,
+                    **sampling_kwargs(attempt_model, 0.1),
+                    system=system,
+                    messages=build_api_messages(history, message),
+                )
+                model_id = attempt_model
+                break
+            except AnthropicError:
+                if attempt_index + 1 >= len(candidate_models):
+                    raise
+                logger.warning(
+                    "Routed model %s failed; falling back to primary model",
+                    attempt_model,
+                )
+        reply_text = "".join(
+            block.text for block in api_response.content if block.type == "text"
+        )
+    except RateLimitError as exc:
+        logger.warning("Anthropic rate limit or spending cap hit")
+        await _refund_on_error()
+        raise HTTPException(status_code=503, detail=BUSY_MESSAGE) from exc
+    except AnthropicError as exc:
+        logger.exception("Anthropic API request failed after retries")
+        await _refund_on_error()
+        raise HTTPException(status_code=502, detail=GENERIC_CHAT_ERROR) from exc
+    except Exception as exc:  # pragma: no cover - unexpected errors
+        logger.exception("Unexpected error during chat request")
+        await _refund_on_error()
+        raise HTTPException(status_code=500, detail=UNEXPECTED_ERROR_MESSAGE) from exc
+
+    had_text = bool(reply_text)
+    if not reply_text:
+        reply_text = EMPTY_REPLY_FALLBACK
+    reply_text, _ = split_followups(reply_text)
+
+    await persist_chat(
+        store, settings, session_id, message, reply_text,
+        history_was_empty=not history, cache_key=cache_key,
+        model_id=model_id, route_reason=route_reason,
+        cacheable=had_text, usage=usage_record(api_response),
+    )
+    return JsonChatResult(
+        reply=reply_text, session_id=session_id, visitor_id=ctx.visitor_id,
+        sources=sources, used_rag=used_rag,
+    )
