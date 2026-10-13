@@ -114,12 +114,6 @@ async def run_chat_guardrails(
         logger.info(f"Cleaned up {expired_count} expired sessions")
     await store.cleanup_stale_rate_limits()
 
-    # Track last access for cleanup — for the chat session AND the visitor
-    # identity (whose metadata carries quota/unlock state; without a fresh
-    # last_access, cleanup_expired would wipe it and reset the quota).
-    await store.update_metadata(session_id)
-    await store.update_metadata(visitor_id)
-
     # Rate limiting: prevent abuse (default key = client IP)
     rate_limit_key = get_client_ip(request, settings)
     allowed = await store.check_rate_limit(
@@ -163,6 +157,17 @@ async def run_chat_guardrails(
             status_code=503,
             detail="Anthropic API key not configured. Set ANTHROPIC_API_KEY.",
         ))
+
+    # Identity rows are written only now, for a request that passed the rate
+    # limit, the daily reservation and the input bounds. A refused request
+    # leaves nothing behind, so a client cannot grow the store by sending
+    # requests that will never be answered (two rows per request used to be
+    # written before any check ran). The visitor row must be refreshed before
+    # the quota check below reads it: its metadata carries quota/unlock state,
+    # and without a fresh last_access, cleanup_expired would wipe it and reset
+    # the quota.
+    await store.update_metadata(session_id)
+    await store.update_metadata(visitor_id)
 
     # Chat limit protection: free users limited to N exchanges (atomic
     # check+increment), keyed to the visitor id. JD analyses skip this — they

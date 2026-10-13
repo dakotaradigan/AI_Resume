@@ -40,6 +40,14 @@ def _log_startup_warnings(settings: Settings) -> None:
             settings.environment,
         )
 
+    if settings.session_hash_secret_generated and settings.environment == "production":
+        logger.warning(
+            "SESSION_HASH_SECRET is unset: visitor cookies are signed with a "
+            "per-process secret, so every restart or second instance resets "
+            "quotas and unlocks and breaks analytics-id correlation. Set a "
+            "stable value."
+        )
+
     if settings.per_ip_daily_limit > 0 and not settings.trust_proxy_headers:
         # The per-IP daily cap needs the real client IP; without a trusted proxy
         # header every visitor collapses to the proxy IP, so the cap fails open

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 # Prevent importing app.main from initializing an external RAG connection.
 os.environ["USE_RAG"] = "false"
 
-from app import chat_service, content, llm, session_store
+from app import chat_service, content, identity, llm, session_store
 from app import main as app_main
 from app.config import Settings
 from app.constants import JD_LIMIT_MESSAGE, JD_SENTINEL
@@ -117,7 +117,9 @@ class TestJDBudgets(JDMatchTestCase):
         with self.build_client(settings) as client:
             # Unlock is keyed to the visitor cookie identity, not session_id.
             visitor_id = "11111111-2222-4333-8444-555555555555"
-            client.cookies.set("resume_assistant_visitor_id", visitor_id)
+            client.cookies.set(
+                "resume_assistant_visitor_id", identity.visitor_cookie_value(visitor_id, settings)
+            )
             store = session_store.get_session_store()
             import asyncio
 

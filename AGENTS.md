@@ -24,7 +24,7 @@ Backend (`backend/`):
 - `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, prompt-cache system blocks, model-id checks.
 - `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
-- `app/identity.py`: visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
+- `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
 - `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tool, JSON logging, app-state accessors.
 - `rag/`: retrieval library — `chunking.py` (resume/project chunking), `keyword_index.py` (BM25), `pipeline.py` (`RAGPipeline`, Qdrant + embeddings + rank fusion).
@@ -108,7 +108,7 @@ Optional infrastructure and controls:
 - `MAX_USER_MESSAGE_CHARS`
 - `MAX_JD_CHARS` / `JD_DAILY_LIMIT` (JD fit analysis)
 - `VISITOR_COOKIE_NAME` / `VISITOR_TTL_SECONDS` (server-minted quota identity)
-- `SESSION_HASH_SECRET` (stable HMAC key for anonymized analytics ids; set in production)
+- `SESSION_HASH_SECRET` (stable HMAC key that signs the visitor cookie and anonymizes analytics ids; set in production, or every restart resets quotas and unlocks)
 - `ENVIRONMENT`
 - `DATA_DIR`
 
