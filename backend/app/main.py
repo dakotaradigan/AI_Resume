@@ -15,6 +15,7 @@ from app.llm import warn_on_suspicious_model_ids
 from app.logging_setup import configure_logging
 from app.mcp_server import McpOrBrowser, build_mcp_server
 from app.middleware import install_middleware
+from app.request_context import RequestContextMiddleware
 from app.retrieval import initialize_rag
 from app.routes import admin, chat, feedback, health, jd_match, resume, unlock
 from app.session_store import get_session_store
@@ -123,6 +124,9 @@ def build_app() -> FastAPI:
     app.state.rag_pipeline = initialize_rag(settings)
 
     install_middleware(app, settings)
+    # Added last, so it is outermost: the request id exists before any other
+    # middleware logs, and lands on every response, streamed ones included.
+    app.add_middleware(RequestContextMiddleware)
 
     app.include_router(health.router)
     app.include_router(admin.router)
