@@ -19,16 +19,17 @@ Backend (`backend/`):
 - `app/main.py`: application factory (`build_app`) and ASGI entrypoint (`uvicorn app.main:app`); wires middleware, routers, the MCP route, and the static frontend mount.
 - `app/config.py`: environment-backed settings (`Settings`, `get_settings`).
 - `app/routes/`: one module per endpoint group — `chat` (`/api/chat`, `/api/chat/stream`), `jd_match` (`/api/jd-match`), `resume` (`/api/resume`, `/llms.txt`, `/api/resume.pdf`), `unlock`, `feedback`, `health`, `admin`.
-- `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing.
+- `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing, and `run_json_chat_turn`, the complete non-streaming turn behind `/api/chat` and the MCP `ask` tool.
+- `app/jd_service.py`: the fit-analysis turn shared by `/api/jd-match` and the MCP `analyze_fit` tool — guardrails and budgets, prompt assembly, persistence, and the non-streaming `run_json_jd_turn`.
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
-- `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, model-id checks.
+- `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, prompt-cache system blocks, model-id checks.
 - `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
-- `app/identity.py`: visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
+- `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
-- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tool, JSON logging, app-state accessors.
+- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tools (`get_resume`, and `ask`/`analyze_fit` on the shared guarded pipelines with an IP-derived visitor identity), JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
 - `rag/`: retrieval library — `chunking.py` (resume/project chunking), `keyword_index.py` (BM25), `pipeline.py` (`RAGPipeline`, Qdrant + embeddings + rank fusion).
-- `analytics/analytics.py`: local analytics logging and export helpers.
+- `analytics/analytics.py`: local analytics logging (per-turn model, route, token usage, estimated cost) and export helpers.
 - `tests/`: unittest suite (`test_*.py`), including an optional Qdrant integration test.
 - `main.py`: thin compatibility shim so `uvicorn main:app` still works for existing deploy configs.
 
@@ -36,6 +37,9 @@ Frontend:
 - `frontend/index.html`: static page shell.
 - `frontend/app.js`: chat UX, resume rendering, feedback UI, markdown rendering.
 - `frontend/styles.css`: visual system and responsive layout.
+- `frontend/share-card.png`: the link-preview image behind the Open Graph and
+  Twitter tags in both pages; regenerate with `scripts/build_share_card.py`
+  after changing the name, kicker, or tagline.
 
 Data and evals:
 - `data/resume.json`: structured public resume source data.
@@ -99,13 +103,15 @@ Optional infrastructure and controls:
 - `CHAT_PASSWORD`
 - `FREE_CHAT_LIMIT`
 - `PER_IP_DAILY_LIMIT` (per-client-IP daily cap on token-spending requests; needs `TRUST_PROXY_HEADERS=true` to take effect)
+- `TRUST_PROXY_HEADERS` / `ALLOW_UNTRUSTED_CLIENT_IPS` (a production box refuses to boot with proxy headers untrusted unless the override says it has no proxy in front; Railway only switches traffic to a deployment that answers `/health`, per `railway.json`)
 - `RATE_LIMIT_REQUESTS_PER_MINUTE`
 - `SESSION_MAX_AGE_SECONDS`
 - `API_TIMEOUT_SECONDS`
 - `MAX_USER_MESSAGE_CHARS`
 - `MAX_JD_CHARS` / `JD_DAILY_LIMIT` (JD fit analysis)
 - `VISITOR_COOKIE_NAME` / `VISITOR_TTL_SECONDS` (server-minted quota identity)
-- `SESSION_HASH_SECRET` (stable HMAC key for anonymized analytics ids; set in production)
+- `SESSION_HASH_SECRET` (stable HMAC key that signs the visitor cookie and anonymizes analytics ids; set in production, or every restart resets quotas and unlocks)
+- `ANALYTICS_RETENTION_DAYS` (entries older than this are pruned from the analytics files at startup and daily; default 90, 0 keeps everything)
 - `ENVIRONMENT`
 - `DATA_DIR`
 
@@ -166,12 +172,13 @@ Code quality:
 
 Security and privacy:
 - Never expose secrets from `.env`.
-- Treat analytics logs and eval datasets/results as sensitive user data.
+- Treat analytics logs and eval datasets/results as sensitive user data. The app prunes the analytics files past `ANALYTICS_RETENTION_DAYS`; export what the evals need before it ages out.
 - Do not commit generated analytics, local caches, `.DS_Store`, virtualenvs, or ignored eval artifacts.
 - Avoid query-string admin tokens; prefer `X-Admin-Token`.
 - Keep admin endpoints authenticated in deployed environments.
 - Do not trust `X-Forwarded-For` unless a trusted proxy overwrites it.
 - Keep dependencies current, especially FastAPI, Starlette, and multipart/form parsing packages.
+- CI runs pip-audit, bandit (medium+) and a full-history gitleaks scan on every push; a red there blocks like a failing test.
 - Preserve XSS protections in the frontend markdown rendering path.
 
 ## Git Policy
@@ -213,3 +220,6 @@ Production-deployed portfolio app with:
 - Optional Qdrant/OpenAI RAG pipeline with static-context fallback.
 - Session handling, message compaction, rate limiting, chat unlock flow, and analytics export.
 - Evals framework with judge prompts and historical result artifacts.
+- Uptime probe (`.github/workflows/uptime.yml`): every 30 minutes it checks
+  `/health`, the home page, and that HSTS is present (production-mode drift),
+  and opens one `uptime` issue on failure.

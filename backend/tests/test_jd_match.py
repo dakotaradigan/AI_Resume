@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 # Prevent importing app.main from initializing an external RAG connection.
 os.environ["USE_RAG"] = "false"
 
-from app import chat_service, content, llm, session_store
+from app import chat_service, content, identity, llm, session_store
 from app import main as app_main
 from app.config import Settings
 from app.constants import JD_LIMIT_MESSAGE, JD_SENTINEL
@@ -22,6 +22,7 @@ from tests.test_chat_stream import (
     FakeStreamingMessages,
     make_settings,
     parse_sse,
+    system_text,
 )
 
 REALISTIC_JD = (
@@ -116,7 +117,9 @@ class TestJDBudgets(JDMatchTestCase):
         with self.build_client(settings) as client:
             # Unlock is keyed to the visitor cookie identity, not session_id.
             visitor_id = "11111111-2222-4333-8444-555555555555"
-            client.cookies.set("resume_assistant_visitor_id", visitor_id)
+            client.cookies.set(
+                "resume_assistant_visitor_id", identity.visitor_cookie_value(visitor_id, settings)
+            )
             store = session_store.get_session_store()
             import asyncio
 
@@ -213,8 +216,32 @@ class TestJDSanitization(JDMatchTestCase):
         self.assertEqual(response.status_code, 200)
 
         stream_call = FakeAnthropic.messages_api.stream_calls[0]
-        self.assertNotIn(marker, stream_call["system"])
+        self.assertNotIn(marker, system_text(stream_call))
         self.assertIn(marker, stream_call["messages"][-1]["content"][0]["text"])
+
+    def test_analysis_shares_the_cached_prompt_block_with_chat(self) -> None:
+        with self.build_client(jd_settings()) as client:
+            self.run_jd(client, REALISTIC_JD, "s1")
+        system = FakeAnthropic.messages_api.stream_calls[0]["system"]
+        self.assertEqual(
+            system[0],
+            {
+                "type": "text",
+                "text": content.load_system_prompt(),
+                "cache_control": {"type": "ephemeral"},
+            },
+        )
+        self.assertTrue(system[1]["text"].startswith(content.load_jd_match_prompt()))
+        self.assertIn("[RESUME DATA]\n", system[1]["text"])
+        self.assertEqual(system[1]["cache_control"], {"type": "ephemeral"})
+
+    def test_analysis_records_usage_on_the_primary_model(self) -> None:
+        with self.build_client(jd_settings()) as client:
+            self.run_jd(client, REALISTIC_JD, "s1")
+        kwargs = chat_service.log_query.call_args.kwargs
+        self.assertEqual(kwargs["usage"]["cache_read_input_tokens"], 3900)
+        # "test-opus" at $5/$25 per MTok: (120 + 390) * 5 + 40 * 25, per million.
+        self.assertEqual(kwargs["cost_usd"], 0.00355)
 
     def test_analysis_uses_primary_model_without_router(self) -> None:
         with self.build_client(jd_settings()) as client:

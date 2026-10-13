@@ -46,6 +46,9 @@ class Settings:
     admin_token: str = ""  # Protect admin endpoints when set (recommended in prod)
     redis_url: str = ""  # Shared session store for multi-instance deployments
     trust_proxy_headers: bool = False  # Trust X-Forwarded-For only behind a safe proxy
+    # The explicit override for a production box that faces clients with no
+    # proxy in front (the socket peer is the visitor). Never true on Railway.
+    allow_untrusted_client_ips: bool = False
 
     # Chat limit protection
     chat_password: str = ""  # Password to unlock unlimited chat access
@@ -64,7 +67,11 @@ class Settings:
     # Server-owned visitor identity (quota/unlock key; session_id is history-only)
     visitor_cookie_name: str = "resume_assistant_visitor_id"
     visitor_ttl_seconds: int = 2592000  # 30 days
-    session_hash_secret: str = ""  # HMAC key for anonymized analytics ids
+    session_hash_secret: str = ""  # HMAC key for the visitor cookie and analytics ids
+    # Entries older than this are pruned from queries.jsonl and feedback.jsonl
+    # at startup and once a day; 0 keeps everything.
+    analytics_retention_days: int = 90
+    session_hash_secret_generated: bool = False  # True when no SESSION_HASH_SECRET was set
 
     # RAG settings (Phase 3)
     openai_api_key: str = ""  # For embeddings
@@ -142,6 +149,9 @@ def get_settings() -> Settings:
         admin_token=os.getenv("ADMIN_TOKEN", ""),
         redis_url=os.getenv("REDIS_URL", ""),
         trust_proxy_headers=_to_bool(os.getenv("TRUST_PROXY_HEADERS"), default=False),
+        allow_untrusted_client_ips=_to_bool(
+            os.getenv("ALLOW_UNTRUSTED_CLIENT_IPS"), default=False
+        ),
         # Chat limit protection
         chat_password=os.getenv("CHAT_PASSWORD", ""),
         free_chat_limit=_to_int(os.getenv("FREE_CHAT_LIMIT"), 2),
@@ -151,9 +161,13 @@ def get_settings() -> Settings:
         jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 1),
         visitor_cookie_name=os.getenv("VISITOR_COOKIE_NAME", "resume_assistant_visitor_id"),
         visitor_ttl_seconds=_to_int(os.getenv("VISITOR_TTL_SECONDS"), 2592000),
-        # Unset in production breaks analytics-id correlation across restarts;
-        # a random per-process secret still keeps raw session ids out of logs.
+        # Unset, a random per-process secret still signs cookies and keeps raw
+        # session ids out of logs, but every restart (or a second instance)
+        # invalidates all visitor cookies: quotas and unlocks reset, and
+        # analytics ids stop correlating. Production should set a stable value.
         session_hash_secret=os.getenv("SESSION_HASH_SECRET") or secrets.token_hex(16),
+        session_hash_secret_generated=not os.getenv("SESSION_HASH_SECRET"),
+        analytics_retention_days=_to_int(os.getenv("ANALYTICS_RETENTION_DAYS"), 90),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         qdrant_url=os.getenv("QDRANT_URL"),

@@ -1,0 +1,55 @@
+name: Uptime
+
+# Production health probe for the live site. Fails when /health is not 200,
+# when the home page is not 200, or when the Strict-Transport-Security
+# header is missing: the app sends HSTS only with ENVIRONMENT=production,
+# so a missing header means the deploy drifted out of production mode (the
+# Secure cookie flag, credentialed CORS and the admin loopback fallback all
+# key off that same value). On failure it opens ONE issue labelled `uptime`
+# (repo watchers get the email) and leaves it open until someone closes it;
+# later failures do not pile on.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: https://www.dakotaradigan.io
+    steps:
+      - name: Health endpoint
+        run: |
+          code=$(curl -sS -o body.json -w '%{http_code}' --max-time 20 \
+            --retry 2 --retry-delay 10 --retry-all-errors \
+            "$BASE_URL/health")
+          cat body.json; echo
+          test "$code" = "200"
+      - name: Home page
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
+            --retry 2 --retry-delay 10 --retry-all-errors "$BASE_URL/")
+          test "$code" = "200"
+      - name: Production mode (HSTS present)
+        run: |
+          curl -sS -o /dev/null -D headers.txt --max-time 20 "$BASE_URL/health"
+          grep -qi '^strict-transport-security:' headers.txt
+      - name: Open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --label uptime --state open --json number --jq length)
+          if [ "$open" = "0" ]; then
+            gh label create uptime --repo "$GITHUB_REPOSITORY" --color d73a4a --force
+            gh issue create --repo "$GITHUB_REPOSITORY" --label uptime \
+              --title "Production health check failing" \
+              --body "The scheduled probe of $BASE_URL failed. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. Check the Railway deploy logs, /health, and that ENVIRONMENT=production is set. Close this issue once fixed."
+          fi

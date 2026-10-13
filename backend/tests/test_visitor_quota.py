@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import os
 import unittest
 from unittest.mock import patch
@@ -85,12 +86,62 @@ class TestVisitorCookie(VisitorQuotaTestCase):
             second = self.chat(client, "s1")
             self.assertEqual(second.cookies.get(COOKIE), minted)
 
+            # The value is the id plus its signature.
+            self.assertRegex(minted, r"^[0-9a-f-]{36}\.[0-9a-f]{32}$")
+
             # A tampered, non-UUID cookie is replaced with a fresh mint.
             client.cookies.set(COOKIE, "totally-not-a-uuid")
             third = self.chat(client, "s1")
             replaced = third.cookies.get(COOKIE)
             self.assertTrue(replaced)
             self.assertNotEqual(replaced, "totally-not-a-uuid")
+
+            # So is a UUID-shaped value with no signature (the old accepted
+            # form) or with a wrong one: only server-minted ids are returning
+            # visitors.
+            unsigned = minted.split(".")[0]
+            for forged in (unsigned, unsigned + "." + "0" * 32):
+                client.cookies.set(COOKIE, forged)
+                again = self.chat(client, "s1").cookies.get(COOKIE)
+                self.assertTrue(again)
+                self.assertNotEqual(again, forged)
+                self.assertNotEqual(again.split(".")[0], unsigned)
+
+
+class TestIdentityRowsAfterLimits(VisitorQuotaTestCase):
+    def test_refused_requests_write_no_identity_rows(self) -> None:
+        settings = dataclasses.replace(make_settings(), rate_limit_requests_per_minute=1)
+        with (
+            self.build_client(settings) as client,
+            patch.object(chat_service, "log_query"),
+        ):
+            self.assertEqual(self.chat(client, "answered").status_code, 200)
+            self.assertEqual(self.chat(client, "rate-limited").status_code, 429)
+        rows = session_store.get_session_store()._metadata
+        self.assertIn("answered", rows)
+        self.assertNotIn("rate-limited", rows)
+
+    def test_rejected_input_writes_no_identity_rows(self) -> None:
+        with (
+            self.build_client(make_settings()) as client,
+            patch.object(chat_service, "log_query"),
+        ):
+            too_long = self.chat(client, "too-long", message="x" * 5000)
+            self.assertEqual(too_long.status_code, 413)
+        self.assertNotIn("too-long", session_store.get_session_store()._metadata)
+
+    def test_production_warns_when_the_secret_is_generated(self) -> None:
+        # per_ip_daily_limit=0 silences the unrelated proxy-header warning.
+        generated = dataclasses.replace(
+            make_settings(), environment="production",
+            session_hash_secret_generated=True, per_ip_daily_limit=0,
+        )
+        with self.assertLogs("app.main", level="WARNING") as logs:
+            app_main._log_startup_warnings(generated)
+        self.assertTrue(any("SESSION_HASH_SECRET" in line for line in logs.output))
+        stable = dataclasses.replace(generated, session_hash_secret_generated=False)
+        with self.assertNoLogs("app.main", level="WARNING"):
+            app_main._log_startup_warnings(stable)
 
 
 class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):

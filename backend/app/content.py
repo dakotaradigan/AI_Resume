@@ -168,7 +168,7 @@ def render_llms_text() -> str:
         "",
         f"- Site (chat with an AI assistant about this resume): {SITE_URL}",
         f"- Resume as JSON: {SITE_URL}/api/resume",
-        f"- MCP endpoint (streamable HTTP, one tool: get_resume): {SITE_URL}/mcp",
+        f"- MCP endpoint (streamable HTTP; tools: get_resume, ask, analyze_fit): {SITE_URL}/mcp",
         f"- Email: {personal.get('email', '')}",
         f"- LinkedIn: {personal.get('linkedin', '')}",
         f"- Location: {personal.get('location', '')}",

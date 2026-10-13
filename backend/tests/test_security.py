@@ -47,7 +47,16 @@ def make_settings(
         qdrant_url=None,
         qdrant_api_key="",
         use_rag=False,
+        # The test client has no proxy in front; without this a production
+        # app refuses to boot (tests/test_boot_guard.py).
+        allow_untrusted_client_ips=True,
+        analytics_retention_days=0,  # the suite must never prune a local log
     )
+
+
+def system_text(call: dict) -> str:
+    """The prose of a call's ``system`` blocks, for substring assertions."""
+    return "\n".join(block["text"] for block in call["system"])
 
 
 class FakeMessages:
@@ -245,7 +254,7 @@ class TestSensitiveDataBoundaries(SecurityTestCase):
             self.assertEqual(resume_response.status_code, 200)
             self.assertNotIn("phone", resume_response.json()["personal"])
             self.assertEqual(chat_response.status_code, 200)
-            model_system_message = FakeAnthropic.messages_api.calls[-1]["system"]
+            model_system_message = system_text(FakeAnthropic.messages_api.calls[-1])
             self.assertNotIn("PRIVATE-PHONE-SENTINEL", model_system_message)
 
     def test_rag_chunks_exclude_phone(self) -> None:
@@ -288,7 +297,7 @@ class TestSensitiveDataBoundaries(SecurityTestCase):
 
         self.assertEqual(response.status_code, 200)
         model_call = FakeAnthropic.messages_api.calls[-1]
-        self.assertNotIn(injection, model_call["system"])
+        self.assertNotIn(injection, system_text(model_call))
         self.assertEqual(
             model_call["messages"][-1]["content"][0]["text"],
             injection,

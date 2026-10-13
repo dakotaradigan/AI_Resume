@@ -6,6 +6,22 @@
   <meta name="theme-color" content="#0b1328" />
   <meta name="description" content="How Dakota Radigan's AI resume works: live responses, context search, human-reviewed evaluation, and safe fallbacks." />
   <title>How This Site Works | Dakota Radigan</title>
+  <link rel="canonical" href="https://www.dakotaradigan.io/how-it-works.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Dakota Radigan" />
+  <meta property="og:url" content="https://www.dakotaradigan.io/how-it-works.html" />
+  <meta property="og:title" content="How This Site Works | Dakota Radigan" />
+  <meta property="og:description" content="How Dakota Radigan's AI resume works: live responses, context search, human-reviewed evaluation, and safe fallbacks." />
+  <meta property="og:image" content="https://www.dakotaradigan.io/share-card.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Dakota Radigan, AI Strategy, Senior Product Manager at Morgan Stanley. A resume you can chat with, compare a role against, or connect an agent to over MCP." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="How This Site Works | Dakota Radigan" />
+  <meta name="twitter:description" content="How Dakota Radigan's AI resume works: live responses, context search, human-reviewed evaluation, and safe fallbacks." />
+  <meta name="twitter:image" content="https://www.dakotaradigan.io/share-card.png" />
+  <meta name="twitter:image:alt" content="Dakota Radigan, AI Strategy, Senior Product Manager at Morgan Stanley. A resume you can chat with, compare a role against, or connect an agent to over MCP." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1328'/%3E%3Cpath d='M16 6c.8 6 4 9.2 10 10-6 .8-9.2 4-10 10-.8-6-4-9.2-10-10 6-.8 9.2-4 10-10Z' fill='%23fff'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./fonts/fonts.css" />
   <link rel="stylesheet" href="./styles.css" />
@@ -140,14 +156,15 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
 
     <section class="hiw-section" id="connect-mcp">
       <h2 class="hiw-section-title">Connect your own AI</h2>
-      <p>The MCP endpoint doesn't run my AI assistant for you. It exposes my resume as structured, AI-readable data so your own agent or preferred AI tool can reason over it. The flow is deliberately simple:</p>
+      <p>The MCP endpoint exposes my resume as structured, AI-readable data, and it lets your agent put questions to my assistant directly. The flow is deliberately simple:</p>
       <ol class="hiw-steps">
         <li>Your MCP client connects to the remote server at <code>/mcp</code> (streamable HTTP, no authentication).</li>
-        <li>It discovers a single read-only tool: <code>get_resume</code>.</li>
+        <li>It discovers three read-only tools: <code>get_resume</code>, <code>ask</code>, and <code>analyze_fit</code>.</li>
         <li><code>get_resume</code> returns structured career data — experience, projects, skills, education, and certifications. Private contact details like my phone number are excluded.</li>
-        <li>Your AI does the reasoning: fit comparisons, gap analysis, summaries, interview prep — with its own model, on your side of the connection.</li>
+        <li><code>ask</code> and <code>analyze_fit</code> run the same guarded pipeline as this page: the same rate limits, free-turn quota, and daily budgets, keyed to your connection's address because MCP clients hold no cookies. Pass the returned <code>session_id</code> back to continue a conversation.</li>
+        <li>Your AI does the reasoning on top: fit comparisons across candidates, gap analysis, interview prep — with its own model, on your side of the connection.</li>
       </ol>
-      <p>That split is intentional. The server exposes data, not a hosted model — so any compatible MCP client that supports remote servers gets the same structured access, and what its AI concludes is up to it. The resume is also machine-readable without MCP: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth.</p>
+      <p><code>get_resume</code> keeps the data-only path, so any compatible MCP client that supports remote servers gets the same structured access and what its AI concludes is up to it. The resume is also machine-readable without MCP: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth.</p>
       <p><strong>To connect a compatible client,</strong> add a remote MCP server with this URL (streamable-HTTP transport, no authentication):</p>
       <pre class="hiw-pre">https://www.dakotaradigan.io/mcp</pre>
       <p><strong>Claude (claude.ai or desktop):</strong> Settings → Connectors → <em>Add custom connector</em>, then paste the URL above.</p>

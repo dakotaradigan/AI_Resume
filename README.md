@@ -20,12 +20,13 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 
 - Real SSE token streaming with a live pipeline status timeline
 - Model router: a Haiku classifier sends simple lookups to Sonnet 5, synthesis to Opus 4.8, with fail-safe fallback
+- Prompt caching: the system prompt and the static résumé context are cache-marked on every chat and fit-analysis call, so repeated input tokens bill at a tenth of the base price
 - Hybrid retrieval: dense vectors + in-process BM25 fused with reciprocal rank fusion, measured against an owner-approved golden dataset
 - Recruiter tools: job-description fit analysis, screening briefs, password-gated PDF download
 - Requirement map: Jev (TypeSafe) scores every requirement in a pasted JD against the résumé in one typed pass; the page regroups and re-sorts the probabilities without another model call
-- Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with a data-only `get_resume` tool
-- Hardened: strict CSP, server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
-- Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test gate, Docker deploy
+- Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with `get_resume` plus `ask` and `analyze_fit`, which run the same guarded, metered pipeline as the page
+- Hardened: strict CSP, signed server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
+- Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test and security gates (pip-audit, bandit, gitleaks), Docker deploy
 
 ---
 
@@ -53,7 +54,8 @@ Set `REDIS_URL` to use Railway Redis for shared sessions, rate limits, and daily
 1. Replace `data/resume.json` with your career data
 2. Edit `data/system_prompt.txt` with your name and talking points
 3. Update `frontend/index.html` hero section
-4. Deploy to Railway and point your domain
+4. Edit the copy in `scripts/build_share_card.py` and run it to redraw the link-preview card
+5. Deploy to Railway with `ENVIRONMENT=production` and `TRUST_PROXY_HEADERS=true`, and point your domain
 
 ---
 

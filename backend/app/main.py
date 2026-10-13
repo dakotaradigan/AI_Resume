@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 from pathlib import Path
 
+from analytics.analytics import prune_analytics
 from fastapi import FastAPI
 from starlette.routing import Route as StarletteRoute
 from starlette.staticfiles import StaticFiles
@@ -15,6 +17,7 @@ from app.llm import warn_on_suspicious_model_ids
 from app.logging_setup import configure_logging
 from app.mcp_server import McpOrBrowser, build_mcp_server
 from app.middleware import install_middleware
+from app.request_context import RequestContextMiddleware
 from app.retrieval import initialize_rag
 from app.routes import admin, chat, feedback, health, jd_match, resume, unlock
 from app.session_store import get_session_store
@@ -22,6 +25,20 @@ from app.session_store import get_session_store
 logger = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+RETENTION_INTERVAL_SECONDS = 24 * 60 * 60
+
+
+async def _retention_loop(retention_days: int) -> None:
+    """Prune the analytics files at startup, then once a day. 0 disables.
+    One instance is the supported topology, so a task in the lifespan is the
+    whole scheduler."""
+    if retention_days <= 0:
+        return
+    while True:
+        dropped = await asyncio.to_thread(prune_analytics, retention_days)
+        if any(dropped.values()):
+            logger.info("Analytics retention (%d days): dropped %s", retention_days, dropped)
+        await asyncio.sleep(RETENTION_INTERVAL_SECONDS)
 
 
 def _log_startup_warnings(settings: Settings) -> None:
@@ -40,6 +57,14 @@ def _log_startup_warnings(settings: Settings) -> None:
             settings.environment,
         )
 
+    if settings.session_hash_secret_generated and settings.environment == "production":
+        logger.warning(
+            "SESSION_HASH_SECRET is unset: visitor cookies are signed with a "
+            "per-process secret, so every restart or second instance resets "
+            "quotas and unlocks and breaks analytics-id correlation. Set a "
+            "stable value."
+        )
+
     if settings.per_ip_daily_limit > 0 and not settings.trust_proxy_headers:
         # The per-IP daily cap needs the real client IP; without a trusted proxy
         # header every visitor collapses to the proxy IP, so the cap fails open
@@ -53,6 +78,31 @@ def _log_startup_warnings(settings: Settings) -> None:
         )
 
 
+def _check_boot_requirements(settings: Settings) -> None:
+    """Refuse to serve a production box whose client IPs would be wrong.
+
+    Behind Railway every request arrives from the proxy. With proxy headers
+    untrusted, the per-minute rate limit keys every visitor to that one
+    address (one bucket for the whole site, failing closed for everyone)
+    and the per-IP daily cap is silently off. A box that faces clients
+    directly says so with ALLOW_UNTRUSTED_CLIENT_IPS=true. Railway only
+    switches traffic to a deployment that answers /health (railway.json),
+    so a refusal here keeps the previous build serving.
+    """
+    if (
+        settings.environment == "production"
+        and not settings.trust_proxy_headers
+        and not settings.allow_untrusted_client_ips
+    ):
+        raise RuntimeError(
+            "Refusing to start: ENVIRONMENT=production with TRUST_PROXY_HEADERS "
+            "unset. Behind a proxy every visitor shares one rate-limit bucket "
+            "and the per-IP daily cap is off. Set TRUST_PROXY_HEADERS=true "
+            "(Railway, Cloudflare) or ALLOW_UNTRUSTED_CLIENT_IPS=true for a box "
+            "with no proxy in front."
+        )
+
+
 def build_app() -> FastAPI:
     configure_logging()
     mcp_server = build_mcp_server()
@@ -60,10 +110,14 @@ def build_app() -> FastAPI:
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
-        # The MCP session manager requires a running lifespan; the session
-        # store is closed on shutdown.
+        # The MCP session manager requires a running lifespan; the retention
+        # task and the session store are stopped on shutdown.
+        retention = asyncio.create_task(_retention_loop(settings.analytics_retention_days))
         async with mcp_server.session_manager.run():
             yield
+        retention.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await retention
         await get_session_store().close()
 
     app = FastAPI(
@@ -74,6 +128,7 @@ def build_app() -> FastAPI:
         lifespan=lifespan,
     )
     settings = get_settings()
+    _check_boot_requirements(settings)
     _log_startup_warnings(settings)
 
     # Snapshot of settings for route handlers (see app.dependencies).
@@ -89,6 +144,9 @@ def build_app() -> FastAPI:
     app.state.rag_pipeline = initialize_rag(settings)
 
     install_middleware(app, settings)
+    # Added last, so it is outermost: the request id exists before any other
+    # middleware logs, and lands on every response, streamed ones included.
+    app.add_middleware(RequestContextMiddleware)
 
     app.include_router(health.router)
     app.include_router(admin.router)

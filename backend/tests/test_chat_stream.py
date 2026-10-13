@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 os.environ["USE_RAG"] = "false"
 
 from anthropic import AnthropicError
-from app import chat_service, content, llm, session_store
+from app import chat_service, content, identity, llm, session_store
 from app import main as app_main
 from app.config import Settings
 from app.constants import GENERIC_CHAT_ERROR
@@ -55,16 +55,28 @@ def make_settings(*, free_chat_limit: int = 20, use_rag: bool = False) -> Settin
         qdrant_url=None,
         qdrant_api_key="",
         use_rag=use_rag,
+        analytics_retention_days=0,  # the suite must never prune a local log
     )
+
+
+# The usage block every fake response carries: a cached prompt, a short reply.
+FAKE_USAGE = SimpleNamespace(
+    input_tokens=120, output_tokens=40,
+    cache_read_input_tokens=3900, cache_creation_input_tokens=0,
+)
 
 
 class FakeStreamContext:
     """Mimics anthropic's messages.stream() async context manager."""
 
-    def __init__(self, chunks: list[str], error_kind: str | None, error_at: int):
+    def __init__(
+        self, chunks: list[str], error_kind: str | None, error_at: int,
+        usage: SimpleNamespace | None = FAKE_USAGE,
+    ):
         self._chunks = chunks
         self._error_kind = error_kind
         self._error_at = error_at
+        self._usage = usage
 
     async def __aenter__(self) -> "FakeStreamContext":
         return self
@@ -86,7 +98,8 @@ class FakeStreamContext:
 
     async def get_final_message(self) -> SimpleNamespace:
         return SimpleNamespace(
-            content=[SimpleNamespace(type="text", text="".join(self._chunks))]
+            content=[SimpleNamespace(type="text", text="".join(self._chunks))],
+            usage=self._usage,
         )
 
 
@@ -99,6 +112,7 @@ class FakeStreamingMessages:
         error_at: int = 0,
         router_raises: bool = False,
         fail_models: set[str] | None = None,
+        usage: SimpleNamespace | None = FAKE_USAGE,
     ):
         self.chunks = chunks
         self.router_label = router_label
@@ -106,6 +120,7 @@ class FakeStreamingMessages:
         self.error_at = error_at
         self.router_raises = router_raises
         self.fail_models = fail_models or set()
+        self.usage = usage
         self.create_calls: list[dict] = []
         self.stream_calls: list[dict] = []
 
@@ -114,14 +129,15 @@ class FakeStreamingMessages:
         if self.router_raises:
             raise AnthropicError("router unavailable")
         return SimpleNamespace(
-            content=[SimpleNamespace(type="text", text=self.router_label)]
+            content=[SimpleNamespace(type="text", text=self.router_label)],
+            usage=self.usage,
         )
 
     def stream(self, **kwargs) -> FakeStreamContext:
         self.stream_calls.append(kwargs)
         if kwargs.get("model") in self.fail_models:
             raise AnthropicError(f"model {kwargs['model']} unavailable")
-        return FakeStreamContext(self.chunks, self.error_kind, self.error_at)
+        return FakeStreamContext(self.chunks, self.error_kind, self.error_at, self.usage)
 
 
 class FakeAnthropic:
@@ -131,6 +147,11 @@ class FakeAnthropic:
     def __init__(self, **_kwargs) -> None:
         self.messages = type(self).messages_api
         self.models = type(self).models_api
+
+
+def system_text(call: dict) -> str:
+    """The prose of a call's ``system`` blocks, for substring assertions."""
+    return "\n".join(block["text"] for block in call["system"])
 
 
 def parse_sse(raw: str) -> list[tuple[str, dict]]:
@@ -339,9 +360,12 @@ class TestPerIpDailyCap(ChatStreamTestCase):
 
     def test_unlocked_visitor_bypasses_ip_cap(self) -> None:
         FakeAnthropic.messages_api = FakeStreamingMessages(["ok"])
-        with self.build_client(self._settings()) as client:
+        settings = self._settings()
+        with self.build_client(settings) as client:
             visitor_id = "11111111-2222-4333-8444-555555555555"
-            client.cookies.set("resume_assistant_visitor_id", visitor_id)
+            client.cookies.set(
+                "resume_assistant_visitor_id", identity.visitor_cookie_value(visitor_id, settings)
+            )
             store = session_store.get_session_store()
             asyncio.run(store.update_metadata(visitor_id))
             asyncio.run(store.set_unlimited(visitor_id, True))
@@ -498,6 +522,105 @@ class TestNonStreamingContract(ChatStreamTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["reply"], "Plain answer.")
+
+
+class TestPromptCaching(ChatStreamTestCase):
+    """The system prompt and the static résumé context are cache-marked
+    blocks; retrieved context never is (it changes with every question)."""
+
+    MARKER = {"type": "ephemeral"}
+
+    def test_static_context_marks_both_blocks(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Hi."])
+        with self.build_client(make_settings()) as client:
+            self.stream_events(client, SIMPLE_MESSAGE, "s1")
+        system = FakeAnthropic.messages_api.stream_calls[0]["system"]
+        self.assertEqual(len(system), 2)
+        self.assertEqual(system[0]["text"], content.load_system_prompt())
+        self.assertEqual(system[0]["cache_control"], self.MARKER)
+        self.assertTrue(system[1]["text"].startswith("[RESUME DATA]\n"))
+        self.assertEqual(system[1]["cache_control"], self.MARKER)
+
+    def test_json_chat_sends_the_same_blocks(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Hi."])
+        with self.build_client(make_settings()) as client:
+            self.stream_events(client, SIMPLE_MESSAGE, "s1")
+            response = client.post(
+                "/api/chat", json={"message": SIMPLE_MESSAGE, "session_id": "s2"}
+            )
+        self.assertEqual(response.status_code, 200)
+        # SIMPLE_MESSAGE takes the no-model fast path, so the only create()
+        # call is the generation itself.
+        self.assertEqual(
+            FakeAnthropic.messages_api.create_calls[0]["system"],
+            FakeAnthropic.messages_api.stream_calls[0]["system"],
+        )
+
+    def test_retrieved_context_is_not_cache_marked(self) -> None:
+        class FakePipeline:
+            def search(self, query, limit, score_threshold):
+                return [{"title": "Parametric", "text": "Built Ben AI.", "score": 0.9}]
+
+        system, used_rag, sources = chat_service.build_chat_context(
+            "What did he build?", FakePipeline(), make_settings(use_rag=True)
+        )
+        self.assertTrue(used_rag)
+        self.assertEqual([s["title"] for s in sources], ["Parametric"])
+        self.assertEqual(system[0]["cache_control"], self.MARKER)
+        self.assertTrue(system[1]["text"].startswith("[RETRIEVED CONTEXT]\n"))
+        self.assertNotIn("cache_control", system[1])
+
+
+class TestUsageCapture(ChatStreamTestCase):
+    """Every generation records its token counts and a list-price estimate."""
+
+    EXPECTED_USAGE = {
+        "input_tokens": 120, "output_tokens": 40,
+        "cache_read_input_tokens": 3900, "cache_creation_input_tokens": 0,
+    }
+    # "test-sonnet" at $2/$10 per MTok: (120 + 3900 * 0.1) * 2 + 40 * 10, per million.
+    EXPECTED_SONNET_COST = 0.00142
+
+    def logged_kwargs(self) -> dict:
+        return chat_service.log_query.call_args.kwargs
+
+    def test_stream_turn_records_usage_and_cost(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Hi."])
+        with self.build_client(make_settings()) as client:
+            self.stream_events(client, SIMPLE_MESSAGE, "s1")
+        kwargs = self.logged_kwargs()
+        self.assertEqual(kwargs["usage"], self.EXPECTED_USAGE)
+        self.assertEqual(kwargs["cost_usd"], self.EXPECTED_SONNET_COST)
+
+    def test_json_turn_records_usage_and_cost(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Hi."])
+        with self.build_client(make_settings()) as client:
+            response = client.post(
+                "/api/chat", json={"message": SIMPLE_MESSAGE, "session_id": "s1"}
+            )
+        self.assertEqual(response.status_code, 200)
+        kwargs = self.logged_kwargs()
+        self.assertEqual(kwargs["usage"], self.EXPECTED_USAGE)
+        self.assertEqual(kwargs["cost_usd"], self.EXPECTED_SONNET_COST)
+
+    def test_response_without_usage_records_none(self) -> None:
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Hi."], usage=None)
+        with self.build_client(make_settings()) as client:
+            self.stream_events(client, SIMPLE_MESSAGE, "s1")
+        kwargs = self.logged_kwargs()
+        self.assertIsNone(kwargs["usage"])
+        self.assertIsNone(kwargs["cost_usd"])
+
+    def test_price_arithmetic_and_unknown_family(self) -> None:
+        usage = {
+            "input_tokens": 1000, "output_tokens": 100,
+            "cache_read_input_tokens": 2000, "cache_creation_input_tokens": 400,
+        }
+        # Opus 4.8 at $5/$25: (1000 + 200 + 500) * 5 + 100 * 25, per million.
+        self.assertEqual(llm.estimate_cost_usd("claude-opus-4-8", usage), 0.011)
+        # Haiku 5.5 at $0.10/$0.50: 1700 * 0.1 + 100 * 0.5, per million.
+        self.assertEqual(llm.estimate_cost_usd("claude-haiku-5-5", usage), 0.00022)
+        self.assertIsNone(llm.estimate_cost_usd("gpt-5.6-luna", usage))
 
 
 class TestRouterUnits(unittest.TestCase):
