@@ -922,6 +922,15 @@ const PROJECT_CARDS = [
     actionLabel: "Ask my AI about it",
   },
   {
+    match: "RFP Review Desk",
+    title: "RFP Review Desk",
+    blurb:
+      "RFP teams answer hundreds of repeat questions one at a time: search the library, paste, repeat. This concept drafts the whole RFP at import, cites every sentence, and leaves the writer only the exceptions. In design, not built yet: market research, a retrieval and eval plan, and clickable mockups.",
+    tags: ["review by exception", "hybrid retrieval", "evals", "provenance", "UX concept"],
+    link: "https://github.com/dakotaradigan/RFP",
+    actionLabel: "See the concept",
+  },
+  {
     standalone: true,
     title: "Solution Manager Toolkit",
     blurb:

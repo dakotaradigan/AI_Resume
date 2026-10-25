@@ -37,7 +37,7 @@
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
       "role": "Vice President, AI Strategy, Senior Product Manager",
-      "duration": "Jul 2026 - Present",
+      "duration": "Sep 2026 - Present",
       "location": "Seattle, WA",
       "type": "Full-time",
       "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
@@ -51,7 +51,7 @@
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
       "role": "Vice President, Senior Product Manager",
-      "duration": "Jan 2024 - Jul 2026",
+      "duration": "Jan 2025 - Sep 2026",
       "location": "Seattle, WA",
       "type": "Full-time",
       "description": "Led product strategy and technical partnerships for investment solutions at a leading direct indexing firm.",
@@ -65,7 +65,7 @@
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
       "role": "Vice President, Product Manager",
-      "duration": "Jan 2023 - Jan 2024",
+      "duration": "Jan 2023 - Jan 2025",
       "location": "Seattle, WA",
       "type": "Full-time",
       "description": "Drove product innovation and cross-functional alignment for investment platform features.",
@@ -92,7 +92,7 @@
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
-      "role": "Supervisor, Account Onboarding",
+      "role": "Manager, Account Onboarding",
       "duration": "Jul 2019 - Jan 2021",
       "location": "Seattle, WA",
       "type": "Full-time",
@@ -183,6 +183,30 @@
       }
     },
     {
+      "name": "RFP Review Desk: AI-Assisted RFP and DDQ Responses",
+      "tagline": "Side project in design: a review-by-exception RFP and DDQ workspace that sits beside Loopio",
+      "tech_stack": ["Hybrid Retrieval (BM25 + Embeddings, RRF)", "Cross-Encoder Reranking", "Retrieval Evals (Recall@5, MRR)", "Loopio Public API v2", "Python + FastAPI (planned)", "Postgres + pgvector (planned)", "HTML/CSS/JavaScript Mockups"],
+      "description": "Side project in the design phase, not built yet. RFP and due diligence questionnaire (DDQ) teams answer hundreds of repeat questions from a content library such as Loopio, one question at a time. RFP Review Desk is a companion to that library, not a replacement: it drafts every answer when the RFP is imported, cites a source for each sentence, sorts answers into Ready, Needs a look, and Needs a person, and leaves the writer to review only the exceptions. Work so far: a market landscape, a retrieval and evaluation design, a phased build plan, and two clickable UI concepts on sample data.",
+      "highlights": [
+        "Review-by-exception design: the whole RFP is drafted at import and each answer lands in one of three tiers, so review time scales with the number of problems, not the number of questions",
+        "Retrieval design: question-and-answer pairs as the retrieval unit, hybrid BM25 + embedding search fused with reciprocal rank fusion, a cross-encoder reranker, and a 100-200 question golden set tracked with recall@5 and MRR on every change",
+        "Market landscape: compared Loopio, Responsive, AutogenAI, Inventive AI, and Arphie; found no tool that uses reviewer feedback as a ranking signal or treats firm numbers as dated facts",
+        "Numbers as facts, not embeddings: AUM, performance, and fee figures come from a facts table with a source and an as-of date, and stale figures are flagged",
+        "Three answer modes, safest first: retrieve only, verbatim lock for compliance-sensitive text, and cited LLM drafting that a reviewer must accept; export is blocked while any answer is still flagged",
+        "Review Desk UI concept: the RFP as a typeset document with a provenance margin, source layers the writer can switch on and off, tracked changes against approved text, and each answer's bid history (used, won, lost)",
+        "Feedback loop: one-key reviewer tags feed ranking, and edits to approved text become suggested library updates for the content owner",
+        "Loopio integration research: Public API v2 library and project data model, OAuth client credentials, rate limits, and a read-only sync plan"
+      ],
+      "problem_solved": "In library-first RFP tools the writer works like a librarian: search the library, paste an answer, repeat for every question. Libraries collect duplicates and stale entries, AI drafts still need heavy review, and numbers such as AUM and performance carry no as-of date. A 200-question DDQ takes as long as its question count, even when most answers are routine.",
+      "impact": "Design stage: defines a product where RFP review time follows the number of problems, not the number of questions, and where every sentence and number traces to its source. Shows product discovery, competitive analysis, retrieval and eval design, and UX prototyping before any production code.",
+      "context": "Personal side project, in design (October 2026). Not built or deployed. Deliverables so far: a research and design document and two clickable HTML mockups on sample data.",
+      "timeframe": "2026",
+      "repo_url": "https://github.com/dakotaradigan/RFP",
+      "demo_url": "",
+      "images": [],
+      "detailed_description_file": "rfp_review_desk.md"
+    },
+    {
       "name": "SQL Analytics Framework",
       "tagline": "Data-driven product usage analytics and roadmap prioritization",
       "tech_stack": ["SQL", "Data Analysis", "Product Analytics"],
@@ -235,6 +259,15 @@
 
   "education": [
     {
+      "degree": "M.S. Computer Science",
+      "school": "University of Colorado Boulder",
+      "graduation": "In progress",
+      "location": "",
+      "gpa": "",
+      "relevant_courses": [],
+      "activities": []
+    },
+    {
       "degree": "MBA (Finance)",
       "school": "Washington State University",
       "graduation": "2021",
@@ -256,7 +289,21 @@
 
   "certifications": [
     {
-      "name": "Network Systems & Linux Networking",
+      "name": "Network Systems Foundations",
+      "issuer": "University of Colorado Boulder",
+      "date": "Aug 2026",
+      "status": "Completed",
+      "credential_url": ""
+    },
+    {
+      "name": "Linux Networking",
+      "issuer": "University of Colorado Boulder",
+      "date": "Aug 2026",
+      "status": "Completed",
+      "credential_url": ""
+    },
+    {
+      "name": "Cloud Networking",
       "issuer": "University of Colorado Boulder",
       "date": "Aug 2026",
       "status": "Completed",
