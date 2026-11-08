@@ -964,11 +964,7 @@ function renderProjectCards(data) {
       el("article", { class: "project-card" }, [
         el("div", { class: "project-side" }, [
           el("h3", { class: "project-title", text: card.title }),
-          el(
-            "div",
-            { class: "project-tags" },
-            card.tags.map((t) => el("span", { class: "project-tag", text: t }))
-          ),
+          el("p", { class: "project-tags", text: card.tags.join(", ") }),
         ]),
         el("div", { class: "project-body" }, [
           el("p", { class: "project-blurb", text: card.blurb }),
