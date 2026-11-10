@@ -183,11 +183,12 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                 "followups": followups, "quota_remaining": quota_remaining,
             })
         except asyncio.CancelledError:
-            # Client disconnected: close the upstream Anthropic stream (the
-            # async with does this on unwind), return the reserved daily
-            # unit, and skip all persistence.
+            # Client disconnected: the async with closes the upstream stream on
+            # unwind, and nothing is persisted. The reserved daily unit stays
+            # spent. The model call is already billed, and returning the unit
+            # let a caller read most of an answer, hang up, and never touch
+            # the daily budget.
             logger.info("Client disconnected mid-stream; skipping persistence")
-            await store.release_daily_conversation(today)
             raise
         except RateLimitError:
             logger.warning("Anthropic rate limit or spending cap hit")

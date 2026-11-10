@@ -148,6 +148,34 @@ class TestJDBudgets(JDMatchTestCase):
             self.assertEqual(retry.status_code, 200)
             self.assertIn("event: done", retry.text)
 
+    def test_cancelled_analysis_keeps_both_budget_units(self) -> None:
+        # A client that disconnects is not an upstream failure: the model
+        # call is already billed. A refund here let one visitor read most of
+        # an analysis, hang up, and run another, with no unit ever spent.
+        settings = jd_settings(jd_daily_limit=1)
+        FakeAnthropic.messages_api = FakeStreamingMessages(
+            ["partial "], error_kind="cancel", error_at=0
+        )
+        with self.build_client(settings) as client:
+            try:
+                with client.stream(
+                    "POST", "/api/jd-match",
+                    json={"jd_text": REALISTIC_JD, "session_id": "s1"},
+                ) as response:
+                    "".join(response.iter_text())
+            except Exception:
+                pass  # cancellation may surface as a transport error; that's fine
+
+            FakeAnthropic.messages_api = FakeStreamingMessages(
+                ["## Strong Matches\n- Yes"]
+            )
+            again = self.run_jd(client, REALISTIC_JD, "s1")
+        self.assertEqual(again.status_code, 403)
+        self.assertEqual(again.json()["detail"], JD_LIMIT_MESSAGE)
+        # The cancelled analysis holds its global unit; the refused retry
+        # reserved one and returned it.
+        self.assertEqual(sum(session_store._daily_conversation_count.values()), 1)
+
     def test_jd_ip_rate_limit(self) -> None:
         settings = jd_settings(jd_daily_limit=50)
         with self.build_client(settings) as client:

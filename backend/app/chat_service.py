@@ -149,7 +149,8 @@ async def run_chat_guardrails(
         )
 
     # Daily conversation budget: atomically reserve BEFORE the model call.
-    # Endpoints release the unit when generation fails or is cancelled.
+    # Endpoints release the unit when generation fails on our side. A client
+    # disconnect keeps it spent: the model call is already billed.
     # The limit is env-tunable (DAILY_CONVERSATION_LIMIT on Railway).
     today = date.today().isoformat()
     if not await store.reserve_daily_conversation(today, settings.daily_conversation_limit):

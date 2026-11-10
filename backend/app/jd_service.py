@@ -77,9 +77,13 @@ class JDTurn:
     jd_unit_reserved: bool
 
     async def release_budgets(self) -> None:
-        # A failed or cancelled generation must return BOTH budget units: the
-        # global daily reservation and, when one was taken, the visitor's JD
-        # unit. Nobody loses their free analysis to a 529.
+        # A generation that failed on our side must return BOTH budget units:
+        # the global daily reservation and, when one was taken, the visitor's
+        # JD unit. Nobody loses their free analysis to a 529.
+        #
+        # A client that disconnects is not a failure, and no caller releases
+        # for it. The model call is already billed, and a refund there let a
+        # caller read most of an analysis, hang up, and run another one.
         await self.store.release_daily_conversation(self.today)
         if self.jd_unit_reserved:
             await self.store.release_scoped_limit(self.visitor_id, "jd", self.today)
@@ -259,9 +263,6 @@ async def run_json_jd_turn(
             system=prompt.system,
             messages=build_api_messages(turn.history, prompt.user_text),
         )
-    except asyncio.CancelledError:
-        await turn.release_budgets()
-        raise
     except RateLimitError as exc:
         logger.warning("Anthropic rate limit or spending cap hit")
         await turn.release_budgets()
@@ -275,7 +276,8 @@ async def run_json_jd_turn(
         await turn.release_budgets()
         raise HTTPException(status_code=500, detail=UNEXPECTED_ERROR_MESSAGE) from exc
     finally:
-        # A map with no analysis to sit beside is never sent.
+        # A map with no analysis to sit beside is never sent. This also
+        # covers a cancelled call, which keeps its budget units spent.
         if fit_task is not None and api_response is None:
             fit_task.cancel()
 
