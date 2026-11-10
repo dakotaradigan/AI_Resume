@@ -14,6 +14,7 @@ from anthropic import AnthropicError, RateLimitError
 from app import chat_service, config, identity, llm, session_store
 from app import main as app_main
 from app.constants import BUSY_MESSAGE
+from app.routes import health as health_route
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
@@ -347,6 +348,48 @@ class TestSecurityHardening(unittest.TestCase):
         self.assertEqual(payload["dense_retrieval_status"], "healthy")
         self.assertTrue(payload["retrieval_ready"])
         self.assertNotIn("qdrant.example", str(payload))
+
+    def test_rag_health_checks_the_collection_once_per_window(self) -> None:
+        # The endpoint is public and unthrottled. Each call used to cost the
+        # vector database two requests; now a burst costs one check.
+        calls = {"exists": 0, "count": 0}
+
+        class CountingQdrantClient:
+            def collection_exists(self, collection_name: str) -> bool:
+                calls["exists"] += 1
+                return True
+
+            def count(self, collection_name: str, exact: bool) -> SimpleNamespace:
+                calls["count"] += 1
+                return SimpleNamespace(count=7)
+
+        clock = {"now": 1000.0}
+        with (
+            configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as app,
+            patch.object(health_route.time, "monotonic", lambda: clock["now"]),
+        ):
+            app.state.rag_pipeline = SimpleNamespace(
+                collection_name="resume",
+                qdrant_client=CountingQdrantClient(),
+                keyword_documents_count=7,
+                keyword_index_ready=True,
+                corpus_current=True,
+                dense_retrieval_status="healthy",
+            )
+            client = TestClient(app)
+            payloads = [client.get("/health/rag").json() for _ in range(5)]
+            self.assertEqual(calls, {"exists": 1, "count": 1})
+            self.assertTrue(all(payload["points_count"] == 7 for payload in payloads))
+
+            # Past the window the next call checks again...
+            clock["now"] += health_route.COLLECTION_CHECK_TTL_SECONDS + 1
+            client.get("/health/rag")
+            self.assertEqual(calls, {"exists": 2, "count": 2})
+
+            # ...and a reindex makes the very next call check, whatever the clock.
+            health_route.clear_collection_check(app)
+            client.get("/health/rag")
+            self.assertEqual(calls, {"exists": 3, "count": 3})
 
     def test_rag_health_reports_count_mismatch_as_not_ready(self) -> None:
         class FakeQdrantClient:

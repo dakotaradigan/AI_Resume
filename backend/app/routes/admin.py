@@ -14,6 +14,7 @@ from fastapi.responses import PlainTextResponse
 from app import chat_service, content, resume_pdf
 from app.dependencies import app_settings, rag_pipeline
 from app.identity import get_client_ip
+from app.routes.health import clear_collection_check
 from app.security import require_admin
 
 logger = logging.getLogger(__name__)
@@ -137,8 +138,10 @@ async def reindex_rag(
                     "last_result": result,
                 }
             )
-            # Clear cached resume data so subsequent requests use fresh data
+            # Clear cached resume data so subsequent requests use fresh data,
+            # and the cached collection state so /health/rag shows the new index.
             clear_all_caches()
+            clear_collection_check(request.app)
             logger.info(f"RAG re-index completed: {result['message']}")
             return result
         except Exception as exc:
