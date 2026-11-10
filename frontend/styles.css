@@ -1601,15 +1601,22 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
   width: min(100%, 680px);
   flex-direction: column;
   background: var(--paper);
-  box-shadow: var(--shadow-drawer);
   color: var(--paper-ink);
   transform: translateX(104%);
-  transition: transform 450ms var(--ease-out-soft);
+  /* The shadow belongs to the open drawer only. Closed, the panel sits just
+     off-screen, and its 80px shadow reached back onto the page as a grey
+     band down the right edge (plain to see on a phone). */
+  transition:
+    transform 450ms var(--ease-out-soft),
+    box-shadow 450ms var(--ease-out-soft);
 }
 
 .resume-drawer.is-open { pointer-events: auto; }
 .resume-drawer.is-open .resume-drawer-backdrop { opacity: 1; }
-.resume-drawer.is-open .resume-drawer-panel { transform: translateX(0); }
+.resume-drawer.is-open .resume-drawer-panel {
+  box-shadow: var(--shadow-drawer);
+  transform: translateX(0);
+}
 
 .resume-drawer-bar {
   display: flex;
