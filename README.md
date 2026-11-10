@@ -55,7 +55,7 @@ Set `REDIS_URL` to use Railway Redis for shared sessions, rate limits, and daily
 2. Edit `data/system_prompt.txt` with your name and talking points
 3. Update `frontend/index.html` hero section
 4. Edit the copy in `scripts/build_share_card.py` and run it to redraw the link-preview card
-5. Deploy to Railway with `ENVIRONMENT=production` and `TRUST_PROXY_HEADERS=true`, and point your domain
+5. Deploy to Railway with `ENVIRONMENT=production` and `TRUST_PROXY_HEADERS=true`, and point your domain. Then check which header carries the visitor's address with `GET /admin/client-ip` and set `CLIENT_IP_HEADER` to it (see `backend/.env.example`)
 
 ---
 

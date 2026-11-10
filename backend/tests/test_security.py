@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import tempfile
 import unittest
@@ -125,6 +126,7 @@ class TestAdminAuthentication(SecurityTestCase):
         ("post", "/admin/rag/reindex"),
         ("get", "/admin/rag/reindex/status"),
         ("get", "/admin/analytics/export"),
+        ("get", "/admin/client-ip"),
     )
 
     def test_production_rejects_missing_and_invalid_admin_tokens(self) -> None:
@@ -188,6 +190,31 @@ class TestAdminAuthentication(SecurityTestCase):
             self.assertNotIn("PRIVATE-ANALYTICS-SENTINEL", invalid.text)
             self.assertEqual(valid.status_code, 200)
             self.assertEqual(valid.text, sentinel)
+
+    def test_client_ip_report_shows_the_headers_as_received(self) -> None:
+        # The report exists so the operator can see which header carries the
+        # visitor's address, and whether a caller-supplied value survives the
+        # proxy, before pointing CLIENT_IP_HEADER at it.
+        settings = dataclasses.replace(
+            make_settings(), trust_proxy_headers=True, client_ip_header="x-real-ip"
+        )
+        with self.build_client(settings) as client:
+            report = client.get(
+                "/admin/client-ip",
+                headers={
+                    "X-Admin-Token": "test-admin-token",
+                    "X-Real-IP": "203.0.113.77",
+                    "X-Forwarded-For": "192.0.2.1, 192.0.2.2",
+                },
+            ).json()
+
+        self.assertEqual(report["resolved_client_ip"], "203.0.113.77")
+        self.assertEqual(report["client_ip_header"], "x-real-ip")
+        self.assertTrue(report["trust_proxy_headers"])
+        self.assertEqual(report["received"]["x-real-ip"], "203.0.113.77")
+        self.assertEqual(report["received"]["x-forwarded-for"], "192.0.2.1, 192.0.2.2")
+        self.assertIsNone(report["received"]["cf-connecting-ip"])
+        self.assertIn("socket_peer", report)
 
     def test_development_without_admin_token_is_limited_to_loopback(self) -> None:
         """Characterize the intentional local-development exception."""

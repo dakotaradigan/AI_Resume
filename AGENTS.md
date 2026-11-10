@@ -27,7 +27,7 @@ Backend (`backend/`):
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
-- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tools (`get_resume`, and `ask`/`analyze_fit` on the shared guarded pipelines with an IP-derived visitor identity), JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
+- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers and the request body cap, MCP tools (`get_resume`, and `ask`/`analyze_fit` on the shared guarded pipelines with an IP-derived visitor identity), JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
 - `rag/`: retrieval library — `chunking.py` (resume/project chunking), `keyword_index.py` (BM25), `pipeline.py` (`RAGPipeline`, Qdrant + embeddings + rank fusion).
 - `analytics/analytics.py`: local analytics logging (per-turn model, route, token usage, estimated cost) and export helpers.
 - `tests/`: unittest suite (`test_*.py`), including an optional Qdrant integration test.
@@ -104,6 +104,7 @@ Optional infrastructure and controls:
 - `FREE_CHAT_LIMIT`
 - `PER_IP_DAILY_LIMIT` (per-client-IP daily cap on token-spending requests; needs `TRUST_PROXY_HEADERS=true` to take effect)
 - `TRUST_PROXY_HEADERS` / `ALLOW_UNTRUSTED_CLIENT_IPS` (a production box refuses to boot with proxy headers untrusted unless the override says it has no proxy in front; Railway only switches traffic to a deployment that answers `/health`, per `railway.json`)
+- `CLIENT_IP_HEADER` (the header the proxy sets to the visitor's address; default `x-forwarded-for`, read at its right-most entry, and any other name such as `x-real-ip` is read as one address. Every per-IP limit keys on it, so measure with `GET /admin/client-ip` before changing it)
 - `RATE_LIMIT_REQUESTS_PER_MINUTE`
 - `SESSION_MAX_AGE_SECONDS`
 - `API_TIMEOUT_SECONDS`
@@ -176,7 +177,9 @@ Security and privacy:
 - Do not commit generated analytics, local caches, `.DS_Store`, virtualenvs, or ignored eval artifacts.
 - Avoid query-string admin tokens; prefer `X-Admin-Token`.
 - Keep admin endpoints authenticated in deployed environments.
-- Do not trust `X-Forwarded-For` unless a trusted proxy overwrites it.
+- Per-IP limits are only as good as `CLIENT_IP_HEADER`. Trust a header only after `GET /admin/client-ip` shows that the proxy sets it to the visitor's address and replaces a value the caller sent.
+- Refund budget units only for failures on our side (upstream errors, rejected input). A client disconnect keeps them spent: the model call is already billed.
+- Key stored conversation data by visitor identity plus session id (`chat_service.visitor_session_key`), never by the client's session id alone.
 - Keep dependencies current, especially FastAPI, Starlette, and multipart/form parsing packages.
 - CI runs pip-audit, bandit (medium+) and a full-history gitleaks scan on every push; a red there blocks like a failing test.
 - Preserve XSS protections in the frontend markdown rendering path.
