@@ -6,7 +6,7 @@ Model-agnostic working guide for AI coding agents in this repository.
 
 Resume Assistant is an interactive AI resume site for Dakota Radigan. It serves a static frontend from a FastAPI backend, answers recruiter-style questions through an LLM, and can optionally retrieve focused context from a Qdrant vector database using OpenAI embeddings.
 
-Live site: https://chat.dakotaradigan.io
+Live site: https://www.dakotaradigan.io
 
 Primary goals:
 - Help recruiters and hiring managers explore Dakota's background faster than a static PDF.
@@ -208,8 +208,8 @@ falls back to the app's Qdrant credentials, and rejects an eval URL matching
 To export production analytics for evals, use the admin header:
 
 ```bash
-curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://chat.dakotaradigan.io/admin/analytics/export?file=queries" > evals/datasets/production_queries.jsonl
-curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://chat.dakotaradigan.io/admin/analytics/export?file=feedback" > evals/datasets/production_feedback.jsonl
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/export?file=queries" > evals/datasets/production_queries.jsonl
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/export?file=feedback" > evals/datasets/production_feedback.jsonl
 ```
 
 ## Current Status

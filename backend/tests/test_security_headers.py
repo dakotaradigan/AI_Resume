@@ -58,3 +58,25 @@ class TestSecurityHeaders(ChatStreamTestCase):
     def test_production_adds_hsts(self) -> None:
         with self.build_client(make_production_settings()) as client:
             assert_security_headers(self, client.get("/health").headers, production=True)
+
+
+class TestProductionCors(ChatStreamTestCase):
+    def preflight(self, client, origin: str):
+        return client.options(
+            "/api/chat",
+            headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
+        )
+
+    def test_only_live_origins_get_credentialed_cors(self) -> None:
+        live = "https://www.dakotaradigan.io"
+        with self.build_client(make_production_settings()) as client:
+            allowed = self.preflight(client, live).headers
+            self.assertEqual(allowed["access-control-allow-origin"], live)
+            self.assertEqual(allowed["access-control-allow-credentials"], "true")
+            # A hostname with no service behind it must not keep its trust,
+            # and an unrelated origin never had any.
+            for origin in ("https://chat.dakotaradigan.io", "https://evil.example"):
+                with self.subTest(origin=origin):
+                    self.assertNotIn(
+                        "access-control-allow-origin", self.preflight(client, origin).headers
+                    )

@@ -8,8 +8,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import Settings
 
+# Every origin here may make credentialed requests, so list a hostname only
+# while it serves this app. chat.dakotaradigan.io was removed for that reason:
+# its DNS record outlived the service behind it, and whoever came to hold the
+# name would have inherited that trust.
 PRODUCTION_ORIGINS = [
-    "https://chat.dakotaradigan.io",
     "https://www.dakotaradigan.io",
     "https://dakotaradigan.io",
     "https://dakotaradigan.ai",
