@@ -1295,7 +1295,8 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
   font-size: 12.5px;
 }
 
-.mcp-flow code {
+.mcp-flow code,
+.mcp-note code {
   padding: 1px 6px;
   border: 1px solid var(--hairline-on-dark);
   border-radius: 8px;
