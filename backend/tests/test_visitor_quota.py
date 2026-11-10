@@ -174,6 +174,14 @@ class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):
             for sid in ("x1", "x2", "x3"):
                 self.assertEqual(self.chat(client, sid).status_code, 200)
 
+    def test_non_ascii_password_is_refused_not_a_server_error(self) -> None:
+        # hmac.compare_digest raises TypeError for a str holding non-ASCII
+        # characters, so a wrong password such as "café" was a 500.
+        with self.build_client(make_settings()) as client:
+            unlock = client.post("/api/unlock", json={"password": "café"})
+        self.assertEqual(unlock.status_code, 200)
+        self.assertFalse(unlock.json()["success"])
+
     def test_jd_budget_keyed_to_visitor_not_session(self) -> None:
         jd = "Requirements: 5+ years of experience in product management, SQL. " * 5
         with (

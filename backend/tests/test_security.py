@@ -139,6 +139,18 @@ class TestAdminAuthentication(SecurityTestCase):
                     )
                     self.assertEqual(response.status_code, 401)
 
+    def test_non_ascii_admin_token_is_rejected_not_a_server_error(self) -> None:
+        # hmac.compare_digest raises TypeError for a str holding non-ASCII
+        # characters. The request was still refused, but as an unhandled 500
+        # with a traceback in the logs instead of a 401.
+        with self.build_client(make_settings()) as client:
+            for method, path in self.ADMIN_ENDPOINTS:
+                with self.subTest(method=method, path=path):
+                    response = getattr(client, method)(
+                        path, headers={"X-Admin-Token": b"caf\xe9"}
+                    )
+                    self.assertEqual(response.status_code, 401)
+
     def test_non_development_without_admin_token_fails_closed(self) -> None:
         settings = make_settings(environment="test", admin_token="")
         with self.build_client(settings) as client:
