@@ -3,7 +3,9 @@
 Quotas and unlock are keyed to a server-minted HttpOnly cookie (the visitor
 id), never the client-supplied session id — clearing localStorage must not
 reset limits, and session ids must not act as bearer tokens for entitlements
-(SEC-01 in the security assessment).
+(SEC-01 in the security assessment). Conversation history is stored under
+the visitor id as well (chat_service.visitor_session_key), so a session id
+is not a bearer token for someone else's conversation either.
 
 The cookie value is ``<uuid>.<hmac>``, signed with SESSION_HASH_SECRET, so
 only an id this server minted counts as a returning visitor. An unsigned

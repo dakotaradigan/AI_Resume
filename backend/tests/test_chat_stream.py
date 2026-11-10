@@ -478,9 +478,8 @@ class TestStreamErrors(ChatStreamTestCase):
             except Exception:
                 pass  # cancellation may surface as a transport error; that's fine
 
-            store = session_store.get_session_store()
-            history = asyncio.run(store.get_history("cancelled-session"))
-            roles = [msg.get("role") for msg in history]
+            stored = session_store.get_session_store()._messages.values()
+            roles = [msg.get("role") for history in stored for msg in history]
             self.assertNotIn("assistant", roles)
 
     def test_cancelled_stream_keeps_the_daily_unit(self) -> None:

@@ -69,6 +69,7 @@ class JDTurn:
 
     store: SessionStore
     session_id: str
+    conversation_key: str
     visitor_id: str
     mode: str
     sanitized: str
@@ -127,13 +128,13 @@ async def prepare_jd_turn(
             detail="Too many fit analyses at once. Please wait a few minutes and try again.",
         ))
 
-    history = await store.get_history(ctx.session_id)
+    history = await store.get_history(ctx.conversation_key)
 
     if payload.mode == "brief":
         # Server-owned flag, not a history substring: a visitor must not be
         # able to unlock the quota-free brief by typing a sentinel into an
         # ordinary chat message that shares this session's history.
-        if not await store.has_jd_analysis(ctx.session_id):
+        if not await store.has_jd_analysis(ctx.conversation_key):
             await _reject(HTTPException(status_code=409, detail="Run a fit analysis first."))
     jd_unit_reserved = False
     if payload.mode != "brief":
@@ -150,7 +151,8 @@ async def prepare_jd_turn(
             jd_unit_reserved = True
 
     return JDTurn(
-        store=store, session_id=ctx.session_id, visitor_id=ctx.visitor_id,
+        store=store, session_id=ctx.session_id,
+        conversation_key=ctx.conversation_key, visitor_id=ctx.visitor_id,
         mode=payload.mode, sanitized=sanitize_jd_text(ctx.message),
         history=history, today=today, jd_unit_reserved=jd_unit_reserved,
     )
@@ -223,13 +225,13 @@ async def finish_jd_turn(
         reply_text = EMPTY_ANALYSIS_FALLBACK
     reply_text, _ = split_followups(reply_text)
     await persist_chat(
-        turn.store, settings, turn.session_id, stored_user_text, reply_text,
+        turn.store, settings, turn.conversation_key, stored_user_text, reply_text,
         history_was_empty=False, cache_key="",
         model_id=settings.anthropic_model, route_reason="jd-match", usage=usage,
     )
     if turn.mode != "brief":
         # Unlock brief mode for this session via a server-owned flag.
-        await turn.store.mark_jd_analysis(turn.session_id)
+        await turn.store.mark_jd_analysis(turn.conversation_key)
     return reply_text
 
 

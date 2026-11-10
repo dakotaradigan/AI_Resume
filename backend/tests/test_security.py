@@ -343,21 +343,32 @@ class TestSessionIsolation(SecurityTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("PRIVATE-CROSS-SESSION-MARKER", response.json()["reply"])
 
-    def test_reusing_another_users_session_id_exposes_their_history(self) -> None:
-        """Characterize session IDs as unbound bearer credentials."""
-        settings = make_settings()
+    def _reuse_session_id(self, client: TestClient):
+        client.post(
+            "/api/chat",
+            json={
+                "session_id": "shared-session",
+                "message": "My marker is PRIVATE-CROSS-SESSION-MARKER.",
+            },
+        )
+        return client.post(
+            "/api/chat",
+            json={
+                "session_id": "shared-session",
+                "message": "Repeat the prior marker.",
+            },
+        )
+
+    def test_another_visitor_reusing_a_session_id_gets_no_history(self) -> None:
+        """SEC-01: a session id alone is no longer a bearer credential.
+        History is stored under the visitor identity as well."""
         with (
             patch.object(llm, "AsyncAnthropic", FakeAnthropic),
             patch.object(chat_service, "log_query"),
-            self.build_client(settings) as client,
+            self.build_client(make_settings()) as client,
         ):
-            client.post(
-                "/api/chat",
-                json={
-                    "session_id": "shared-session",
-                    "message": "My marker is PRIVATE-CROSS-SESSION-MARKER.",
-                },
-            )
+            self._reuse_session_id(client)
+            client.cookies.clear()  # a second visitor who learned the id
             response = client.post(
                 "/api/chat",
                 json={
@@ -365,6 +376,20 @@ class TestSessionIsolation(SecurityTestCase):
                     "message": "Repeat the prior marker.",
                 },
             )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("PRIVATE-CROSS-SESSION-MARKER", response.json()["reply"])
+
+    def test_the_same_visitor_keeps_its_own_history(self) -> None:
+        # The other half of the binding: the visitor who started the
+        # conversation still continues it. (environment="test" so the
+        # visitor cookie is not Secure and the http test client returns it.)
+        with (
+            patch.object(llm, "AsyncAnthropic", FakeAnthropic),
+            patch.object(chat_service, "log_query"),
+            self.build_client(make_settings(environment="test")) as client,
+        ):
+            response = self._reuse_session_id(client)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("PRIVATE-CROSS-SESSION-MARKER", response.json()["reply"])
