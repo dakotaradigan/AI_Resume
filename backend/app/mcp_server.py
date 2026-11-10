@@ -15,7 +15,9 @@ another's id. Only when the client IP is real: proxy headers trusted
 (Railway), or the box declared it has no proxy. Otherwise every caller
 would share the proxy's address and one caller's free turns would lock
 everyone out, so the binding fails open (a fresh identity per call, like a
-cookie-less browser) and the rate limit and daily budget still bind.
+cookie-less browser) and the rate limit and daily budget still bind. History
+is stored under the same identity, so a caller only continues its own
+conversations, and a fresh identity per call has no conversation memory.
 
 Error posture: FastMCP sends str(exception) to the client, so every tool
 runs behind _run_tool, which passes through guardrail refusals (their

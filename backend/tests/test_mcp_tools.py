@@ -10,7 +10,6 @@ visitor identity because MCP clients hold no cookies.
 
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import json
 import os
@@ -98,11 +97,15 @@ class TestToolSurface(McpTestCase):
 
 class TestAsk(McpTestCase):
     def test_ask_answers_and_continues_a_session(self) -> None:
-        with self.build_client(make_settings()) as client:
-            first = tool_json(mcp_call(client, "ask", {"question": "Does Dakota know Python?"}))
+        ip = "203.0.113.9"
+        with self.build_client(self.trusted()) as client:
+            first = tool_json(mcp_call(
+                client, "ask", {"question": "Does Dakota know Python?"}, ip=ip,
+            ))
             second = tool_json(mcp_call(
                 client, "ask",
-                {"question": "What else?", "session_id": first["session_id"]}, req_id=2,
+                {"question": "What else?", "session_id": first["session_id"]},
+                req_id=2, ip=ip,
             ))
         self.assertEqual(first["reply"], REPLY)
         self.assertEqual(first["session_id"], second["session_id"])
@@ -110,6 +113,37 @@ class TestAsk(McpTestCase):
         # The second turn carries the first exchange as history.
         roles = [m["role"] for m in FakeAnthropic.messages_api.create_calls[1]["messages"]]
         self.assertEqual(roles, ["user", "assistant", "user"])
+
+    def test_another_caller_reusing_a_session_id_gets_no_history(self) -> None:
+        # MCP callers are language models, and a model may invent a session
+        # id instead of passing back the one it was given. Two callers that
+        # both pick "session-1" must not read each other's conversation.
+        with self.build_client(self.trusted()) as client:
+            tool_json(mcp_call(
+                client, "ask",
+                {"question": "My marker is ZEBRA-42.", "session_id": "session-1"},
+                ip="203.0.113.9",
+            ))
+            tool_json(mcp_call(
+                client, "ask",
+                {"question": "What did I say?", "session_id": "session-1"},
+                req_id=2, ip="203.0.113.10",
+            ))
+        other_callers_turn = FakeAnthropic.messages_api.create_calls[1]["messages"]
+        self.assertEqual([m["role"] for m in other_callers_turn], ["user"])
+        self.assertNotIn("ZEBRA-42", json.dumps(other_callers_turn))
+
+    def test_no_conversation_memory_without_a_trustworthy_client_ip(self) -> None:
+        # With no identity to bind a conversation to, a session id alone
+        # must not continue one: it would be a bearer token again.
+        with self.build_client(make_settings()) as client:
+            first = tool_json(mcp_call(client, "ask", {"question": "Does Dakota know Python?"}))
+            tool_json(mcp_call(
+                client, "ask",
+                {"question": "What else?", "session_id": first["session_id"]}, req_id=2,
+            ))
+        roles = [m["role"] for m in FakeAnthropic.messages_api.create_calls[1]["messages"]]
+        self.assertEqual(roles, ["user"])
 
     def test_ask_binds_the_free_quota_to_the_client_ip(self) -> None:
         settings = self.trusted(free_chat_limit=1)
@@ -164,7 +198,12 @@ class TestAnalyzeFit(McpTestCase):
     def test_analysis_on_the_primary_model_with_the_jd_fenced(self) -> None:
         with self.build_client(make_settings()) as client:
             result = tool_json(mcp_call(client, "analyze_fit", {"job_description": REALISTIC_JD}))
-            history = asyncio.run(session_store.get_session_store().get_history(result["session_id"]))
+            # Stored under "<visitor id>:<session id>".
+            (history,) = [
+                stored
+                for key, stored in session_store.get_session_store()._messages.items()
+                if key.endswith(":" + result["session_id"])
+            ]
         self.assertEqual(result["analysis"], ANALYSIS)
         self.assertNotIn("requirement_map", result)
         call = FakeAnthropic.messages_api.create_calls[0]

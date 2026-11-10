@@ -217,3 +217,20 @@ from `backend/config.py`, `.env.example` was updated with a warning, and
 ### Combined test surface
 `cd backend && python -m unittest test_security test_security_hardening test_security_llm -v`
 — deterministic suites pass; the live-model module self-skips without `RUN_LLM_SECURITY=1`.
+
+---
+
+## Addendum (2026-11-10): SEC-01 closed
+
+Conversation history is now stored under the visitor identity plus the
+client's session id (`chat_service.visitor_session_key`), for the web routes
+and the MCP tools alike. A session id presented by a different visitor reaches
+an empty history. The characterization test named in the Reproduction section
+was replaced by `test_another_visitor_reusing_a_session_id_gets_no_history`
+and `test_the_same_visitor_keeps_its_own_history` in
+`backend/tests/test_security.py`, with MCP equivalents in
+`backend/tests/test_mcp_tools.py`.
+
+A caller with no stable identity (a client that keeps no cookie, or an MCP
+caller when the client IP is not trusted) is a new visitor on each request and
+has no conversation memory.

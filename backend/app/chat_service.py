@@ -99,13 +99,30 @@ def sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+def visitor_session_key(visitor_id: str, session_id: str) -> str:
+    """The store key for one conversation: the visitor identity plus the
+    session id the client sent.
+
+    A session id alone used to be enough to read a conversation (SEC-01),
+    and the client chooses it: two callers that both picked "session-1"
+    shared one history. Bound to the visitor, an id only ever reaches that
+    visitor's own conversations. A caller with no stable identity (a client
+    that keeps no cookie, or an MCP caller with no trustworthy client IP)
+    is a new visitor on every request, so it has no conversation memory.
+    """
+    return f"{visitor_id}:{session_id}"
+
+
 @dataclass(frozen=True)
 class ChatTurnContext:
-    """Validated identity + input for one chat turn."""
+    """Validated identity + input for one chat turn. ``session_id`` is what
+    the client sent and gets back; ``conversation_key`` is where the turn's
+    history and per-conversation flags are stored."""
 
     session_id: str
     visitor_id: str
     message: str
+    conversation_key: str
 
 
 async def run_chat_guardrails(
@@ -149,7 +166,8 @@ async def run_chat_guardrails(
         )
 
     # Daily conversation budget: atomically reserve BEFORE the model call.
-    # Endpoints release the unit when generation fails or is cancelled.
+    # Endpoints release the unit when generation fails on our side. A client
+    # disconnect keeps it spent: the model call is already billed.
     # The limit is env-tunable (DAILY_CONVERSATION_LIMIT on Railway).
     today = date.today().isoformat()
     if not await store.reserve_daily_conversation(today, settings.daily_conversation_limit):
@@ -185,7 +203,8 @@ async def run_chat_guardrails(
     # the quota check below reads it: its metadata carries quota/unlock state,
     # and without a fresh last_access, cleanup_expired would wipe it and reset
     # the quota.
-    await store.update_metadata(session_id)
+    conversation_key = visitor_session_key(visitor_id, session_id)
+    await store.update_metadata(conversation_key)
     await store.update_metadata(visitor_id)
 
     # Chat limit protection: free users limited to N exchanges (atomic
@@ -224,12 +243,15 @@ async def run_chat_guardrails(
                     HTTPException(status_code=403, detail=IP_DAILY_LIMIT_MESSAGE)
                 )
 
-    return ChatTurnContext(session_id=session_id, visitor_id=visitor_id, message=message)
+    return ChatTurnContext(
+        session_id=session_id, visitor_id=visitor_id, message=message,
+        conversation_key=conversation_key,
+    )
 
 
-async def compact_session_history(session_id: str, store: SessionStore) -> None:
+async def compact_session_history(conversation_key: str, store: SessionStore) -> None:
     """Compact session history to prevent unbounded growth."""
-    history = await store.get_history(session_id)
+    history = await store.get_history(conversation_key)
     if len(history) <= COMPACT_AFTER:
         return
 
@@ -270,7 +292,7 @@ async def compact_session_history(session_id: str, store: SessionStore) -> None:
     if len(new_history) > MAX_SESSION_MESSAGES:
         new_history = new_history[-MAX_SESSION_MESSAGES:]
 
-    await store.set_history(session_id, new_history)
+    await store.set_history(conversation_key, new_history)
 
 
 def build_chat_context(
@@ -315,7 +337,7 @@ async def prepare_generation(
 async def persist_chat(
     store: SessionStore,
     settings: Settings,
-    session_id: str,
+    conversation_key: str,
     message: str,
     reply_text: str,
     *,
@@ -334,9 +356,9 @@ async def persist_chat(
     if cacheable and history_was_empty:
         cache_starter_reply(cache_key, reply_text)
 
-    await store.append_message(session_id, "user", message)
-    await store.append_message(session_id, "assistant", reply_text)
-    await compact_session_history(session_id, store)
+    await store.append_message(conversation_key, "user", message)
+    await store.append_message(conversation_key, "assistant", reply_text)
+    await compact_session_history(conversation_key, store)
 
     cost_usd = estimate_cost_usd(model_id, usage) if usage and model_id else None
     if usage:
@@ -348,11 +370,11 @@ async def persist_chat(
             usage["output_tokens"], cost_usd,
         )
 
-    # Log query for analytics (gitignored files; hashed id, never the live
-    # bearer session id)
+    # Log query for analytics (gitignored files; a hash of the conversation
+    # key, never the live visitor or session id)
     await asyncio.to_thread(
         log_query,
-        anonymize_session_id(session_id, settings.session_hash_secret),
+        anonymize_session_id(conversation_key, settings.session_hash_secret),
         message,
         reply_text,
         model_id,
@@ -365,16 +387,16 @@ async def persist_chat(
 async def persist_cached_reply(
     store: SessionStore,
     settings: Settings,
-    session_id: str,
+    conversation_key: str,
     message: str,
     reply_text: str,
 ) -> None:
     """Persist a starter-cache hit: history plus analytics, no model metadata."""
-    await store.append_message(session_id, "user", message)
-    await store.append_message(session_id, "assistant", reply_text)
+    await store.append_message(conversation_key, "user", message)
+    await store.append_message(conversation_key, "assistant", reply_text)
     await asyncio.to_thread(
         log_query,
-        anonymize_session_id(session_id, settings.session_hash_secret),
+        anonymize_session_id(conversation_key, settings.session_hash_secret),
         message,
         reply_text,
     )
@@ -420,13 +442,15 @@ async def run_json_chat_turn(
     # Starter question cache: instant responses for suggestion chips.
     # Only used when it's the first message in a session (no history yet).
     cache_key = starter_cache_key(message)
-    history = await store.get_history(session_id)
+    history = await store.get_history(ctx.conversation_key)
     cached_reply = get_cached_starter(cache_key) if not history else None
     if cached_reply is not None:
         # Cache hit makes no model call, so return the daily unit reserved in
         # the guardrails: a free response must not consume the model budget.
         await store.release_daily_conversation(today)
-        await persist_cached_reply(store, settings, session_id, message, cached_reply)
+        await persist_cached_reply(
+            store, settings, ctx.conversation_key, message, cached_reply
+        )
         return JsonChatResult(
             reply=cached_reply, session_id=session_id, visitor_id=ctx.visitor_id,
             sources=[], used_rag=False,
@@ -490,7 +514,7 @@ async def run_json_chat_turn(
     reply_text, _ = split_followups(reply_text)
 
     await persist_chat(
-        store, settings, session_id, message, reply_text,
+        store, settings, ctx.conversation_key, message, reply_text,
         history_was_empty=not history, cache_key=cache_key,
         model_id=model_id, route_reason=route_reason,
         cacheable=had_text, usage=usage_record(api_response),

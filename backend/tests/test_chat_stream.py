@@ -478,10 +478,30 @@ class TestStreamErrors(ChatStreamTestCase):
             except Exception:
                 pass  # cancellation may surface as a transport error; that's fine
 
-            store = session_store.get_session_store()
-            history = asyncio.run(store.get_history("cancelled-session"))
-            roles = [msg.get("role") for msg in history]
+            stored = session_store.get_session_store()._messages.values()
+            roles = [msg.get("role") for history in stored for msg in history]
             self.assertNotIn("assistant", roles)
+
+    def test_cancelled_stream_keeps_the_daily_unit(self) -> None:
+        # The model call is billed once it starts. A refund on disconnect let
+        # a caller read most of an answer, hang up, and never spend budget,
+        # which made the global daily cap no ceiling at all.
+        FakeAnthropic.messages_api = FakeStreamingMessages(
+            ["partial "], error_kind="cancel", error_at=0
+        )
+        with self.build_client(make_settings()) as client:
+            try:
+                with client.stream(
+                    "POST",
+                    "/api/chat/stream",
+                    json={"message": SIMPLE_MESSAGE, "session_id": "cancelled-session"},
+                ) as response:
+                    "".join(response.iter_text())
+            except Exception:
+                pass  # cancellation may surface as a transport error; that's fine
+
+        today = date.today().isoformat()
+        self.assertEqual(session_store._daily_conversation_count.get(today, 0), 1)
 
 
 class TestNonStreamingContract(ChatStreamTestCase):

@@ -69,6 +69,7 @@ class JDTurn:
 
     store: SessionStore
     session_id: str
+    conversation_key: str
     visitor_id: str
     mode: str
     sanitized: str
@@ -77,9 +78,13 @@ class JDTurn:
     jd_unit_reserved: bool
 
     async def release_budgets(self) -> None:
-        # A failed or cancelled generation must return BOTH budget units: the
-        # global daily reservation and, when one was taken, the visitor's JD
-        # unit. Nobody loses their free analysis to a 529.
+        # A generation that failed on our side must return BOTH budget units:
+        # the global daily reservation and, when one was taken, the visitor's
+        # JD unit. Nobody loses their free analysis to a 529.
+        #
+        # A client that disconnects is not a failure, and no caller releases
+        # for it. The model call is already billed, and a refund there let a
+        # caller read most of an analysis, hang up, and run another one.
         await self.store.release_daily_conversation(self.today)
         if self.jd_unit_reserved:
             await self.store.release_scoped_limit(self.visitor_id, "jd", self.today)
@@ -123,13 +128,13 @@ async def prepare_jd_turn(
             detail="Too many fit analyses at once. Please wait a few minutes and try again.",
         ))
 
-    history = await store.get_history(ctx.session_id)
+    history = await store.get_history(ctx.conversation_key)
 
     if payload.mode == "brief":
         # Server-owned flag, not a history substring: a visitor must not be
         # able to unlock the quota-free brief by typing a sentinel into an
         # ordinary chat message that shares this session's history.
-        if not await store.has_jd_analysis(ctx.session_id):
+        if not await store.has_jd_analysis(ctx.conversation_key):
             await _reject(HTTPException(status_code=409, detail="Run a fit analysis first."))
     jd_unit_reserved = False
     if payload.mode != "brief":
@@ -146,7 +151,8 @@ async def prepare_jd_turn(
             jd_unit_reserved = True
 
     return JDTurn(
-        store=store, session_id=ctx.session_id, visitor_id=ctx.visitor_id,
+        store=store, session_id=ctx.session_id,
+        conversation_key=ctx.conversation_key, visitor_id=ctx.visitor_id,
         mode=payload.mode, sanitized=sanitize_jd_text(ctx.message),
         history=history, today=today, jd_unit_reserved=jd_unit_reserved,
     )
@@ -219,13 +225,13 @@ async def finish_jd_turn(
         reply_text = EMPTY_ANALYSIS_FALLBACK
     reply_text, _ = split_followups(reply_text)
     await persist_chat(
-        turn.store, settings, turn.session_id, stored_user_text, reply_text,
+        turn.store, settings, turn.conversation_key, stored_user_text, reply_text,
         history_was_empty=False, cache_key="",
         model_id=settings.anthropic_model, route_reason="jd-match", usage=usage,
     )
     if turn.mode != "brief":
         # Unlock brief mode for this session via a server-owned flag.
-        await turn.store.mark_jd_analysis(turn.session_id)
+        await turn.store.mark_jd_analysis(turn.conversation_key)
     return reply_text
 
 
@@ -259,9 +265,6 @@ async def run_json_jd_turn(
             system=prompt.system,
             messages=build_api_messages(turn.history, prompt.user_text),
         )
-    except asyncio.CancelledError:
-        await turn.release_budgets()
-        raise
     except RateLimitError as exc:
         logger.warning("Anthropic rate limit or spending cap hit")
         await turn.release_budgets()
@@ -275,7 +278,8 @@ async def run_json_jd_turn(
         await turn.release_budgets()
         raise HTTPException(status_code=500, detail=UNEXPECTED_ERROR_MESSAGE) from exc
     finally:
-        # A map with no analysis to sit beside is never sent.
+        # A map with no analysis to sit beside is never sent. This also
+        # covers a cancelled call, which keeps its budget units spent.
         if fit_task is not None and api_response is None:
             fit_task.cancel()
 

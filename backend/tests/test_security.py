@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import tempfile
 import unittest
@@ -125,6 +126,7 @@ class TestAdminAuthentication(SecurityTestCase):
         ("post", "/admin/rag/reindex"),
         ("get", "/admin/rag/reindex/status"),
         ("get", "/admin/analytics/export"),
+        ("get", "/admin/client-ip"),
     )
 
     def test_production_rejects_missing_and_invalid_admin_tokens(self) -> None:
@@ -136,6 +138,18 @@ class TestAdminAuthentication(SecurityTestCase):
                 with self.subTest(method=method, path=path, token="invalid"):
                     response = getattr(client, method)(
                         path, headers={"X-Admin-Token": "wrong-token"}
+                    )
+                    self.assertEqual(response.status_code, 401)
+
+    def test_non_ascii_admin_token_is_rejected_not_a_server_error(self) -> None:
+        # hmac.compare_digest raises TypeError for a str holding non-ASCII
+        # characters. The request was still refused, but as an unhandled 500
+        # with a traceback in the logs instead of a 401.
+        with self.build_client(make_settings()) as client:
+            for method, path in self.ADMIN_ENDPOINTS:
+                with self.subTest(method=method, path=path):
+                    response = getattr(client, method)(
+                        path, headers={"X-Admin-Token": b"caf\xe9"}
                     )
                     self.assertEqual(response.status_code, 401)
 
@@ -176,6 +190,31 @@ class TestAdminAuthentication(SecurityTestCase):
             self.assertNotIn("PRIVATE-ANALYTICS-SENTINEL", invalid.text)
             self.assertEqual(valid.status_code, 200)
             self.assertEqual(valid.text, sentinel)
+
+    def test_client_ip_report_shows_the_headers_as_received(self) -> None:
+        # The report exists so the operator can see which header carries the
+        # visitor's address, and whether a caller-supplied value survives the
+        # proxy, before pointing CLIENT_IP_HEADER at it.
+        settings = dataclasses.replace(
+            make_settings(), trust_proxy_headers=True, client_ip_header="x-real-ip"
+        )
+        with self.build_client(settings) as client:
+            report = client.get(
+                "/admin/client-ip",
+                headers={
+                    "X-Admin-Token": "test-admin-token",
+                    "X-Real-IP": "203.0.113.77",
+                    "X-Forwarded-For": "192.0.2.1, 192.0.2.2",
+                },
+            ).json()
+
+        self.assertEqual(report["resolved_client_ip"], "203.0.113.77")
+        self.assertEqual(report["client_ip_header"], "x-real-ip")
+        self.assertTrue(report["trust_proxy_headers"])
+        self.assertEqual(report["received"]["x-real-ip"], "203.0.113.77")
+        self.assertEqual(report["received"]["x-forwarded-for"], "192.0.2.1, 192.0.2.2")
+        self.assertIsNone(report["received"]["cf-connecting-ip"])
+        self.assertIn("socket_peer", report)
 
     def test_development_without_admin_token_is_limited_to_loopback(self) -> None:
         """Characterize the intentional local-development exception."""
@@ -331,21 +370,32 @@ class TestSessionIsolation(SecurityTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("PRIVATE-CROSS-SESSION-MARKER", response.json()["reply"])
 
-    def test_reusing_another_users_session_id_exposes_their_history(self) -> None:
-        """Characterize session IDs as unbound bearer credentials."""
-        settings = make_settings()
+    def _reuse_session_id(self, client: TestClient):
+        client.post(
+            "/api/chat",
+            json={
+                "session_id": "shared-session",
+                "message": "My marker is PRIVATE-CROSS-SESSION-MARKER.",
+            },
+        )
+        return client.post(
+            "/api/chat",
+            json={
+                "session_id": "shared-session",
+                "message": "Repeat the prior marker.",
+            },
+        )
+
+    def test_another_visitor_reusing_a_session_id_gets_no_history(self) -> None:
+        """SEC-01: a session id alone is no longer a bearer credential.
+        History is stored under the visitor identity as well."""
         with (
             patch.object(llm, "AsyncAnthropic", FakeAnthropic),
             patch.object(chat_service, "log_query"),
-            self.build_client(settings) as client,
+            self.build_client(make_settings()) as client,
         ):
-            client.post(
-                "/api/chat",
-                json={
-                    "session_id": "shared-session",
-                    "message": "My marker is PRIVATE-CROSS-SESSION-MARKER.",
-                },
-            )
+            self._reuse_session_id(client)
+            client.cookies.clear()  # a second visitor who learned the id
             response = client.post(
                 "/api/chat",
                 json={
@@ -353,6 +403,20 @@ class TestSessionIsolation(SecurityTestCase):
                     "message": "Repeat the prior marker.",
                 },
             )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("PRIVATE-CROSS-SESSION-MARKER", response.json()["reply"])
+
+    def test_the_same_visitor_keeps_its_own_history(self) -> None:
+        # The other half of the binding: the visitor who started the
+        # conversation still continues it. (environment="test" so the
+        # visitor cookie is not Secure and the http test client returns it.)
+        with (
+            patch.object(llm, "AsyncAnthropic", FakeAnthropic),
+            patch.object(chat_service, "log_query"),
+            self.build_client(make_settings(environment="test")) as client,
+        ):
+            response = self._reuse_session_id(client)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("PRIVATE-CROSS-SESSION-MARKER", response.json()["reply"])

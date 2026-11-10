@@ -117,9 +117,10 @@ class TestIdentityRowsAfterLimits(VisitorQuotaTestCase):
         ):
             self.assertEqual(self.chat(client, "answered").status_code, 200)
             self.assertEqual(self.chat(client, "rate-limited").status_code, 429)
+        # Conversation rows are keyed "<visitor id>:<session id>".
         rows = session_store.get_session_store()._metadata
-        self.assertIn("answered", rows)
-        self.assertNotIn("rate-limited", rows)
+        self.assertTrue(any(key.endswith(":answered") for key in rows))
+        self.assertFalse(any(key.endswith(":rate-limited") for key in rows))
 
     def test_rejected_input_writes_no_identity_rows(self) -> None:
         with (
@@ -128,7 +129,8 @@ class TestIdentityRowsAfterLimits(VisitorQuotaTestCase):
         ):
             too_long = self.chat(client, "too-long", message="x" * 5000)
             self.assertEqual(too_long.status_code, 413)
-        self.assertNotIn("too-long", session_store.get_session_store()._metadata)
+        rows = session_store.get_session_store()._metadata
+        self.assertFalse(any(key.endswith(":too-long") for key in rows))
 
     def test_production_warns_when_the_secret_is_generated(self) -> None:
         # per_ip_daily_limit=0 silences the unrelated proxy-header warning.
@@ -173,6 +175,14 @@ class TestQuotaRekeyedToVisitor(VisitorQuotaTestCase):
             # Unlimited across arbitrary session ids on the same visitor.
             for sid in ("x1", "x2", "x3"):
                 self.assertEqual(self.chat(client, sid).status_code, 200)
+
+    def test_non_ascii_password_is_refused_not_a_server_error(self) -> None:
+        # hmac.compare_digest raises TypeError for a str holding non-ASCII
+        # characters, so a wrong password such as "café" was a 500.
+        with self.build_client(make_settings()) as client:
+            unlock = client.post("/api/unlock", json={"password": "café"})
+        self.assertEqual(unlock.status_code, 200)
+        self.assertFalse(unlock.json()["success"])
 
     def test_jd_budget_keyed_to_visitor_not_session(self) -> None:
         jd = "Requirements: 5+ years of experience in product management, SQL. " * 5

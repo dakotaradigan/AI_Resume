@@ -3,7 +3,9 @@
 Quotas and unlock are keyed to a server-minted HttpOnly cookie (the visitor
 id), never the client-supplied session id — clearing localStorage must not
 reset limits, and session ids must not act as bearer tokens for entitlements
-(SEC-01 in the security assessment).
+(SEC-01 in the security assessment). Conversation history is stored under
+the visitor id as well (chat_service.visitor_session_key), so a session id
+is not a bearer token for someone else's conversation either.
 
 The cookie value is ``<uuid>.<hmac>``, signed with SESSION_HASH_SECRET, so
 only an id this server minted counts as a returning visitor. An unsigned
@@ -71,22 +73,33 @@ def set_visitor_cookie(response: Response, visitor_id: str, settings: Settings) 
 
 
 def get_client_ip(request: Request, settings: Settings) -> str:
-    """Best-effort client IP extraction for rate limits."""
-    xff = request.headers.get("x-forwarded-for", "")
-    if settings.trust_proxy_headers and xff:
-        # Take the right-most IP: it was appended by the trusted proxy in front
-        # of us. Left-most entries are client-supplied and trivially spoofable,
-        # which would let an attacker rotate fake IPs past the rate limits.
-        for forwarded_ip in reversed(xff.split(",")):
-            forwarded_ip = forwarded_ip.strip()
-            if not forwarded_ip:
-                continue
-            try:
-                ip_address(forwarded_ip)
-            except ValueError:
-                break
-            return forwarded_ip
-    return request.client.host if request.client else "unknown"
+    """The client address every rate limit and per-IP cap keys on.
+
+    Behind a proxy the socket peer is the proxy, so with TRUST_PROXY_HEADERS
+    on the address is read from CLIENT_IP_HEADER. That header must be one the
+    proxy sets itself and replaces when a caller sends its own; a header the
+    caller controls would let it pick a new address, and a new bucket, on
+    every request. Which header that is depends on the platform: GET
+    /admin/client-ip shows what arrives. Anything missing or malformed falls
+    back to the socket peer, a shared bucket, which fails closed.
+    """
+    peer = request.client.host if request.client else "unknown"
+    if not settings.trust_proxy_headers:
+        return peer
+    value = request.headers.get(settings.client_ip_header, "")
+    # X-Forwarded-For is a list that each proxy appends to. Only its
+    # right-most entry was written by the proxy in front of us; the entries
+    # to its left are the caller's to invent. Any other header is one address.
+    entries = value.split(",") if settings.client_ip_header == "x-forwarded-for" else [value]
+    for entry in reversed(entries):
+        entry = entry.strip()
+        if not entry:
+            continue
+        try:
+            return str(ip_address(entry))
+        except ValueError:
+            break
+    return peer
 
 
 def is_loopback_host(host: str) -> bool:
