@@ -1439,7 +1439,12 @@ async function sendMessage(message, { isRetry = false } = {}) {
     renderPending = true;
     requestAnimationFrame(() => {
       renderPending = false;
-      if (!answerDiv) return;
+      // Once `done` has arrived, the reply is final and is rendered from
+      // done.reply. A frame queued by the last delta must not paint after
+      // that: it would put the held-back partial text over the finished
+      // answer. A cached starter reply lost its last characters this way,
+      // because its only delta and `done` arrive together.
+      if (!answerDiv || finalData) return;
       answerDiv.innerHTML = parseMarkdown(streamRenderText(accumulated));
       // Height ratchet: rendered content only grows during streaming, so the
       // bubble never bounces and autoscroll stays stable.
@@ -1870,7 +1875,9 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
     renderPending = true;
     requestAnimationFrame(() => {
       renderPending = false;
-      if (!answerDiv) return;
+      // Same rule as the chat stream: after `done`, a queued frame must not
+      // paint over the final, decorated analysis.
+      if (!answerDiv || finalData) return;
       answerDiv.innerHTML = parseMarkdown(stripUnpairedEmphasis(accumulated));
       const height = answerDiv.offsetHeight;
       if (height > maxAnswerHeight) {
