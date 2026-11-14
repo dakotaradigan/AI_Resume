@@ -74,7 +74,7 @@
       "achievements": [
         "Awarded firm-wide 'Commitment to Excellence' for leading a scalability initiative that saved 2,500+ operational hours annually through workflow design and feature enhancements",
         "Partnered with Sales on $200M+ in enterprise deals, acting as the technical SME to translate complex client requirements into executable specifications and ops workflows",
-        "Established product analytics to monitor feature adoption/use, identifying friction and pain points to drive data-backed roadmap prioritization",
+        "Established SQL product analytics to monitor feature adoption, identifying friction points and driving targeted outreach that increased feature utilization by 20% and informed roadmap priorities",
         "Chaired a cross-functional leadership council (Engineering, Ops, Client Service, Portfolio Management, Sales) to break down silos and align priorities, reducing decision cycle times for critical execution items from weeks to days"
       ],
       "technologies": ["SQL", "Product Analytics", "Cross-functional Leadership", "Product Strategy"]
@@ -208,26 +208,6 @@
           "Security Guardrails - prompt injection protection, input sanitization, output validation"
         ]
       }
-    },
-    {
-      "name": "SQL Analytics Framework",
-      "tagline": "Data-driven product usage analytics and roadmap prioritization",
-      "tech_stack": ["SQL", "Data Analysis", "Product Analytics"],
-      "description": "Built comprehensive SQL-based analytics framework to identify product usage gaps and inform data-backed roadmap decisions.",
-      "highlights": [
-        "Engineered SQL reporting and heatmaps to diagnose bottlenecks",
-        "Enabled targeted outreach strategy that increased feature utilization by 20%",
-        "Directly informed roadmap prioritization with usage data",
-        "Monitored KPIs including time-to-onboard and adoption metrics"
-      ],
-      "problem_solved": "Lack of visibility into product usage patterns led to misaligned roadmap priorities and low feature adoption",
-      "impact": "Increased feature utilization by 20%, data-backed roadmap prioritization",
-      "context": "Built at Parametric Portfolio (Morgan Stanley)",
-      "timeframe": "2023-2024",
-      "repo_url": "",
-      "demo_url": "",
-      "images": [],
-      "detailed_description_file": ""
     }
   ],
 
