@@ -48,7 +48,7 @@
         "Refined prompts and workflow behavior using historical examples and held-out RFP cases to assess evidence selection, response coverage, consistency, and remaining review needs.",
         "Partner with SMEs to co-design workflows and develop reusable skills, helping teams build AI fluency and contribute improvements.",
         "Translate workflow designs, prepared knowledge, and evaluation examples into concrete requirements for future enterprise AI solutions.",
-        "Built BenAI, a retrieval-augmented benchmark assistant combining internal data sources and business rules; supported Morgan Stanley risk and AIGC review and deployment planning."
+        "Built BenAI, a retrieval-augmented benchmark assistant combining internal data sources and business rules; supported Morgan Stanley risk and AI Governance Committee (AIGC) review and deployment planning."
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Evals", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
     },
