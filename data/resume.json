@@ -227,7 +227,7 @@
       "Search & Vector Databases (Hybrid Vector + BM25 Search, Qdrant, Pinecone)",
       "API & Backend Systems (FastAPI, REST, WebSockets)",
       "System Design & Application Architecture",
-      "Deployment & CI/CD (Docker, GitHub Actions, AWS, Railway, Vercel, Netlify)",
+      "Deployment & CI/CD (Docker, GitHub Actions, AWS, Railway, Vercel)",
       "Product Delivery & Collaboration (Jira, Confluence, Figma)"
     ],
     "leadership": [
