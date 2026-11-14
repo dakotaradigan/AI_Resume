@@ -1,9 +1,9 @@
 # RFP & DDQ Application and AI Strategy Work
 ## Overview & Status
-A custom RFP & DDQ application Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley). It drafts responses to RFPs (requests for proposal) and DDQs (due diligence questionnaires) and is currently in UAT (user acceptance testing). Instead of one large prompt, it runs an agentic drafting workflow: separate steps that coordinate the opportunity context, approved content, reusable skills, quality checks, and SME review. It sits alongside Ben AI, his benchmark research AI agent that is already deployed in production.
+A custom RFP & DDQ application Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley). It completes RFPs (requests for proposal) and DDQs (due diligence questionnaires) for existing and prospective clients, and is currently in UAT (user acceptance testing). It is an agentic workflow, not a chatbot: instead of one large prompt, an orchestrator coordinates separate steps for the opportunity context, approved content, reusable skills, quality checks, and SME review. It sits alongside Ben AI, his benchmark research AI agent that is already deployed in production.
 
-## How the Drafting Workflow Works
-The workflow treats an RFP or DDQ response as a set of coordinated parts rather than a single generation step:
+## How the Orchestrator Works
+The orchestrator treats each RFP or DDQ as a set of coordinated parts rather than a single generation step:
 - **Opportunity context**: the details of the specific RFP or DDQ the response is for
 - **Approved content**: answers draw on content the firm has already approved, which matters in a regulated industry
 - **Reusable skills**: repeatable drafting skills that SMEs help develop and improve

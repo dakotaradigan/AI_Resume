@@ -44,7 +44,7 @@
       "achievements": [
         "Lead AI product discovery and co-design with business teams and SMEs, turning operational problems and institutional knowledge into requirements, reusable skills, and testable solutions.",
         "Built and deployed BenAI, an AI agent for benchmark research combining RAG, function calling, and business rules over internal data; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
-        "Built a custom RFP & DDQ application (in UAT): an agentic drafting workflow combining retrieval over approved content and historical RFPs, quality checks, and SME review.",
+        "Built a custom RFP & DDQ application (in UAT): an agentic workflow whose orchestrator completes questionnaires for existing and prospective clients, coordinating retrieval over approved content, quality checks, and SME review.",
         "Lead evaluation-driven development: human-graded, calibrated LLM-as-judge evals run alongside BenAI and the RFP & DDQ app, tracking precision, recall, F1, pass@k, pass^k to find failure modes and refine prompts and workflows.",
         "Serve as an internal AI advisor to senior leaders and departments, steering AI roadmaps and educating executives through technology presentations and demos."
       ],
