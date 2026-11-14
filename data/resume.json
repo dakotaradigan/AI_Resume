@@ -266,6 +266,15 @@
 
   "education": [
     {
+      "degree": "M.S. Computer Science",
+      "school": "University of Colorado Boulder",
+      "graduation": "In progress",
+      "location": "",
+      "gpa": "",
+      "relevant_courses": [],
+      "activities": []
+    },
+    {
       "degree": "MBA (Finance)",
       "school": "Washington State University",
       "graduation": "2021",
@@ -287,11 +296,12 @@
 
   "certifications": [
     {
-      "name": "Network Systems & Linux Networking",
+      "name": "Network Systems / Linux Networking / Cloud Networking",
       "issuer": "University of Colorado Boulder",
       "date": "Aug 2026",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "",
+      "credential_id": "NZBIS9OERD4U/FZKI1TOKR227"
     },
     {
       "name": "Grokking the Fundamentals of System Design",

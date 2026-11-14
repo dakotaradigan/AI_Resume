@@ -126,6 +126,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 - LLM APIs: OpenAI (Ben AI) and Anthropic Claude (this site), with model routing and prompt caching to manage cost and latency
 - AI coding tools: fluent with agentic coding in Claude Code and Codex, plus GitHub Copilot
 - Programming: Python (PCAP-certified), SQL
+- Computer science education: pursuing an M.S. in Computer Science at the University of Colorado Boulder. It is IN PROGRESS: never describe it as completed or give a graduation date
 - Data and search: Snowflake, AWS DynamoDB and S3 (Ben AI), Qdrant and Pinecone vector databases, hybrid search fusing vector and BM25 keyword retrieval
 - Deployment: Docker, CI/CD with GitHub Actions, AWS, Railway
 - Product: Roadmap prioritization, user research, GTM strategy, KPI development, product design
