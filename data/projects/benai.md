@@ -1,10 +1,10 @@
-# Ben AI: Intelligent Benchmark Assistant
+# Ben AI: Intelligent Benchmark Agent
 ## From Personal PoC to Production Deployment
 
 **The Journey:** Personal project (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)
 
 ## What It Does
-AI-powered chatbot that helps financial advisors instantly determine benchmark eligibility for client portfolios. Reduces complex research queries from 30+ minutes to seconds. Grounded in Salesforce data, so answers come from the system of record instead of email threads and manual searches across multiple sources.
+A tool-using AI agent that helps financial advisors instantly determine benchmark eligibility for client portfolios. It is an agent rather than a fixed pipeline: the model chooses which functions to call and calls them iteratively until it can answer, with guardrails against infinite loops and timeouts. Reduces complex research queries from 30+ minutes to seconds. Grounded in Salesforce data, so answers come from the system of record instead of email threads and manual searches across multiple sources.
 
 ## The Evolution Story
 

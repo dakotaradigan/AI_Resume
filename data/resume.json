@@ -9,7 +9,7 @@
     "linkedin": "https://linkedin.com/in/dakota-radigan",
     "github": "https://github.com/dakotaradigan",
     "portfolio": "",
-    "summary": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based assistants and modular AI workflows within a regulated financial services environment."
+    "summary": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based AI agents and agentic workflows within a regulated financial services environment."
   },
 
   "about": {
@@ -40,12 +40,12 @@
       "duration": "Jul 2026 - Present",
       "location": "Seattle, WA",
       "type": "Full-time",
-      "description": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based assistants and modular AI workflows within a regulated financial services environment.",
+      "description": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based AI agents and agentic workflows within a regulated financial services environment.",
       "achievements": [
         "Lead AI product discovery and co-design with business teams and SMEs, turning operational problems and institutional knowledge into requirements, reusable skills, and testable solutions.",
-        "Built and deployed BenAI, a RAG benchmark assistant on internal data and business rules; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
-        "Built a custom RFP application (in UAT): a modular drafting workflow combining retrieval over approved content and historical RFPs, quality checks, and SME review.",
-        "Lead evaluation-driven development: human-graded, calibrated LLM-as-judge evals run alongside BenAI and the RFP application, tracking precision, recall, F1, pass@k, and pass^k to find failure modes and refine prompts and workflows.",
+        "Built and deployed BenAI, an AI agent for benchmark research combining RAG, function calling, and business rules over internal data; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
+        "Built a custom RFP & DDQ application (in UAT): an agentic drafting workflow combining retrieval over approved content and historical RFPs, quality checks, and SME review.",
+        "Lead evaluation-driven development: human-graded, calibrated LLM-as-judge evals run alongside BenAI and the RFP & DDQ app, tracking precision, recall, F1, pass@k, pass^k to find failure modes and refine prompts and workflows.",
         "Serve as an internal AI advisor to senior leaders and departments, steering AI roadmaps and educating executives through technology presentations and demos."
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Evals", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
@@ -171,10 +171,10 @@
       }
     },
     {
-      "name": "Ben AI: Intelligent Benchmark Assistant",
-      "tagline": "Full-stack AI chatbot: Personal PoC to production deployment reducing advisor research time from hours to seconds",
+      "name": "Ben AI: Intelligent Benchmark Agent",
+      "tagline": "Tool-using AI agent: personal PoC to production deployment, cutting advisor research time from hours to seconds",
       "tech_stack": ["OpenAI Responses API", "RAG Pipeline", "Pinecone Vector DB", "AWS DynamoDB", "AWS S3", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],
-      "description": "Personal project evolved to production deployment: Built enterprise-grade AI assistant starting as a home PoC (early 2025) to validate RAG architecture for complex financial benchmark queries. After proving technical viability, brought it to Parametric and scaled it to production for advisor workflow automation. Single cohesive project demonstrating end-to-end ownership from initial architecture design through production scaling.",
+      "description": "Personal project evolved to production deployment: Built an enterprise-grade AI agent starting as a home PoC (early 2025) to validate RAG architecture for complex financial benchmark queries. After proving technical viability, brought it to Parametric and scaled it to production for advisor workflow automation. Single cohesive project demonstrating end-to-end ownership from initial architecture design through production scaling.",
       "highlights": [
         "Phase 1 (Personal PoC): Built initial proof-of-concept at home to validate RAG + hybrid intelligence architecture for complex benchmark eligibility queries",
         "Phase 2 (Production): Brought validated PoC to Parametric, scaled architecture to handle production workload, reducing advisor research time from 30+ minutes to seconds",

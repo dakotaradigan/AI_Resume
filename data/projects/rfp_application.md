@@ -1,17 +1,17 @@
-# RFP Application & AI Strategy Work
+# RFP & DDQ Application and AI Strategy Work
 ## Overview & Status
-A custom RFP application Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley). It is currently in UAT (user acceptance testing). Instead of one large prompt, it runs a modular drafting workflow: separate steps that coordinate the opportunity context, approved content, reusable skills, quality checks, and SME review. It sits alongside Ben AI, his benchmark assistant that is already deployed in production.
+A custom RFP & DDQ application Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley). It drafts responses to RFPs (requests for proposal) and DDQs (due diligence questionnaires) and is currently in UAT (user acceptance testing). Instead of one large prompt, it runs an agentic drafting workflow: separate steps that coordinate the opportunity context, approved content, reusable skills, quality checks, and SME review. It sits alongside Ben AI, his benchmark research AI agent that is already deployed in production.
 
 ## How the Drafting Workflow Works
-The workflow treats an RFP response as a set of coordinated parts rather than a single generation step:
-- **Opportunity context**: the details of the specific RFP the response is for
+The workflow treats an RFP or DDQ response as a set of coordinated parts rather than a single generation step:
+- **Opportunity context**: the details of the specific RFP or DDQ the response is for
 - **Approved content**: answers draw on content the firm has already approved, which matters in a regulated industry
 - **Reusable skills**: repeatable drafting skills that SMEs help develop and improve
 - **Quality checks**: checks on the drafted responses
 - **SME review**: subject-matter experts review the drafts
 
 ## Capturing Institutional Knowledge
-Dakota developed context-capture and retrieval approaches that keep the knowledge an RFP answer depends on, not just the text of past answers. They preserve:
+Dakota developed context-capture and retrieval approaches that keep the knowledge an RFP or DDQ answer depends on, not just the text of past answers. They preserve:
 - Decision rules and the exceptions to them
 - Product metadata
 - The surrounding source context, so a retrieved passage keeps its meaning
@@ -25,7 +25,7 @@ Evals are central to how Dakota builds. He refined prompts and workflow behavior
 - Consistency
 - Remaining review needs: what still requires an SME
 
-Dakota leads evaluation-driven development for both the RFP application and Ben AI. The evals run continuously alongside each app (on the RFP application's UAT traffic and on Ben AI's production traffic) and combine two kinds of grading:
+Dakota leads evaluation-driven development for both the RFP & DDQ application and Ben AI. The evals run continuously alongside each app (on the RFP & DDQ application's UAT traffic and on Ben AI's production traffic) and combine two kinds of grading:
 - **Human grading**: people grade responses directly
 - **Calibrated LLM-as-judge**: an LLM judge whose verdicts are checked against the human grades, so its scores can be trusted at scale
 

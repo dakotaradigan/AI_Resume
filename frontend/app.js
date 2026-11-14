@@ -916,7 +916,7 @@ const PROJECT_CARDS = [
     match: "Ben AI",
     title: "Ben AI",
     blurb:
-      "Financial advisors were spending 30+ minutes researching benchmark eligibility. Ben AI answers those queries in seconds — a personal proof-of-concept I brought to Parametric and scaled into a production assistant.",
+      "Financial advisors were spending 30+ minutes researching benchmark eligibility. Ben AI answers those queries in seconds — a personal proof-of-concept I brought to Parametric and scaled into a production AI agent.",
     tags: ["OpenAI Responses API", "RAG", "Pinecone", "function calling", "FastAPI"],
     ask: "Tell me about Ben AI",
     actionLabel: "Ask my AI about it",
