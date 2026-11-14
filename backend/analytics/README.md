@@ -7,6 +7,7 @@ This folder contains query logging for understanding what visitors ask about.
 - **analytics.py** - Logging functions (tracked in git)
 - **queries.jsonl** - Logged queries (gitignored for privacy)
 - **feedback.jsonl** - User feedback ratings (gitignored for privacy)
+- **events.jsonl** - Feature-use events (gitignored): job-description uploads, heat-map openings, sample openings, matrix views
 - **.gitkeep** - Ensures folder structure is tracked
 
 ## Privacy
@@ -31,6 +32,28 @@ wc -l backend/analytics/queries.jsonl
 # Most common questions (requires jq)
 cat backend/analytics/queries.jsonl | jq -r '.query' | sort | uniq -c | sort -rn | head -10
 ```
+
+## Feature use
+
+The page reports four events to `POST /api/event` (`USAGE_EVENTS` in
+`analytics.py`). Each line of `events.jsonl` holds the time, an anonymized
+session id and the event name; nothing about the job description or file.
+
+```json
+{"timestamp": "2026-11-14T10:30:00+00:00", "session_id": "9f2c41d07ab35e88", "event": "heatmap_open"}
+```
+
+Read the summary from the running site (admin token required):
+
+```bash
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/usage?days=30"
+```
+
+It returns, for each event, the count and the number of distinct sessions,
+beside `fit_analyses`, `screening_briefs` and `chat_turns` from the query
+log, and a per-day breakdown. `?file=events` on the export endpoint returns
+the raw lines. The same retention window and the same ephemeral-disk caveat
+apply as for the other files.
 
 ## Data Format
 

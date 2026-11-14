@@ -279,6 +279,22 @@ function initChatAutoScroll() {
   mo.observe(chatLog, { childList: true, subtree: true, characterData: true });
 }
 
+/** Count one feature use. The server stores the event name, the time and
+ * an anonymized session id, nothing else (POST /api/event). The page never
+ * waits for it, and a failure must never reach the visitor. */
+function trackEvent(event) {
+  try {
+    fetch("/api/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event, session_id: sessionId }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Counting is best-effort.
+  }
+}
+
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
   Object.entries(attrs).forEach(([k, v]) => {
@@ -1882,6 +1898,7 @@ async function loadJDFile(file) {
     } else {
       setFileStatus(`Loaded ${name} (${count} characters). Review the text, then choose Analyze fit.`);
     }
+    trackEvent("jd_upload");
     chatInput.focus({ preventScroll: true });
   } catch (err) {
     console.error(err);
@@ -2888,7 +2905,13 @@ function openHeatMap(model, { focusRow = null, sampleRole = "" } = {}) {
   const views = [{ label: "Description", view: description }];
   if (model.hasMatrix) views.push({ label: "Matrix", view: heatMatrixPanel(model, dialog) });
 
+  let matrixCounted = false;
   function select(index, { focus = false } = {}) {
+    // Counted once per opening: does the matrix earn its extra Jev request?
+    if (views[index].label === "Matrix" && !matrixCounted) {
+      matrixCounted = true;
+      trackEvent("heatmap_matrix_view");
+    }
     views.forEach((item, i) => {
       const isSelected = i === index;
       item.tab.setAttribute("aria-selected", String(isSelected));
@@ -2951,6 +2974,7 @@ function openHeatMap(model, { focusRow = null, sampleRole = "" } = {}) {
     ...views.map((item) => item.view.panel)
   );
   dialog.showModal();
+  trackEvent(sampleRole ? "heatmap_sample_open" : "heatmap_open");
   select(0);
   if (focusRow) description.reveal(focusRow);
 }

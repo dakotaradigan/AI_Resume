@@ -37,6 +37,15 @@ class FeedbackRequest(BaseModel):
     trigger: Literal["first_response", "password_unlock", ""] = ""
 
 
+class EventRequest(BaseModel):
+    # One of analytics.USAGE_EVENTS. A fixed set, so the event log can never
+    # hold text a visitor typed.
+    event: Literal[
+        "jd_upload", "heatmap_open", "heatmap_sample_open", "heatmap_matrix_view"
+    ]
+    session_id: str | None = Field(default=None, max_length=100)
+
+
 class ChatResponse(BaseModel):
     reply: str
     session_id: str

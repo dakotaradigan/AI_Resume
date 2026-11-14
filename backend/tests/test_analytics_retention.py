@@ -71,19 +71,24 @@ class TestPruneOldEntries(unittest.TestCase):
 
 
 class TestPruneAnalytics(unittest.TestCase):
-    def test_applies_to_both_files(self) -> None:
+    def test_applies_to_every_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             queries = Path(tmp) / "queries.jsonl"
             feedback = Path(tmp) / "feedback.jsonl"
+            events = Path(tmp) / "events.jsonl"
             write_jsonl(queries, [entry(100, "a"), entry(120, "b"), entry(2, "c")])
             write_jsonl(feedback, [entry(100, "d")])
+            write_jsonl(events, [entry(100, "e"), entry(3, "f")])
             with (
                 patch.object(analytics, "ANALYTICS_FILE", queries),
                 patch.object(analytics, "FEEDBACK_FILE", feedback),
+                patch.object(analytics, "EVENTS_FILE", events),
                 patch.object(analytics, "datetime", wraps=datetime) as clock,
             ):
                 clock.now.return_value = NOW
-                self.assertEqual(prune_analytics(90), {"queries": 2, "feedback": 1})
+                self.assertEqual(
+                    prune_analytics(90), {"queries": 2, "feedback": 1, "events": 1}
+                )
 
 
 class TestRetentionLoop(unittest.TestCase):

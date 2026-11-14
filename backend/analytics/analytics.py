@@ -31,6 +31,16 @@ ANALYTICS_DIR = Path(os.getenv("ANALYTICS_DIR", str(Path(__file__).parent)))
 ANALYTICS_DIR.mkdir(parents=True, exist_ok=True)
 ANALYTICS_FILE = ANALYTICS_DIR / "queries.jsonl"
 FEEDBACK_FILE = ANALYTICS_DIR / "feedback.jsonl"
+EVENTS_FILE = ANALYTICS_DIR / "events.jsonl"
+
+# Feature-use events the page may report. A fixed list: the log stores one
+# of these names, never text a visitor typed.
+USAGE_EVENTS = (
+    "jd_upload",            # a job-description file was read into the composer
+    "heatmap_open",         # the heat map was opened on a visitor's own analysis
+    "heatmap_sample_open",  # the saved sample heat map was opened
+    "heatmap_matrix_view",  # the Matrix tab was shown (once per opening)
+)
 
 
 def log_query(
@@ -125,10 +135,11 @@ def prune_old_entries(path: Path, retention_days: int, *, now: datetime | None =
 
 
 def prune_analytics(retention_days: int) -> dict[str, int]:
-    """Apply the retention window to both files; counts dropped per file."""
+    """Apply the retention window to every file; counts dropped per file."""
     return {
         "queries": prune_old_entries(ANALYTICS_FILE, retention_days),
         "feedback": prune_old_entries(FEEDBACK_FILE, retention_days),
+        "events": prune_old_entries(EVENTS_FILE, retention_days),
     }
 
 
@@ -159,3 +170,90 @@ def log_feedback(session_id: str, rating: str, comment: str = "", trigger: str =
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except Exception as e:
         logger.warning(f"Failed to log feedback: {e}")
+
+
+def log_event(session_id: str, event: str) -> None:
+    """Log one feature-use event: when, which (anonymized) session, and one
+    of USAGE_EVENTS. Nothing about the job description or the file."""
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "session_id": session_id,
+        "event": event,
+    }
+    try:
+        with open(EVENTS_FILE, "a", encoding="utf-8") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                f.write(json.dumps(entry) + "\n")
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+    except Exception as e:
+        logger.warning(f"Failed to log event: {e}")
+
+
+def _recent_entries(path: Path, cutoff: datetime) -> list[dict]:
+    """The dated entries of a JSONL file from ``cutoff`` on. Lines that are
+    malformed or undated are skipped: a summary counts only what it can date."""
+    if not path.exists():
+        return []
+    entries: list[dict] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            stamp = _entry_timestamp(line) if line.strip() else None
+            if stamp is None or stamp < cutoff:
+                continue
+            entry = json.loads(line)
+            entry["_day"] = stamp.astimezone(timezone.utc).date().isoformat()
+            entries.append(entry)
+    return entries
+
+
+def summarize_usage(days: int = 30, *, now: datetime | None = None) -> dict:
+    """Feature use over the last ``days`` days (UTC), from the event and
+    query logs.
+
+    For each event: how many times it happened and in how many distinct
+    sessions (ten openings by one visitor and one opening each by ten
+    visitors are different stories). ``fit_analyses`` comes from the query
+    log, so "analyses run" can be set beside "heat maps opened". ``by_day``
+    lists only days on which something happened.
+    """
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=days)
+    events = {name: {"count": 0, "sessions": set()} for name in USAGE_EVENTS}
+    by_day: dict[str, dict[str, int]] = {}
+
+    def count(day: str, name: str) -> None:
+        by_day.setdefault(day, {})
+        by_day[day][name] = by_day[day].get(name, 0) + 1
+
+    for entry in _recent_entries(EVENTS_FILE, cutoff):
+        name = entry.get("event")
+        if name not in events:
+            continue
+        events[name]["count"] += 1
+        events[name]["sessions"].add(entry.get("session_id"))
+        count(entry["_day"], name)
+
+    totals = {"fit_analyses": 0, "screening_briefs": 0, "chat_turns": 0}
+    for entry in _recent_entries(ANALYTICS_FILE, cutoff):
+        if entry.get("route_reason") != "jd-match":
+            name = "chat_turns"
+        elif entry.get("query") == "[jd-brief] requested":
+            name = "screening_briefs"
+        else:
+            name = "fit_analyses"
+        totals[name] += 1
+        count(entry["_day"], name)
+
+    return {
+        "days": days,
+        "since": cutoff.isoformat(),
+        "until": now.isoformat(),
+        "events": {
+            name: {"count": data["count"], "sessions": len(data["sessions"])}
+            for name, data in events.items()
+        },
+        **totals,
+        "by_day": dict(sorted(by_day.items())),
+    }

@@ -126,6 +126,7 @@ class TestAdminAuthentication(SecurityTestCase):
         ("post", "/admin/rag/reindex"),
         ("get", "/admin/rag/reindex/status"),
         ("get", "/admin/analytics/export"),
+        ("get", "/admin/analytics/usage"),
         ("get", "/admin/client-ip"),
     )
 

@@ -19,7 +19,7 @@ from app.mcp_server import McpOrBrowser, build_mcp_server
 from app.middleware import install_middleware
 from app.request_context import RequestContextMiddleware
 from app.retrieval import initialize_rag
-from app.routes import admin, chat, feedback, health, jd_match, resume, unlock
+from app.routes import admin, chat, events, feedback, health, jd_match, resume, unlock
 from app.session_store import get_session_store
 
 logger = logging.getLogger(__name__)
@@ -155,6 +155,7 @@ def build_app() -> FastAPI:
     app.include_router(resume.router)
     app.include_router(unlock.router)
     app.include_router(feedback.router)
+    app.include_router(events.router)
 
     # MCP endpoint (streamable HTTP), registered before the "/" static
     # catch-all. The SDK's Starlette sub-app holds a single ASGI route;

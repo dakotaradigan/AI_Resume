@@ -18,7 +18,7 @@ Primary goals:
 Backend (`backend/`):
 - `app/main.py`: application factory (`build_app`) and ASGI entrypoint (`uvicorn app.main:app`); wires middleware, routers, the MCP route, and the static frontend mount.
 - `app/config.py`: environment-backed settings (`Settings`, `get_settings`).
-- `app/routes/`: one module per endpoint group — `chat` (`/api/chat`, `/api/chat/stream`), `jd_match` (`/api/jd-match`), `resume` (`/api/resume`, `/llms.txt`, `/api/resume.pdf`), `unlock`, `feedback`, `health`, `admin`.
+- `app/routes/`: one module per endpoint group — `chat` (`/api/chat`, `/api/chat/stream`), `jd_match` (`/api/jd-match`), `events` (`/api/event`, anonymous feature-use counts), `resume` (`/api/resume`, `/llms.txt`, `/api/resume.pdf`), `unlock`, `feedback`, `health`, `admin`.
 - `app/chat_service.py`: shared chat-turn logic — guardrails, compaction, starter cache, persistence, SSE framing, and `run_json_chat_turn`, the complete non-streaming turn behind `/api/chat` and the MCP `ask` tool.
 - `app/jd_service.py`: the fit-analysis turn shared by `/api/jd-match` and the MCP `analyze_fit` tool — guardrails and budgets, prompt assembly, persistence, and the non-streaming `run_json_jd_turn`.
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
@@ -216,6 +216,14 @@ To export production analytics for evals, use the admin header:
 ```bash
 curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/export?file=queries" > evals/datasets/production_queries.jsonl
 curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/export?file=feedback" > evals/datasets/production_feedback.jsonl
+```
+
+Feature use (job-description uploads, heat-map and sample openings, matrix
+views) is counted through `POST /api/event` into `backend/analytics/events.jsonl`:
+event name, time and anonymized session id only. Read the summary with:
+
+```bash
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/usage?days=30"
 ```
 
 ## Current Status

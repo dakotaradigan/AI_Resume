@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any, Literal
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 
 from app import chat_service, content, resume_pdf
@@ -172,18 +172,35 @@ async def reindex_status(
 async def export_analytics(
     request: Request,
     x_admin_token: str | None = Header(default=None),
-    file: Literal["queries", "feedback"] = "queries",
+    file: Literal["queries", "feedback", "events"] = "queries",
 ) -> PlainTextResponse:
-    """Export analytics data (JSONL). Use ?file=queries or ?file=feedback."""
+    """Export analytics data (JSONL). Use ?file=queries, feedback or events."""
     require_admin(request, x_admin_token, app_settings(request))
-    from analytics.analytics import ANALYTICS_FILE, FEEDBACK_FILE
+    from analytics.analytics import ANALYTICS_FILE, EVENTS_FILE, FEEDBACK_FILE
 
-    path = ANALYTICS_FILE if file == "queries" else FEEDBACK_FILE
+    path = {"queries": ANALYTICS_FILE, "feedback": FEEDBACK_FILE, "events": EVENTS_FILE}[file]
     if not path.exists():
         return PlainTextResponse("", media_type="application/jsonl")
     return PlainTextResponse(
         path.read_text(encoding="utf-8"), media_type="application/jsonl"
     )
+
+
+@router.get("/analytics/usage")
+async def usage_summary(
+    request: Request,
+    x_admin_token: str | None = Header(default=None),
+    days: int = Query(default=30, ge=1, le=365),
+) -> dict[str, Any]:
+    """Feature use over the last ``days`` days: uploads, heat-map openings,
+    sample openings and matrix views (count and distinct sessions), beside
+    the number of fit analyses, briefs and chat turns, with a per-day
+    breakdown. The log lives on this instance's disk and is pruned by
+    ANALYTICS_RETENTION_DAYS, so the window can hold less than it asks for."""
+    require_admin(request, x_admin_token, app_settings(request))
+    from analytics.analytics import summarize_usage
+
+    return await asyncio.to_thread(summarize_usage, days)
 
 
 
