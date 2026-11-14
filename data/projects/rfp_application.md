@@ -25,7 +25,11 @@ Evals are central to how Dakota builds. He refined prompts and workflow behavior
 - Consistency
 - Remaining review needs: what still requires an SME
 
-Dakota leads evaluation-driven development for both the RFP application and Ben AI. Each has an extensive eval suite built on held-out test sets:
+Dakota leads evaluation-driven development for both the RFP application and Ben AI. The evals run continuously alongside each app (on the RFP application's UAT traffic and on Ben AI's production traffic) and combine two kinds of grading:
+- **Human grading**: people grade responses directly
+- **Calibrated LLM-as-judge**: an LLM judge whose verdicts are checked against the human grades, so its scores can be trusted at scale
+
+Both draw on held-out test sets and track:
 - **Precision and recall**, measured for both retrieval (did it find the right sources?) and answer/classification correctness
 - **F1**: a single score that balances precision and recall, so improving one at the expense of the other does not look like progress
 - **pass@k**: the chance that at least one of k attempts succeeds, a measure of capability

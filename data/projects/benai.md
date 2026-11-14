@@ -26,12 +26,14 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 ## Current Status & Evaluation
 - Deployed at Parametric and continually extended to additional products and features
 - Supported Morgan Stanley risk and AI Governance Committee (AIGC) review and deployment planning, a core part of shipping AI in a highly regulated industry
+- Evals run continuously alongside production, combining human grading with an LLM-as-judge calibrated against those human grades
 - Built with evaluation-driven development: held-out test sets scored on precision, recall, and F1 (for both retrieval and answer/classification correctness), plus pass@k and pass^k for capability and reliability, used to find failure modes and refine prompts, retrieval, and workflows
 - Eval practice draws on Hamel Husain's applied evals approach
 
 ## Tech Stack
 **Backend:** FastAPI, Python
 **AI/ML:** OpenAI Responses API, RAG Pipeline, Pinecone Vector Database, text-embedding-3-small
+**Cloud & Storage:** AWS DynamoDB, AWS S3
 **Communication:** WebSockets (with REST API fallback)
 **Frontend:** JavaScript, Claude-inspired UI
 
