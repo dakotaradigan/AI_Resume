@@ -9,7 +9,7 @@
     "linkedin": "https://linkedin.com/in/dakota-radigan",
     "github": "https://github.com/dakotaradigan",
     "portfolio": "",
-    "summary": "Senior Product Manager focused on AI applications and investment platforms, with 8+ years in financial services and 5+ years delivering investment products. Combine product strategy and investment expertise with hands-on Python development to take solutions from problem discovery through implementation. Experience spans designing and building AI applications, launching investment products, delivering data integrations, and using product analytics to guide roadmap priorities."
+    "summary": "AI product leader translating business workflows into practical AI solutions through discovery, system design, hands-on prototyping, evaluation, and adoption. Experience developing retrieval-based assistants and modular AI workflows within a regulated financial services environment."
   },
 
   "about": {
@@ -40,13 +40,17 @@
       "duration": "Jul 2026 - Present",
       "location": "Seattle, WA",
       "type": "Full-time",
-      "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
+      "description": "AI product leader translating business workflows into practical AI solutions through discovery, system design, hands-on prototyping, evaluation, and adoption. Experience developing retrieval-based assistants and modular AI workflows within a regulated financial services environment.",
       "achievements": [
-        "Designed and built a Python-based RAG assistant leveraging Salesforce data and internal business logic, owning product requirements, application architecture, retrieval logic, data preparation, and evaluations; partnered with engineering on code review and deployment.",
-        "Made Parametric’s full investment offering catalog more discoverable by matching client requirements to relevant solutions, broadening consideration beyond familiar products; projected to address 1,800+ inquiries and save approximately 2,000 hours annually.",
-        "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
+        "Lead AI product discovery with business teams, translating operational problems, institutional knowledge, and enterprise constraints into requirements and testable solutions.",
+        "Built a custom RFP application prototype and designed a modular drafting workflow that coordinates opportunity context, approved content, reusable skills, quality checks, and SME review.",
+        "Developed context-capture and retrieval approaches that preserve decision rules, exceptions, product metadata, and surrounding source context from SME discussions and historical RFPs.",
+        "Refined prompts and workflow behavior using historical examples and held-out RFP cases to assess evidence selection, response coverage, consistency, and remaining review needs.",
+        "Partner with SMEs to co-design workflows and develop reusable skills, helping teams build AI fluency and contribute improvements.",
+        "Translate workflow designs, prepared knowledge, and evaluation examples into concrete requirements for future enterprise AI solutions.",
+        "Built BenAI, a retrieval-augmented benchmark assistant combining internal data sources and business rules; supported Morgan Stanley risk and AIGC review and deployment planning."
       ],
-      "technologies": ["Python", "RAG", "GenAI", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
+      "technologies": ["Python", "RAG", "GenAI", "AI Evals", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
@@ -157,7 +161,8 @@
         "Architected hybrid AI system combining RAG retrieval, LLM reasoning, and deterministic calculations for grounded responses",
         "Built security guardrails including prompt injection protection and input/output sanitization",
         "Achieved tangible business impact: projected to resolve 1,800+ client inquiries a year autonomously and save ~2,000 hours annually across teams, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
-        "Implemented real-time WebSocket communication with automatic REST API fallback for reliability"
+        "Implemented real-time WebSocket communication with automatic REST API fallback for reliability",
+        "Deployed and continually extended to additional products and features; measured with an extensive eval suite tracking recall, precision, and pass@1, drawing on Hamel Husain's applied evals practices"
       ],
       "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions over email and by manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the client's criteria, leaving Parametric's full offering catalog underused.",
       "impact": "Unlocks Parametric's full offering catalog as a strategic advantage: grounded in Salesforce data, it matches client criteria to the best-fit solution rather than the familiar default. Reduced research time from hours/days to seconds; projected to resolve 1,800+ client inquiries a year autonomously, reduce internal email across teams, and save ~2,000 hours annually. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",

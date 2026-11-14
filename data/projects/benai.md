@@ -23,6 +23,11 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 - Integrated with existing advisor workflows
 - Built comprehensive error handling and logging
 
+## Current Status & Evaluation
+- Deployed at Parametric and continually extended to additional products and features
+- Measured with an extensive eval suite tracking recall, precision, and pass@1
+- Eval practice draws on Hamel Husain's applied evals approach
+
 ## Tech Stack
 **Backend:** FastAPI, Python
 **AI/ML:** OpenAI Responses API, RAG Pipeline, Pinecone Vector Database, text-embedding-3-small
