@@ -233,7 +233,7 @@ class TestAnalyzeFit(McpTestCase):
 
     def test_requirement_map_rides_along_when_jev_is_configured(self) -> None:
         async def fake_fit_map(sanitized, resume_context, settings):
-            return {"requirements": [{"text": "SQL", "level": 3}]}
+            return {"requirements": [{"text": "SQL", "level": 3}], "lines": ["- SQL"]}
 
         settings = dataclasses.replace(make_settings(), typesafe_api_key="test-typesafe-key")
         with (
@@ -242,6 +242,8 @@ class TestAnalyzeFit(McpTestCase):
         ):
             result = tool_json(mcp_call(client, "analyze_fit", {"job_description": REALISTIC_JD}))
         self.assertEqual(result["requirement_map"]["requirements"][0]["text"], "SQL")
+        # The description is not echoed back to the caller that sent it.
+        self.assertNotIn("lines", result["requirement_map"])
 
 
 if __name__ == "__main__":

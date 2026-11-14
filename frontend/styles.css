@@ -43,6 +43,14 @@
   --fit-1: #6690bf;
   --fit-2: #4874a7;
   --fit-3: #2f5a87;
+  /* Heat map: the same hue as a wash behind a line of text, so the text
+     keeps its ink colour. The steps are monotone and one hue, but the
+     lightest wash is close to white by design, so every shaded line also
+     carries the --fit-N colour on its edge and its level in words. */
+  --heat-0: #eaf1f8;
+  --heat-1: #cfdeee;
+  --heat-2: #adc5e0;
+  --heat-3: #86a8ce;
 
   /* The resume drawer's paper */
   --paper: #fbfaf7;
@@ -868,8 +876,52 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
 .send-button:disabled { cursor: not-allowed; opacity: 0.45; }
 .chat-form[data-mode="fit"] .send-button { min-width: auto; padding: 0 14px; }
 
-.composer-hint {
+.composer-foot {
+  display: flex;
   grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.composer-upload {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color 140ms ease;
+}
+
+.composer-upload[hidden] { display: none; }
+.composer-upload:hover { border-color: var(--ink); }
+.composer-upload:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.composer-file-status {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  color: var(--tint-ink);
+  font-size: 12px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.composer-file-status.is-error { color: var(--error); }
+
+.chat-form.is-dragover {
+  border-style: dashed;
+  border-color: var(--accent);
+  background: var(--tint);
+}
+
+.composer-hint {
   margin: 0;
   color: var(--label);
   font-size: 10.5px;
@@ -1412,6 +1464,15 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
 }
 
 .fit-map-tool:hover { border-color: var(--ink); }
+.fit-map-tool--primary { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+.fit-map-tool--primary:hover { background: var(--ink-hover); }
+
+.fit-map-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .fit-map-tool[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: #ffffff; }
 
 .fit-map-summary {
@@ -1542,6 +1603,197 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
   font-size: 12px;
   line-height: 1.55;
   text-wrap: pretty;
+}
+
+/* ===== Heat map dialog =====
+   The job description itself, one row per line. A requirement line is a
+   button: a wash of the evidence hue behind ink-coloured text, the legend's
+   exact colour on its left edge, and the level named in words at the right,
+   so the level never rests on colour alone. */
+.heat-dialog {
+  width: min(calc(100vw - 24px), 780px);
+  max-height: min(calc(100dvh - 32px), 860px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-dialog);
+  background: #ffffff;
+  box-shadow: var(--shadow-chat);
+  color: var(--ink);
+}
+
+.heat-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 24px 20px;
+}
+
+.heat-dialog::backdrop { background: rgba(6, 10, 24, 0.62); }
+
+.heat-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.heat-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.heat-close {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.heat-close:hover { border-color: var(--ink); }
+
+.heat-summary {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.heat-doc {
+  display: flex;
+  min-height: 120px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 14px;
+  padding: 12px 4px 12px 0;
+  overflow-y: auto;
+  border-block: 1px solid var(--hairline);
+}
+
+.heat-line {
+  margin: 0;
+  padding: 3px 12px 3px 14px;
+  color: var(--label);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.heat-item { display: flex; flex-direction: column; }
+
+.heat-line--req {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 8px 12px 8px 10px;
+  border: 0;
+  border-left: 4px solid var(--fit-0);
+  border-radius: 4px;
+  background: var(--heat-0);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow 140ms ease;
+}
+
+.heat-line--req[data-level="1"] { border-left-color: var(--fit-1); background: var(--heat-1); }
+.heat-line--req[data-level="2"] { border-left-color: var(--fit-2); background: var(--heat-2); }
+.heat-line--req[data-level="3"] { border-left-color: var(--fit-3); background: var(--heat-3); }
+
+.heat-line--req:hover,
+.heat-line--req[aria-expanded="true"] { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.heat-line--req:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.heat-line-text { min-width: 0; }
+
+.heat-line-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.heat-line-must {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heat-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 2px 0 8px 4px;
+  padding: 12px 14px 14px;
+  border-left: 1px solid var(--hairline-strong);
+}
+
+.heat-detail[hidden] { display: none; }
+
+.heat-detail-lead {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.heat-dist {
+  display: grid;
+  width: min(100%, 420px);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.heat-dist-row { display: contents; }
+.heat-dist-label { color: var(--text); }
+.heat-dist-value { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+
+.heat-dist-track {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--mist);
+}
+
+.heat-dist-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 4px;
+  background: var(--fit-0);
+}
+
+.heat-dist-fill[data-level="1"] { background: var(--fit-1); }
+.heat-dist-fill[data-level="2"] { background: var(--fit-2); }
+.heat-dist-fill[data-level="3"] { background: var(--fit-3); }
+
+/* On a phone the whole dialog scrolls; a scroll area inside a short dialog
+   would show only three or four lines at a time. */
+@media (max-width: 560px) {
+  .heat-dialog[open] { padding: 18px 16px 16px; overflow-y: auto; }
+  .heat-doc { flex: none; overflow-y: visible; padding-right: 0; }
+  .heat-line--req { flex-direction: column; }
 }
 
 /* ===== Resume drawer ===== */

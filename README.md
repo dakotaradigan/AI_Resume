@@ -23,7 +23,7 @@ semantic search, vector databases, production guardrails, and a clean UI — bui
 - Prompt caching: the system prompt and the static résumé context are cache-marked on every chat and fit-analysis call, so repeated input tokens bill at a tenth of the base price
 - Hybrid retrieval: dense vectors + in-process BM25 fused with reciprocal rank fusion, measured against an owner-approved golden dataset
 - Recruiter tools: job-description fit analysis, screening briefs, password-gated PDF download
-- Requirement map: Jev (TypeSafe) scores every requirement in a pasted JD against the résumé in one typed pass; the page regroups and re-sorts the probabilities without another model call
+- Requirement map: Jev (TypeSafe) scores every requirement in a pasted or uploaded JD against the résumé in one typed pass; the page regroups and re-sorts the probabilities without another model call, and draws them as a heat map on the description itself. An uploaded PDF is read in the browser (vendored pdf.js), so only its text is sent
 - Open interfaces: `/llms.txt` rendered live from resume data, MCP endpoint with `get_resume` plus `ask` and `analyze_fit`, which run the same guarded, metered pipeline as the page
 - Hardened: strict CSP, signed server-minted HttpOnly visitor quotas, atomic daily budgets, prompt-injection defense, HMAC-anonymized analytics
 - Zero-dependency frontend (custom markdown parser, self-hosted fonts), CI test and security gates (pip-audit, bandit, gitleaks), Docker deploy

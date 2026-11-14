@@ -135,7 +135,11 @@ async def _analyze_fit_impl(job_description: str, session_id: str | None) -> dic
     )
     result: dict[str, Any] = {"analysis": analysis, "session_id": turn_session_id}
     if fit_map:
-        result["requirement_map"] = fit_map
+        # `lines` echoes the whole description so the web page can draw its
+        # heat map. The MCP caller sent that text and has no page to draw.
+        result["requirement_map"] = {
+            key: value for key, value in fit_map.items() if key != "lines"
+        }
     return result
 
 

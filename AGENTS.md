@@ -23,7 +23,7 @@ Backend (`backend/`):
 - `app/jd_service.py`: the fit-analysis turn shared by `/api/jd-match` and the MCP `analyze_fit` tool — guardrails and budgets, prompt assembly, persistence, and the non-streaming `run_json_jd_turn`.
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
 - `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, prompt-cache system blocks, model-id checks.
-- `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose.
+- `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose. The event also echoes the description as split lines (`lines`) and each requirement's index into them (`line`), which the page's heat map draws; the MCP tool drops `lines`.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
@@ -35,7 +35,8 @@ Backend (`backend/`):
 
 Frontend:
 - `frontend/index.html`: static page shell.
-- `frontend/app.js`: chat UX, resume rendering, feedback UI, markdown rendering.
+- `frontend/app.js`: chat UX, resume rendering, feedback UI, markdown rendering, job-description upload (PDF/TXT read in the browser), requirement map and heat-map dialog.
+- `frontend/vendor/pdfjs/`: vendored pdf.js (Apache-2.0), loaded on demand to read an uploaded job-description PDF in the browser. The file is never uploaded; only its text goes to `/api/jd-match`. Vendored because the CSP allows scripts from `'self'` only.
 - `frontend/styles.css`: visual system and responsive layout.
 - `frontend/share-card.png`: the link-preview image behind the Open Graph and
   Twitter tags in both pages; regenerate with `scripts/build_share_card.py`

@@ -103,13 +103,22 @@
               </span>
               <span class="send-label" hidden>Analyze fit</span>
             </button>
-            <p id="composer-hint" class="composer-hint">Enter to send &middot; Shift + Enter for a new line</p>
+            <div class="composer-foot">
+              <button id="jd-upload" class="composer-upload" type="button" hidden>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
+                Upload PDF
+              </button>
+              <input id="jd-file" class="sr-only" type="file" accept=".pdf,.txt,application/pdf,text/plain" tabindex="-1" aria-hidden="true">
+              <p id="composer-hint" class="composer-hint">Enter to send &middot; Shift + Enter for a new line</p>
+            </div>
+            <p id="jd-file-status" class="composer-file-status" role="status" hidden></p>
           </form>
         </div>
         <p class="chat-disclosure">
           Chats are saved for Dakota to review, anonymized, with no account or
-          email attached to you. Pasted job descriptions aren&#39;t kept; only
-          the analysis is.
+          email attached to you. Job descriptions aren&#39;t kept; only the
+          analysis is. An uploaded file is read in your browser, and only its
+          text is sent.
         </p>
       </section>
     </div>
@@ -172,8 +181,8 @@
         </button>
         <button class="interface-card" type="button" data-explore="jd">
           <h3 class="interface-title">Compare a role</h3>
-          <p class="interface-text">Paste a job description for a structured fit analysis: strengths, honest gaps, and interview questions.</p>
-          <span class="interface-go" aria-hidden="true">Paste a JD &rarr;</span>
+          <p class="interface-text">Paste or upload a job description for a structured fit analysis: strengths, honest gaps, interview questions, and a heat map of the evidence.</p>
+          <span class="interface-go" aria-hidden="true">Add a JD &rarr;</span>
         </button>
         <a class="interface-card" href="#mcp">
           <h3 class="interface-title">Bring your own AI</h3>
