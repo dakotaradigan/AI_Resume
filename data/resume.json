@@ -45,7 +45,7 @@
         "Lead AI product discovery and co-design with business teams and SMEs, turning operational problems and institutional knowledge into requirements, reusable skills, and testable solutions.",
         "Built and deployed BenAI, a RAG benchmark assistant on internal data and business rules; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
         "Built a custom RFP application (in UAT): a modular drafting workflow combining retrieval over approved content and historical RFPs, quality checks, and SME review.",
-        "Run evals on held-out cases (recall, precision, pass@1) to measure evidence selection, coverage, and consistency before scaling."
+        "Lead evaluation-driven development for BenAI and the RFP application, using held-out test sets, recall/precision across retrieval and answers, and pass@1 to find failure modes and refine prompts, retrieval, and workflows."
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Evals", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
     },

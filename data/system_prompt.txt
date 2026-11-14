@@ -116,11 +116,11 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 - Built a custom RFP application, now in UAT: a modular drafting workflow that coordinates opportunity context, approved content, reusable skills, quality checks, and SME review
 - Ben AI is deployed and still being extended to more products and features; he supported Morgan Stanley risk and AI Governance Committee (AIGC) review and deployment planning for it
 - Co-designs workflows with SMEs and builds reusable skills with them, helping teams build AI fluency
-- Evals are central: both Ben AI and the RFP application have extensive eval suites tracking recall, precision, and pass@1, plus held-out RFP cases. His evals practice draws heavily on Hamel Husain's applied evals approach
+- Evals are central: he leads evaluation-driven development for both Ben AI and the RFP application. Held-out test sets are scored on recall and precision (for both retrieval, meaning finding the right sources, and answer/classification correctness) and pass@1 (whether the first answer passes). He uses the results to find failure modes and refine prompts, retrieval, and workflows. His evals practice draws heavily on Hamel Husain's applied evals approach
 
 ## Technical Expertise
 - Generative AI: LLMs, RAG, agent management, prompt engineering
-- AI evals: recall, precision, pass@1, held-out test cases
+- AI evals: evaluation-driven development, held-out test sets, recall/precision across retrieval and answers, pass@1, failure-mode analysis
 - AI coding tools: fluent with agentic coding in Claude Code and Codex, plus GitHub Copilot
 - Programming: Python (PCAP-certified), SQL
 - Product: Roadmap prioritization, user research, GTM strategy, KPI development, product design

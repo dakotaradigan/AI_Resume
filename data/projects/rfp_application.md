@@ -25,7 +25,11 @@ Evals are central to how Dakota builds. He refined prompts and workflow behavior
 - Consistency
 - Remaining review needs: what still requires an SME
 
-Both the RFP application and Ben AI have extensive eval suites tracking recall, precision, and pass@1. His evals practice draws heavily on Hamel Husain's applied evals approach.
+Dakota leads evaluation-driven development for both the RFP application and Ben AI. Each has an extensive eval suite built on held-out test sets:
+- **Recall and precision**, measured for both retrieval (did it find the right sources?) and answer/classification correctness
+- **pass@1**: whether the first answer passes, the bar that matters when users act on the first response
+
+He uses the results to find failure modes and refine prompts, retrieval, and workflows. His evals practice draws heavily on Hamel Husain's applied evals approach.
 
 ## Working with SMEs & Driving Adoption
 Dakota partners with SMEs to co-design workflows and develop reusable skills with them. This helps teams build AI fluency and contribute improvements themselves.
