@@ -45,7 +45,7 @@
         "Lead AI product discovery and co-design with business teams and SMEs, turning operational problems and institutional knowledge into requirements, reusable skills, and testable solutions.",
         "Built and deployed BenAI, a RAG benchmark assistant on internal data and business rules; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
         "Built a custom RFP application (in UAT): a modular drafting workflow combining retrieval over approved content and historical RFPs, quality checks, and SME review.",
-        "Lead evaluation-driven development for BenAI and the RFP application, using held-out test sets, recall/precision across retrieval and answers, and pass@1 to find failure modes and refine prompts, retrieval, and workflows."
+        "Lead evaluation-driven development for BenAI and the RFP application, scoring held-out test sets on precision, recall, F1, pass@k, and pass^k to find failure modes and refine prompts, retrieval, and workflows."
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Evals", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
     },
@@ -159,7 +159,7 @@
         "Built security guardrails including prompt injection protection and input/output sanitization",
         "Achieved tangible business impact: projected to resolve 1,800+ client inquiries a year autonomously and save ~2,000 hours annually across teams, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
         "Implemented real-time WebSocket communication with automatic REST API fallback for reliability",
-        "Deployed and continually extended to additional products and features; measured with an extensive eval suite tracking recall, precision, and pass@1, drawing on Hamel Husain's applied evals practices"
+        "Deployed and continually extended to additional products and features; measured with an extensive eval suite tracking precision, recall, F1, pass@k, and pass^k, drawing on Hamel Husain's applied evals practices"
       ],
       "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions over email and by manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the client's criteria, leaving Parametric's full offering catalog underused.",
       "impact": "Unlocks Parametric's full offering catalog as a strategic advantage: grounded in Salesforce data, it matches client criteria to the best-fit solution rather than the familiar default. Reduced research time from hours/days to seconds; projected to resolve 1,800+ client inquiries a year autonomously, reduce internal email across teams, and save ~2,000 hours annually. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",

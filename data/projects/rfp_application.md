@@ -26,8 +26,10 @@ Evals are central to how Dakota builds. He refined prompts and workflow behavior
 - Remaining review needs: what still requires an SME
 
 Dakota leads evaluation-driven development for both the RFP application and Ben AI. Each has an extensive eval suite built on held-out test sets:
-- **Recall and precision**, measured for both retrieval (did it find the right sources?) and answer/classification correctness
-- **pass@1**: whether the first answer passes, the bar that matters when users act on the first response
+- **Precision and recall**, measured for both retrieval (did it find the right sources?) and answer/classification correctness
+- **F1**: a single score that balances precision and recall, so improving one at the expense of the other does not look like progress
+- **pass@k**: the chance that at least one of k attempts succeeds, a measure of capability
+- **pass^k**: the chance that all k attempts succeed, a measure of reliability and consistency, which matters when users depend on the same question getting a good answer every time
 
 He uses the results to find failure modes and refine prompts, retrieval, and workflows. His evals practice draws heavily on Hamel Husain's applied evals approach.
 
