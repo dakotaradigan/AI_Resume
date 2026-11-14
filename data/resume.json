@@ -9,12 +9,12 @@
     "linkedin": "https://linkedin.com/in/dakota-radigan",
     "github": "https://github.com/dakotaradigan",
     "portfolio": "",
-    "summary": "Senior Product Manager focused on AI applications and investment platforms, with 8+ years in financial services and 5+ years delivering investment products. Combine product strategy and investment expertise with hands-on Python development to take solutions from problem discovery through implementation. Experience spans designing and building AI applications, launching investment products, delivering data integrations, and using product analytics to guide roadmap priorities."
+    "summary": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based assistants and modular AI workflows within a regulated financial services environment."
   },
 
   "about": {
     "working_style": [
-      "Prototype-first: would rather build a working demo than write a long document — show, don't tell. Both Ben AI and this resume assistant started as prototypes built at home.",
+      "Build-first: would rather build something real than write a long document — show, don't tell. Both Ben AI and this resume assistant started as home projects and became production systems.",
       "A bridge between worlds: enjoys translating between technical and business people — engineering, operations, sales, and clients — and being the one who keeps them aligned.",
       "Bias for action: ship, learn, iterate rather than wait for perfect information.",
       "Deep-dive learner: when a topic matters, goes deep — courses, certifications, and side projects until it actually makes sense."
@@ -27,10 +27,10 @@
     "interests": [
       "Hiking and skiing around the Pacific Northwest",
       "Regular at the gym, plus some golf",
-      "Building side projects — currently OfferBirds, his in-development bet on agent-native hiring: replacing the decades-old PDF-upload model with AI agents on both sides of the hiring table"
+      "Building side projects — currently OfferBirds, his bet on agent-native hiring, now live in prelaunch: replacing the decades-old PDF-upload model with AI agents on both sides of the hiring table"
     ],
     "path_into_product": "Dakota started his career on the client service side of finance. During his MBA he built a product end to end for the first time — and fell in love with product building. That kicked off a sustained investment in learning to code, moving from SQL reporting to Python to shipping production AI systems.",
-    "what_energizes": "Building — and working with tools and people operating at the frontier of AI. Dakota is happiest in environments of constant learning and experimentation, where a weekend prototype can become a production system."
+    "what_energizes": "Building — and working with tools and people operating at the frontier of AI. Dakota is happiest in environments of constant learning and experimentation, where a weekend build can become a production system."
   },
 
   "experience": [
@@ -40,13 +40,15 @@
       "duration": "Jul 2026 - Present",
       "location": "Seattle, WA",
       "type": "Full-time",
-      "description": "Leading firm-wide AI strategy in a newly created role — owning the AI roadmap and accelerating adoption across the product organization.",
+      "description": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based assistants and modular AI workflows within a regulated financial services environment.",
       "achievements": [
-        "Designed and built a Python-based RAG assistant leveraging Salesforce data and internal business logic, owning product requirements, application architecture, retrieval logic, data preparation, and evaluations; partnered with engineering on code review and deployment.",
-        "Made Parametric’s full investment offering catalog more discoverable by matching client requirements to relevant solutions, broadening consideration beyond familiar products; projected to address 1,800+ inquiries and save approximately 2,000 hours annually.",
-        "Appointed firm-wide 'AI Champion,' leading an 8-person Product task force to drive AI strategy and maximally accelerate adoption of tooling"
+        "Lead AI product discovery and co-design with business teams and SMEs, turning operational problems and institutional knowledge into requirements, reusable skills, and testable solutions.",
+        "Built and deployed BenAI, a RAG benchmark assistant on internal data and business rules; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
+        "Built a custom RFP application (in UAT): a modular drafting workflow combining retrieval over approved content and historical RFPs, quality checks, and SME review.",
+        "Lead evaluation-driven development: human-graded, calibrated LLM-as-judge evals run alongside BenAI and the RFP application, tracking precision, recall, F1, pass@k, and pass^k to find failure modes and refine prompts and workflows.",
+        "Serve as an internal AI advisor to senior leaders and departments, steering AI roadmaps and educating executives through technology presentations and demos."
       ],
-      "technologies": ["Python", "RAG", "GenAI", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
+      "technologies": ["Python", "RAG", "GenAI", "AI Evals", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
@@ -108,6 +110,30 @@
 
   "projects": [
     {
+      "name": "OfferBirds: Agent-Native Hiring Platform",
+      "tagline": "Multi-tenant platform that turns any resume into a hosted AI agent",
+      "tech_stack": ["Python", "FastAPI", "PostgreSQL", "Alembic", "Redis", "Qdrant Vector DB", "Hybrid RAG (Vector + BM25)", "Anthropic Claude", "Plan-Aware Model Routing", "Prompt Caching", "MCP", "Docker", "Railway", "GitHub Actions"],
+      "description": "Dakota's bet that agents change hiring itself. For decades hiring has run on static documents, and most AI hiring tools still just scan the same PDF faster. OfferBirds gives every candidate a hosted AI agent at their own handle that recruiters, and recruiters' own AI tools, can question directly: chat with it, run a job description against it for an honest fit analysis, or connect to it over MCP. It turns this resume site, a single-person proof of concept, into a multi-tenant product.",
+      "highlights": [
+        "Live in production on Railway since September 2026 at offerbirds.com, in prelaunch mode: public landing page, early-access signup list, no payments yet",
+        "End-to-end onboarding: sign in with a magic link or Google, upload a resume (PDF, Word, or text), review the AI-extracted profile, pick a handle, and publish an agent at {handle}.offerbirds.com",
+        "Multi-tenant RAG on one Qdrant collection, with tenant filtering enforced inside the retrieval layer on every operation and a cross-tenant leak test suite proving one tenant's data never reaches another's answers",
+        "Per-tenant chat, job description fit analysis, access-code-gated PDF, llms.txt, and an MCP server (get_resume, ask, analyze_fit), so a recruiter's own agent can compare several candidates in one chat",
+        "Cost controls as product requirements: plan-aware model routing (free plans never reach the most expensive model), prompt caching (~90% fewer repeated input tokens, ~55-60% cheaper per turn), per-call token budgets, metered quotas, and a circuit breaker",
+        "Production-readiness program: threat model, CSP hardening, pip-audit, bandit, gitleaks, and Trivy in CI, data-retention jobs, full tenant deletion across Postgres, Qdrant, and Redis, 14 runbooks, metrics and alerts, and load and failure-injection testing",
+        "Built a golden-set eval harness that records and replays model calls (25 synthetic resumes, 40 chat and 20 job-fit cases) with blocking thresholds in CI; first recordings pending",
+        "Owner dashboard with visitor analytics, a private 'Test your bird' chat to check answers before publishing, eight page themes, and 500+ automated tests"
+      ],
+      "problem_solved": "Hiring still runs on static PDFs that candidates compress themselves into and recruiters skim in seconds. Dakota's own AI resume site proved a resume can be an agent, but only for one person.",
+      "impact": "Live in prelaunch at offerbirds.com: multi-tenant RAG with tenant isolation enforced in the retrieval layer; per-tenant chat, job-fit analysis, and MCP endpoints; plan-aware model routing and prompt caching that cuts per-turn cost ~55-60%.",
+      "context": "Side project Dakota builds in his free time (not an employer). In production on Railway since September 2026, in prelaunch mode.",
+      "timeframe": "2026",
+      "repo_url": "",
+      "demo_url": "https://offerbirds.com",
+      "images": [],
+      "detailed_description_file": "offerbirds.md"
+    },
+    {
       "name": "Resume Assistant: AI-Powered Professional Portfolio",
       "tagline": "Interactive chatbot reimagining how recruiters discover talent through conversational AI",
       "tech_stack": ["Claude (Opus 4.8 + Sonnet 5, Haiku router)", "SSE Streaming", "Hybrid RAG (Vector + BM25)", "Qdrant Vector DB", "FastAPI", "Python", "OpenAI Embeddings", "MCP", "JavaScript", "Custom CSS"],
@@ -147,7 +173,7 @@
     {
       "name": "Ben AI: Intelligent Benchmark Assistant",
       "tagline": "Full-stack AI chatbot: Personal PoC to production deployment reducing advisor research time from hours to seconds",
-      "tech_stack": ["OpenAI Responses API", "RAG Pipeline", "Pinecone Vector DB", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],
+      "tech_stack": ["OpenAI Responses API", "RAG Pipeline", "Pinecone Vector DB", "AWS DynamoDB", "AWS S3", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],
       "description": "Personal project evolved to production deployment: Built enterprise-grade AI assistant starting as a home PoC (early 2025) to validate RAG architecture for complex financial benchmark queries. After proving technical viability, brought it to Parametric and scaled it to production for advisor workflow automation. Single cohesive project demonstrating end-to-end ownership from initial architecture design through production scaling.",
       "highlights": [
         "Phase 1 (Personal PoC): Built initial proof-of-concept at home to validate RAG + hybrid intelligence architecture for complex benchmark eligibility queries",
@@ -157,7 +183,8 @@
         "Architected hybrid AI system combining RAG retrieval, LLM reasoning, and deterministic calculations for grounded responses",
         "Built security guardrails including prompt injection protection and input/output sanitization",
         "Achieved tangible business impact: projected to resolve 1,800+ client inquiries a year autonomously and save ~2,000 hours annually across teams, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
-        "Implemented real-time WebSocket communication with automatic REST API fallback for reliability"
+        "Implemented real-time WebSocket communication with automatic REST API fallback for reliability",
+        "Deployed and continually extended to additional products and features; measured by human-graded and calibrated LLM-as-judge evals running alongside production, tracking precision, recall, F1, pass@k, and pass^k, drawing on Hamel Husain's applied evals practices"
       ],
       "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions over email and by manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the client's criteria, leaving Parametric's full offering catalog underused.",
       "impact": "Unlocks Parametric's full offering catalog as a strategic advantage: grounded in Salesforce data, it matches client criteria to the best-fit solution rather than the familiar default. Reduced research time from hours/days to seconds; projected to resolve 1,800+ client inquiries a year autonomously, reduce internal email across teams, and save ~2,000 hours annually. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",
@@ -171,7 +198,7 @@
         "frontend": "Advisor natural language interface with WebSocket/REST communication and typing indicators",
         "backend": "FastAPI with Request Router, Intent Classification, Session Handler for context management",
         "ai_orchestration": "Function Calling Engine, OpenAI Responses API, RAG Pipeline (Pinecone + semantic embeddings)",
-        "data_layer": "Salesforce as system of record, Vector Store (Pinecone) with benchmark embeddings + JSON knowledge base",
+        "data_layer": "Salesforce as system of record, Vector Store (Pinecone) with benchmark embeddings + JSON knowledge base, AWS DynamoDB and S3",
         "core_capabilities": [
           "Natural Language Intelligence - understands complex queries like 'S&P 500 but more ESG'",
           "Intent Classification Routing - sophisticated routing to appropriate functions",
@@ -216,12 +243,16 @@
       "Investment Operations"
     ],
     "technical": [
-      "AI Product Development (LLMs, RAG, AI Agents)",
+      "AI Product Development (LLMs, RAG, AI Agents, MCP Servers)",
+      "AI Evals (Human Grading, Calibrated LLM-as-Judge, Precision/Recall/F1, pass@k, pass^k)",
+      "LLM APIs & Optimization (OpenAI, Anthropic Claude, Model Routing, Prompt Caching)",
+      "Agentic & AI-Assisted Coding (Claude Code, Codex, GitHub Copilot)",
       "Python & SQL",
+      "Data & Storage (Snowflake, AWS DynamoDB, AWS S3)",
+      "Search & Vector Databases (Hybrid Vector + BM25 Search, Qdrant, Pinecone)",
       "API & Backend Systems (FastAPI, REST, WebSockets)",
-      "Vector Databases & Search (Qdrant, Pinecone)",
       "System Design & Application Architecture",
-      "Cloud & Web App Deployment (AWS, Railway, Vercel, Netlify)",
+      "Deployment & CI/CD (Docker, GitHub Actions, AWS, Railway, Vercel)",
       "Product Delivery & Collaboration (Jira, Confluence, Figma)"
     ],
     "leadership": [
@@ -234,6 +265,15 @@
   },
 
   "education": [
+    {
+      "degree": "M.S. Computer Science",
+      "school": "University of Colorado Boulder",
+      "graduation": "In progress",
+      "location": "",
+      "gpa": "",
+      "relevant_courses": [],
+      "activities": []
+    },
     {
       "degree": "MBA (Finance)",
       "school": "Washington State University",
@@ -256,11 +296,12 @@
 
   "certifications": [
     {
-      "name": "Network Systems & Linux Networking",
+      "name": "Network Systems / Linux Networking / Cloud Networking",
       "issuer": "University of Colorado Boulder",
       "date": "Aug 2026",
       "status": "Completed",
-      "credential_url": ""
+      "credential_url": "",
+      "credential_id": "NZBIS9OERD4U/FZKI1TOKR227"
     },
     {
       "name": "Grokking the Fundamentals of System Design",
