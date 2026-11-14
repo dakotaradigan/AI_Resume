@@ -232,7 +232,7 @@ class TestAnalyzeFit(McpTestCase):
         self.assertIn("Invalid arguments", text)
 
     def test_requirement_map_rides_along_when_jev_is_configured(self) -> None:
-        async def fake_fit_map(sanitized, resume_context, settings):
+        async def fake_fit_map(sanitized, resume_context, settings, **_kwargs):
             return {"requirements": [{"text": "SQL", "level": 3}], "lines": ["- SQL"]}
 
         settings = dataclasses.replace(make_settings(), typesafe_api_key="test-typesafe-key")

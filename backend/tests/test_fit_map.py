@@ -299,9 +299,10 @@ class TestFitMapInAnalysisStream(JDMatchTestCase):
 
         with self.with_jev(handler), self.build_client(self.jev_settings()) as client:
             self.assertEqual(self.run_jd(client, REALISTIC_JD, "s1").status_code, 200)
-            self.assertEqual(len(calls), 1)
+            # One analysis makes two Jev requests: the map and the matrix.
+            self.assertEqual(len(calls), 2)
             brief = self.run_jd(client, "brief", "s1", mode="brief")
-        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(calls), 2)
         names = [name for name, _ in parse_sse(brief.text)]
         self.assertNotIn("fitmap", names)
 

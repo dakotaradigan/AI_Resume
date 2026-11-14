@@ -23,6 +23,7 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.fit_matrix import build_fit_matrix
 from app.llm import typesafe_http_client
 
 logger = logging.getLogger(__name__)
@@ -253,6 +254,8 @@ async def build_fit_map(
     resume_context: str,
     settings: Settings,
     http: httpx.AsyncClient | None = None,
+    *,
+    resume: dict | None = None,
 ) -> dict[str, Any] | None:
     """Ask Jev for the map. Returns None on any failure; never raises, so the
     caller can run it alongside the prose stream without guarding it.
@@ -260,6 +263,11 @@ async def build_fit_map(
     The map also carries ``lines``, the description as displayed, so the page
     can draw the heat map without splitting the text a second time: each
     requirement's ``line`` indexes into it.
+
+    Given the structured ``resume``, a second request (fit_matrix) runs beside
+    the first and adds ``columns`` to the map and ``sources`` to each
+    requirement: the same judgment per part of the résumé. It can only add;
+    when it fails, the map is returned without it.
     """
     document_lines = split_document_lines(jd_text)
     candidates = select_candidate_lines(document_lines)
@@ -267,6 +275,39 @@ async def build_fit_map(
         return None
     lines = [candidate.text for candidate in candidates]
     client = http or typesafe_http_client()
+    matrix_task: asyncio.Task | None = None
+    if resume is not None and settings.fit_matrix_enabled:
+        matrix_task = asyncio.create_task(build_fit_matrix(lines, resume, settings, client))
+    try:
+        fit_map = await _request_fit_map(
+            lines, candidates, document_lines, resume_context, settings, client
+        )
+        if fit_map is None or matrix_task is None:
+            return fit_map
+        matrix = await matrix_task
+        if matrix:
+            # Candidate texts are unique, so the text finds the matrix row.
+            row_of = {text: index for index, text in enumerate(lines)}
+            fit_map["columns"] = matrix["columns"]
+            for requirement in fit_map["requirements"]:
+                requirement["sources"] = matrix["rows"][row_of[requirement["text"]]]
+        return fit_map
+    finally:
+        # No map, or a cancelled analysis: the matrix has nothing to join.
+        if matrix_task is not None and not matrix_task.done():
+            matrix_task.cancel()
+
+
+async def _request_fit_map(
+    lines: list[str],
+    candidates: list[CandidateLine],
+    document_lines: list[str],
+    resume_context: str,
+    settings: Settings,
+    client: httpx.AsyncClient,
+) -> dict[str, Any] | None:
+    """The requirement-map request itself: two questions per candidate line
+    against the whole résumé. None on any failure."""
     try:
         response = await client.post(
             f"{settings.typesafe_base_url.rstrip('/')}/v1/systemone",
