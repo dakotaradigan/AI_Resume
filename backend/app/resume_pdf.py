@@ -107,7 +107,7 @@ def render_resume_pdf() -> bytes:
                 role_style,
             )
         )
-        for achievement in (job.get("achievements") or [])[:4]:
+        for achievement in (job.get("achievements") or [])[:5]:
             story.append(Paragraph(esc(achievement), bullet_style, bulletText="•"))
 
     section("Projects")

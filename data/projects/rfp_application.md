@@ -40,5 +40,8 @@ He uses the results to find failure modes and refine prompts, retrieval, and wor
 ## Working with SMEs & Driving Adoption
 Dakota partners with SMEs to co-design workflows and develop reusable skills with them. This helps teams build AI fluency and contribute improvements themselves.
 
+## Advising Senior Leaders
+Dakota serves as an internal AI advisor to senior leaders and departments across the firm. He presents AI technology to senior leaders, teaches it through presentations and demos, and acts as a consultant to departments, influencing and steering internal AI roadmaps.
+
 ## Discovery & Enterprise Requirements
 Dakota leads AI product discovery with business teams, translating operational problems, institutional knowledge, and enterprise constraints into requirements and testable solutions. He also turns workflow designs, prepared knowledge, and evaluation examples into concrete requirements for future enterprise AI solutions.

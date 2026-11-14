@@ -42,6 +42,7 @@
       "type": "Full-time",
       "description": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based assistants and modular AI workflows within a regulated financial services environment.",
       "achievements": [
+        "Serve as an internal AI advisor to senior leaders and departments, steering AI roadmaps and educating executives through technology presentations and demos.",
         "Lead AI product discovery and co-design with business teams and SMEs, turning operational problems and institutional knowledge into requirements, reusable skills, and testable solutions.",
         "Built and deployed BenAI, a RAG benchmark assistant on internal data and business rules; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
         "Built a custom RFP application (in UAT): a modular drafting workflow combining retrieval over approved content and historical RFPs, quality checks, and SME review.",

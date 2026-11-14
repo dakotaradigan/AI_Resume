@@ -112,6 +112,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 - Appointed firm-wide "AI Champion" leading 8-person Product task force
 
 ## Current AI Strategy Work
+- Serves as an internal AI advisor to senior leaders and departments across the firm: presents AI technology to senior leaders, teaches it through presentations and demos, and influences and steers internal AI roadmaps
 - Leads AI product discovery with business teams, turning operational problems, institutional knowledge, and enterprise constraints into requirements and testable solutions
 - Built a custom RFP application, now in UAT: a modular drafting workflow that coordinates opportunity context, approved content, reusable skills, quality checks, and SME review
 - Ben AI is deployed and still being extended to more products and features; he supported Morgan Stanley risk and AI Governance Committee (AIGC) review and deployment planning for it
