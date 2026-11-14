@@ -43,6 +43,14 @@
   --fit-1: #6690bf;
   --fit-2: #4874a7;
   --fit-3: #2f5a87;
+  /* Heat map: the same hue as a wash behind a line of text, so the text
+     keeps its ink colour. The steps are monotone and one hue, but the
+     lightest wash is close to white by design, so every shaded line also
+     carries the --fit-N colour on its edge and its level in words. */
+  --heat-0: #eaf1f8;
+  --heat-1: #cfdeee;
+  --heat-2: #adc5e0;
+  --heat-3: #86a8ce;
 
   /* The resume drawer's paper */
   --paper: #fbfaf7;
@@ -395,6 +403,64 @@ summary:focus-visible,
   margin-top: 40px;
   text-shadow: none;
 }
+
+/* The heat-map invitation under the hero actions: a light pill on the
+   photograph, so the tiles keep the contrast they have in the dialog. */
+.hero-heat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 22px;
+  text-shadow: none;
+}
+
+.hero-heat-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 10px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  transition: background 140ms ease;
+}
+
+.hero-heat-cta:hover { background: #ffffff; }
+.hero-heat-cta svg { flex: none; }
+
+.hero-heat-tiles { display: inline-flex; flex: none; gap: 2px; }
+
+.hero-heat-tiles i {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--fit-0);
+}
+
+.hero-heat-tiles i[data-level="1"] { background: var(--fit-1); }
+.hero-heat-tiles i[data-level="2"] { background: var(--fit-2); }
+.hero-heat-tiles i[data-level="3"] { background: var(--fit-3); }
+
+.hero-heat-sample {
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline-on-dark-strong);
+  background: transparent;
+  color: var(--on-dark);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hero-heat-sample[hidden] { display: none; }
+.hero-heat-sample:hover { border-bottom-color: var(--on-dark); }
 
 .hero-action {
   display: inline-flex;
@@ -868,8 +934,52 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
 .send-button:disabled { cursor: not-allowed; opacity: 0.45; }
 .chat-form[data-mode="fit"] .send-button { min-width: auto; padding: 0 14px; }
 
-.composer-hint {
+.composer-foot {
+  display: flex;
   grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.composer-upload {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color 140ms ease;
+}
+
+.composer-upload[hidden] { display: none; }
+.composer-upload:hover { border-color: var(--ink); }
+.composer-upload:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.composer-file-status {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  color: var(--tint-ink);
+  font-size: 12px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.composer-file-status.is-error { color: var(--error); }
+
+.chat-form.is-dragover {
+  border-style: dashed;
+  border-color: var(--accent);
+  background: var(--tint);
+}
+
+.composer-hint {
   margin: 0;
   color: var(--label);
   font-size: 10.5px;
@@ -1412,7 +1522,63 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
 }
 
 .fit-map-tool:hover { border-color: var(--ink); }
+.fit-map-tool--primary { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+.fit-map-tool--primary:hover { background: var(--ink-hover); }
+
+.fit-map-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .fit-map-tool[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+
+/* Tile strip: one square per requirement, strongest first. The marks are the
+   validated --fit ramp; 3px of surface separates them. */
+.fit-tiles-block { margin-top: 14px; }
+
+.fit-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.fit-tile {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: var(--fit-0);
+  cursor: pointer;
+}
+
+.fit-tile[data-level="1"] { background: var(--fit-1); }
+.fit-tile[data-level="2"] { background: var(--fit-2); }
+.fit-tile[data-level="3"] { background: var(--fit-3); }
+
+.fit-tile:hover,
+.fit-tile:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--ink);
+}
+
+/* Two lines are reserved so naming a long requirement moves nothing. */
+.fit-tiles-tip {
+  display: -webkit-box;
+  min-height: 2.9em;
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: var(--label);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.fit-tiles-tip.is-active { color: var(--ink); font-weight: 500; }
 
 .fit-map-summary {
   margin: 12px 0 0;
@@ -1542,6 +1708,345 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
   font-size: 12px;
   line-height: 1.55;
   text-wrap: pretty;
+}
+
+/* ===== Heat map dialog =====
+   The job description itself, one row per line. A requirement line is a
+   button: a wash of the evidence hue behind ink-coloured text, the legend's
+   exact colour on its left edge, and the level named in words at the right,
+   so the level never rests on colour alone. */
+.heat-dialog {
+  width: min(calc(100vw - 24px), 780px);
+  max-height: min(calc(100dvh - 32px), 860px);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-dialog);
+  background: #ffffff;
+  box-shadow: var(--shadow-chat);
+  color: var(--ink);
+}
+
+.heat-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 24px 20px;
+}
+
+.heat-dialog::backdrop { background: rgba(6, 10, 24, 0.62); }
+
+.heat-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.heat-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.heat-close {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.heat-close:hover { border-color: var(--ink); }
+
+.heat-summary {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.heat-sample-badge {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--tint-ink);
+  letter-spacing: 0.08em;
+}
+
+.heat-tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.heat-tab {
+  padding: 6px 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.heat-tab:hover { border-color: var(--ink); }
+.heat-tab[aria-selected="true"] { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+
+.heat-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.heat-panel[hidden] { display: none; }
+
+/* Matrix: rows are requirements, columns are parts of the résumé. A silent
+   cell (level 0) recedes to the lightest wash so the evidence stands out. */
+.fit-map-legend--matrix .fit-swatch[data-level="0"] {
+  background: var(--heat-0);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.heat-matrix-scroll {
+  min-height: 210px;
+  flex: 1 1 auto;
+  margin-top: 14px;
+  padding: 12px 4px 12px 0;
+  overflow-y: auto;
+  border-block: 1px solid var(--hairline);
+}
+
+.heat-matrix {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(var(--heat-columns, 4), 88px);
+  gap: 3px;
+  align-items: stretch;
+}
+
+.heat-matrix-row { display: contents; }
+
+.heat-matrix-corner,
+.heat-matrix-col {
+  align-self: end;
+  padding: 0 2px 6px;
+  color: var(--label);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.heat-matrix-col { text-align: center; }
+
+.heat-matrix-req {
+  display: -webkit-box;
+  align-self: center;
+  padding: 4px 12px 4px 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.heat-matrix-cell { display: flex; min-height: 38px; }
+
+.heat-cell {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: var(--heat-0);
+  cursor: pointer;
+}
+
+.heat-cell[data-level="1"] { background: var(--fit-1); }
+.heat-cell[data-level="2"] { background: var(--fit-2); }
+.heat-cell[data-level="3"] { background: var(--fit-3); }
+
+.heat-cell:hover,
+.heat-cell:focus-visible,
+.heat-cell.is-selected {
+  outline: 0;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--ink);
+}
+
+.heat-matrix-detail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.heat-matrix-detail .fit-bar { width: min(100%, 420px); }
+
+.heat-matrix-detail-req {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.heat-matrix-detail-values {
+  margin: 0;
+  color: var(--label);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.heat-doc {
+  display: flex;
+  min-height: 120px;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 14px;
+  padding: 12px 4px 12px 0;
+  overflow-y: auto;
+  border-block: 1px solid var(--hairline);
+}
+
+.heat-line {
+  margin: 0;
+  padding: 3px 12px 3px 14px;
+  color: var(--label);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.heat-item { display: flex; flex-direction: column; }
+
+.heat-line--req {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 8px 12px 8px 10px;
+  border: 0;
+  border-left: 4px solid var(--fit-0);
+  border-radius: 4px;
+  background: var(--heat-0);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: box-shadow 140ms ease;
+}
+
+.heat-line--req[data-level="1"] { border-left-color: var(--fit-1); background: var(--heat-1); }
+.heat-line--req[data-level="2"] { border-left-color: var(--fit-2); background: var(--heat-2); }
+.heat-line--req[data-level="3"] { border-left-color: var(--fit-3); background: var(--heat-3); }
+
+.heat-line--req:hover,
+.heat-line--req[aria-expanded="true"] { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.heat-line--req:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.heat-line-text { min-width: 0; }
+
+.heat-line-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.heat-line-must {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heat-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 2px 0 8px 4px;
+  padding: 12px 14px 14px;
+  border-left: 1px solid var(--hairline-strong);
+}
+
+.heat-detail[hidden] { display: none; }
+
+.heat-detail-lead {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.heat-dist {
+  display: grid;
+  width: min(100%, 420px);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.heat-dist-row { display: contents; }
+.heat-dist-label { color: var(--text); }
+.heat-dist-value { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+
+.heat-dist-track {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--mist);
+}
+
+.heat-dist-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 4px;
+  background: var(--fit-0);
+}
+
+.heat-dist-fill[data-level="1"] { background: var(--fit-1); }
+.heat-dist-fill[data-level="2"] { background: var(--fit-2); }
+.heat-dist-fill[data-level="3"] { background: var(--fit-3); }
+
+/* On a phone the whole dialog scrolls; a scroll area inside a short dialog
+   would show only three or four lines at a time. */
+@media (max-width: 560px) {
+  .heat-dialog[open] { padding: 18px 16px 16px; overflow-y: auto; }
+  .heat-panel { flex: none; }
+  .heat-doc,
+  .heat-matrix-scroll { flex: none; overflow-y: visible; padding-right: 0; }
+  .heat-line--req { flex-direction: column; }
+  /* The requirement sits on its own line above its cells. */
+  .heat-matrix { grid-template-columns: repeat(var(--heat-columns, 4), minmax(0, 1fr)); }
+  .heat-matrix-corner { display: none; }
+  .heat-matrix-req { grid-column: 1 / -1; padding: 10px 0 2px; }
+  .fit-tile { width: 26px; height: 26px; }
 }
 
 /* ===== Resume drawer ===== */

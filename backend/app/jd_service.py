@@ -33,7 +33,12 @@ from app.chat_service import (
 )
 from app.config import Settings
 from app.constants import BUSY_MESSAGE, GENERIC_CHAT_ERROR, JD_LIMIT_MESSAGE, JD_SENTINEL
-from app.content import load_jd_match_prompt, load_resume_context, load_system_prompt
+from app.content import (
+    load_jd_match_prompt,
+    load_resume_context,
+    load_resume_json_public,
+    load_system_prompt,
+)
 from app.fit_map import build_fit_map
 from app.identity import get_client_ip
 from app.llm import (
@@ -198,7 +203,12 @@ def start_fit_map(turn: JDTurn, prompt: JDPrompt, settings: Settings) -> asyncio
     Jev judges every candidate line in one request while Claude writes."""
     if turn.mode == "brief" or not settings.typesafe_api_key:
         return None
-    return asyncio.create_task(build_fit_map(turn.sanitized, prompt.resume_context, settings))
+    return asyncio.create_task(
+        build_fit_map(
+            turn.sanitized, prompt.resume_context, settings,
+            resume=load_resume_json_public(),
+        )
+    )
 
 
 async def settle_fit_map(fit_task: asyncio.Task | None) -> dict | None:

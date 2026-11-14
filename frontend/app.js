@@ -9,6 +9,9 @@ const chatInput = document.getElementById("chat-input");
 const sendButton = chatForm.querySelector('button[type="submit"]');
 const composerModeBar = document.getElementById("composer-mode-bar");
 const composerHint = document.getElementById("composer-hint");
+const jdUploadButton = document.getElementById("jd-upload");
+const jdFileInput = document.getElementById("jd-file");
+const jdFileStatus = document.getElementById("jd-file-status");
 const chatInputLabel = document.getElementById("chat-input-label");
 const suggestionsEl = document.getElementById("suggestions");
 
@@ -326,7 +329,7 @@ function scrollBehavior() {
 
 // ===== Composer: chat mode and fit mode =====
 // One textarea serves both. Chat mode sends on Enter; fit mode takes a
-// pasted job description (Ctrl / Cmd + Enter to analyze). Each mode keeps
+// pasted or uploaded job description (Ctrl / Cmd + Enter to analyze). Each mode keeps
 // its own draft so switching never loses a half-typed message.
 let sending = false;
 const composerDrafts = { chat: "", fit: "" };
@@ -366,7 +369,7 @@ function setComposerMode(mode) {
   const isFit = nextMode === "fit";
   chatInput.rows = isFit ? 4 : 1;
   chatInput.placeholder = isFit
-    ? "Paste the job description, including the role and requirements…"
+    ? "Paste the job description, or upload it as a PDF…"
     : chatPlaceholder;
   chatInputLabel.textContent = isFit ? "Job description" : "Question about Dakota";
   composerModeBar.hidden = !isFit;
@@ -376,6 +379,8 @@ function setComposerMode(mode) {
   sendButton.setAttribute("aria-label", isFit ? "Analyze fit" : "Send message");
   sendButton.querySelector(".send-icon").hidden = isFit;
   sendButton.querySelector(".send-label").hidden = !isFit;
+  if (jdUploadButton) jdUploadButton.hidden = !isFit;
+  if (!isFit) setFileStatus("");
   syncSuggestions();
   autosizeComposer();
 }
@@ -385,6 +390,7 @@ function setSending(isNowSending) {
   chatInput.disabled = isNowSending;
   chatForm.setAttribute("aria-busy", String(isNowSending));
   if (sendButton) sendButton.disabled = isNowSending;
+  if (jdUploadButton) jdUploadButton.disabled = isNowSending;
   const backButton = document.getElementById("back-to-chat");
   if (backButton) backButton.disabled = isNowSending;
 }
@@ -859,7 +865,7 @@ document.querySelectorAll("[data-explore]").forEach((cardEl) => {
       setComposerMode("chat");
       focusChat();
     } else if (mode === "jd") {
-      startFit();
+      startUpload();
     } else if (mode === "resume") {
       openResumeDrawer();
     }
@@ -1652,6 +1658,10 @@ initChatAutoScroll();
 suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => {
     if (isSending()) return;
+    if (chip.dataset.action === "upload") {
+      startUpload();
+      return;
+    }
     setComposerMode("chat");
     sendMessage(chip.textContent.trim());
   });
@@ -1684,6 +1694,230 @@ if (feedbackDialog && feedbackOpenBtn) {
     const mailto = `mailto:dakotaradigan@gmail.com?subject=${encodeURIComponent("Resume Site Feedback")}&body=${encodeURIComponent(body)}`;
     window.open(mailto, "_blank");
     feedbackDialog.close();
+  });
+}
+
+// ===== Job description upload =====
+// A PDF or text file is read here, in the browser. Its text lands in the
+// composer for review and then travels to the server exactly like pasted
+// text; the file itself is never uploaded. pdf.js (vendored, about 1.9 MB)
+// loads on the first PDF only, so a visitor who pastes never downloads it.
+const JD_FILE_MAX_BYTES = 5 * 1024 * 1024;
+const JD_PDF_MAX_PAGES = 30;
+// Fewer readable characters than this means a scan (a picture of the page).
+const JD_FILE_MIN_CHARS = 50;
+const PDF_BULLET_RE = /^\s*(?:[-•*·–—▪●◦○■□➢➤✓✔]|\d{1,2}[.)])\s/;
+
+let pdfJsPromise = null;
+let jdFileBusy = false;
+
+function setFileStatus(text, isError = false) {
+  if (!jdFileStatus) return;
+  jdFileStatus.textContent = text;
+  jdFileStatus.hidden = !text;
+  jdFileStatus.classList.toggle("is-error", Boolean(text) && isError);
+}
+
+function loadPdfJs() {
+  if (!pdfJsPromise) {
+    pdfJsPromise = import("./vendor/pdfjs/pdf.min.mjs").then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        "./vendor/pdfjs/pdf.worker.min.mjs",
+        document.baseURI
+      ).href;
+      return pdfjs;
+    });
+    // A failed download must not poison every later attempt.
+    pdfJsPromise.catch(() => { pdfJsPromise = null; });
+  }
+  return pdfJsPromise;
+}
+
+/** One page's text items grouped into the lines drawn on the page, each with
+ * its left and right edge, baseline and text height (PDF units). Baseline
+ * and height come from the line's longest run of text, so a bullet glyph in
+ * another size does not speak for the whole line. */
+function pdfPageLines(items) {
+  const lines = [];
+  let current = null;
+  items.forEach((item) => {
+    if (typeof item.str !== "string") return;
+    if (item.str) {
+      const x = item.transform[4];
+      if (!current) current = { text: "", left: x, right: x, y: 0, height: 0, longest: 0 };
+      current.text += item.str;
+      current.left = Math.min(current.left, x);
+      current.right = Math.max(current.right, x + item.width);
+      if (item.str.length > current.longest) {
+        current.longest = item.str.length;
+        current.y = item.transform[5];
+        current.height = item.height || 0;
+      }
+    }
+    if (item.hasEOL && current) {
+      lines.push(current);
+      current = null;
+    }
+  });
+  if (current) lines.push(current);
+  return lines.filter((line) => line.text.trim());
+}
+
+/** A PDF stores the lines as drawn, so one long bullet arrives as two or
+ * three. Rejoin them: a line continues the one above when it sits directly
+ * below it in the same type size, is not a new bullet, and its first word
+ * would not have fitted on the line above. Without this the requirement map
+ * would score sentence fragments. */
+function joinPdfLines(lines) {
+  if (!lines.length) return "";
+  const rightMargin = Math.max(...lines.map((line) => line.right));
+  let out = lines[0].text.trim();
+  for (let i = 1; i < lines.length; i += 1) {
+    const prev = lines[i - 1];
+    const line = lines[i];
+    const text = line.text.trim();
+    const height = Math.max(prev.height, line.height) || 12;
+    const gap = prev.y - line.y;
+    const charWidth = (line.right - line.left) / Math.max(line.text.length, 1);
+    const firstWord = text.split(/\s+/)[0].length + 1;
+    const continues =
+      gap > 0 && gap <= height * 1.6 &&
+      Math.abs(prev.height - line.height) <= height * 0.1 &&
+      !PDF_BULLET_RE.test(`${text} `) &&
+      prev.right + firstWord * charWidth > rightMargin;
+    if (!continues) {
+      out += (gap > height * 2 || gap < 0 ? "\n\n" : "\n") + text;
+    } else if (/[A-Za-z]-$/.test(out) && /^[a-z]/.test(text)) {
+      out += text; // a word hyphenated across the break
+    } else {
+      out += ` ${text}`;
+    }
+  }
+  return out;
+}
+
+async function extractPdfText(file) {
+  const pdfjs = await loadPdfJs();
+  const task = pdfjs.getDocument({
+    data: await file.arrayBuffer(),
+    isEvalSupported: false,
+  });
+  try {
+    const pdf = await task.promise;
+    const pages = Math.min(pdf.numPages, JD_PDF_MAX_PAGES);
+    const chunks = [];
+    let length = 0;
+    // Stop early on a long document: nothing past the limit can be analyzed.
+    for (let n = 1; n <= pages && length <= JD_MAX_CHARS * 2; n += 1) {
+      const page = await pdf.getPage(n);
+      const content = await page.getTextContent();
+      const text = joinPdfLines(pdfPageLines(content.items));
+      if (text) {
+        chunks.push(text);
+        length += text.length;
+      }
+      page.cleanup();
+    }
+    return chunks.join("\n\n");
+  } finally {
+    task.destroy();
+  }
+}
+
+function jdFileKind(file) {
+  const name = String(file.name || "").toLowerCase();
+  if (file.type === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  if (file.type === "text/plain" || name.endsWith(".txt")) return "text";
+  return null;
+}
+
+function tidyFileText(text) {
+  return String(text || "")
+    .replace(/\u0000/g, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Read a chosen or dropped file into the fit composer. Nothing is sent: the
+ * visitor reviews the text and presses Analyze fit, as with a paste. */
+async function loadJDFile(file) {
+  if (!file || jdFileBusy || isSending()) return;
+  setComposerMode("fit");
+  const kind = jdFileKind(file);
+  if (!kind) {
+    setFileStatus("Use a PDF or a plain-text (.txt) file, or paste the description.", true);
+    return;
+  }
+  if (file.size > JD_FILE_MAX_BYTES) {
+    setFileStatus("That file is larger than 5 MB. Paste the description text instead.", true);
+    return;
+  }
+  const name = String(file.name || "the file").slice(0, 60);
+  jdFileBusy = true;
+  if (jdUploadButton) jdUploadButton.disabled = true;
+  setFileStatus(`Reading ${name}…`);
+  try {
+    const text = tidyFileText(kind === "pdf" ? await extractPdfText(file) : await file.text());
+    if (text.replace(/\s/g, "").length < JD_FILE_MIN_CHARS) {
+      setFileStatus(
+        kind === "pdf"
+          ? "No text found in that PDF. It may be a scan (a picture of the page). Paste the description text instead."
+          : "That file has too little text to analyze.",
+        true
+      );
+      return;
+    }
+    chatInput.value = text;
+    chatInput.setCustomValidity("");
+    autosizeComposer();
+    syncSuggestions();
+    const count = text.length.toLocaleString("en-US");
+    if (text.length > JD_MAX_CHARS) {
+      setFileStatus(
+        `${name} has ${count} characters. The limit is 15,000. Remove text the analysis does not need, such as the company or benefits sections.`,
+        true
+      );
+    } else {
+      setFileStatus(`Loaded ${name} (${count} characters). Review the text, then choose Analyze fit.`);
+    }
+    chatInput.focus({ preventScroll: true });
+  } catch (err) {
+    console.error(err);
+    setFileStatus(
+      err?.name === "PasswordException"
+        ? "That PDF is password-protected. Paste the description text instead."
+        : "That file could not be read. Paste the description text instead.",
+      true
+    );
+  } finally {
+    jdFileBusy = false;
+    if (jdUploadButton) jdUploadButton.disabled = isSending();
+    if (jdFileInput) jdFileInput.value = "";
+  }
+}
+
+if (jdUploadButton && jdFileInput) {
+  jdUploadButton.addEventListener("click", () => jdFileInput.click());
+  jdFileInput.addEventListener("change", () => loadJDFile(jdFileInput.files?.[0]));
+
+  // Dropping a file anywhere on the chat card does the same thing.
+  const dropZone = chatForm.closest(".chat-card") || chatForm;
+  const carriesFile = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+  dropZone.addEventListener("dragover", (event) => {
+    if (!carriesFile(event)) return;
+    event.preventDefault();
+    chatForm.classList.add("is-dragover");
+  });
+  dropZone.addEventListener("dragleave", (event) => {
+    if (!dropZone.contains(event.relatedTarget)) chatForm.classList.remove("is-dragover");
+  });
+  dropZone.addEventListener("drop", (event) => {
+    if (!carriesFile(event)) return;
+    event.preventDefault();
+    chatForm.classList.remove("is-dragover");
+    loadJDFile(event.dataTransfer.files?.[0]);
   });
 }
 
@@ -1780,7 +2014,7 @@ function buildJDMailto() {
   return `mailto:${getContactEmail()}?subject=${encodeURIComponent(subject)}`;
 }
 
-function renderJDActions(host) {
+function renderJDActions(host, openHeat = null) {
   // Only the latest analysis carries live actions — older ones would act
   // on the wrong (current) session state.
   chatLog?.querySelectorAll(".jd-actions:not(.jd-actions--brief)").forEach((n) => n.remove());
@@ -1806,9 +2040,23 @@ function renderJDActions(host) {
     text: "Email Dakota about this role",
   });
 
+  // The requirement map's own button sits above a long list; this one is
+  // where the analysis ends and the visitor is looking.
+  let heatBtn = null;
+  if (openHeat) {
+    heatBtn = el("button", {
+      class: "chip jd-heat-btn",
+      type: "button",
+      "aria-haspopup": "dialog",
+      text: "Open heat map",
+    });
+    heatBtn.addEventListener("click", () => openHeat());
+  }
+
   const actions = el("div", { class: "jd-actions" }, [
     makeCopyButton("Copy summary", () => extractRecruiterSummary(analysisMarkdown), "Recruiter summary copied"),
     briefBtn,
+    heatBtn,
     emailLink,
   ]);
   host.append(actions);
@@ -1820,6 +2068,7 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
   setSending(true);
   removeSuggestions();
   removePreviousFollowups();
+  setFileStatus("");
   if (mode === "analysis") jdLastText = jdText;
   let unlockShown = false;
   let analysisDone = false;
@@ -1946,8 +2195,8 @@ async function sendJDMatch(jdText, { mode = "analysis" } = {}) {
       jdAnalysisMarkdown = String(finalData.reply || "");
       analysisDone = true;
       const fitMap = fitMapData ? renderFitMap(fitMapData) : null;
-      if (fitMap) msgBody.append(fitMap);
-      renderJDActions(msgBody);
+      if (fitMap) msgBody.append(fitMap.section);
+      renderJDActions(msgBody, fitMap?.openHeat);
       announceJD(fitMap ? "Fit analysis and requirement map ready." : "Fit analysis ready.");
     } else {
       const briefMarkdown = String(finalData.reply || "");
@@ -2033,27 +2282,137 @@ function percentLabel(probability) {
   return `${Math.round(probability * 100)}%`;
 }
 
-function renderFitMap(data) {
+/** The legend names every step of the one-hue ramp, weakest to strongest. */
+function fitLegend(levels, { matrix = false } = {}) {
+  return el(
+    "div",
+    {
+      // In the matrix a silent cell is the normal case, so its swatch recedes.
+      class: matrix ? "fit-map-legend fit-map-legend--matrix" : "fit-map-legend",
+      "aria-label": "Evidence levels, weakest to strongest",
+    },
+    levels.map((label, level) => el("span", { class: "fit-legend-item" }, [
+      el("span", { class: "fit-swatch", "data-level": String(level), "aria-hidden": "true" }),
+      el("span", { text: label }),
+    ]))
+  );
+}
+
+/** "2 strong · 1 partial · 1 not documented", strongest first. */
+function fitTally(rows, levels) {
+  const counts = levels.map(() => 0);
+  rows.forEach((row) => { counts[row.level] += 1; });
+  return counts
+    .map((count, level) => (count ? `${count} ${levels[level].toLowerCase()}` : null))
+    .filter(Boolean)
+    .reverse()
+    .join(" · ");
+}
+
+/** A fitmap payload (the live event, or the saved sample) as the checked
+ * model every view draws from. Returns null when there is nothing to draw. */
+function fitMapModel(data) {
   const levels = safeArray(data?.levels).map((label) => String(label || ""));
+  if (levels.length < 2) return null;
+  const clampLevel = (value) => Math.min(levels.length - 1, Math.max(0, Number(value) || 0));
+  const distribution = (list) => levels.map((_, level) => {
+    const p = Number(safeArray(list)[level]);
+    return Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
+  });
+  const descriptions = safeArray(data?.level_descriptions).map((text) => String(text || ""));
+  // The description as the server split it; each requirement's `line`
+  // indexes into this list, so the heat map never re-splits the text.
+  const docLines = safeArray(data?.lines).filter((line) => typeof line === "string");
+  // The matrix: the résumé parts (columns) and, per requirement, one cell each.
+  const columns = safeArray(data?.columns)
+    .filter((column) => column && typeof column.label === "string" && column.label.trim())
+    .map((column) => ({
+      label: column.label.trim(),
+      items: safeArray(column.items).filter((item) => typeof item === "string"),
+    }));
   const rows = safeArray(data?.requirements)
     .filter((item) => item && typeof item.text === "string" && item.text.trim())
     .map((item, index) => {
-      const probabilities = levels.map((_, level) => {
-        const p = Number(safeArray(item.probabilities)[level]);
-        return Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
-      });
-      const level = Math.min(levels.length - 1, Math.max(0, Number(item.level) || 0));
+      const level = clampLevel(item.level);
+      const line = Number.isInteger(item.line) && item.line >= 0 && item.line < docLines.length
+        ? item.line
+        : null;
+      const cells = safeArray(item.sources);
+      const sources = columns.length >= 2 && cells.length === columns.length
+        ? cells.map((cell) => ({
+          level: clampLevel(cell?.level),
+          probabilities: distribution(cell?.probabilities),
+        }))
+        : null;
       return {
         index,
         text: item.text.trim(),
+        line,
         level,
-        probabilities,
+        probabilities: distribution(item.probabilities),
         expected: Number.isFinite(Number(item.expected)) ? Number(item.expected) : level,
+        sources,
         mustHave: false,
         el: null,
       };
     });
-  if (levels.length < 2 || rows.length < 2) return null;
+  if (rows.length < 2) return null;
+  return {
+    levels,
+    descriptions,
+    docLines,
+    columns,
+    rows,
+    // The heat map needs the description and each requirement's place in it.
+    hasHeat: rows.filter((row) => row.line !== null).length >= 2,
+    hasMatrix: rows.every((row) => row.sources),
+  };
+}
+
+/** The picture of the whole analysis: one tile per requirement, strongest
+ * evidence first. Hover or focus names the requirement in the line below;
+ * a click hands the requirement to `onPick`. */
+function fitTiles(rows, levels, onPick) {
+  const ordered = [...rows].sort((a, b) => b.level - a.level || a.index - b.index);
+  const hint = "One tile per requirement, strongest evidence first. Select a tile to see it.";
+  const tip = el("p", { class: "fit-tiles-tip", text: hint });
+  const strip = el(
+    "div",
+    { class: "fit-tiles", role: "group", "aria-label": "Requirements by evidence, strongest first" },
+    ordered.map((row) => {
+      const label = `${levels[row.level]} · ${percentLabel(row.probabilities[row.level])}`;
+      const tile = el("button", {
+        class: "fit-tile",
+        type: "button",
+        "data-level": String(row.level),
+        "aria-label": `${label}: ${row.text}`,
+      });
+      const show = () => {
+        tip.textContent = `${label}: ${row.text}`;
+        tip.classList.add("is-active");
+      };
+      const reset = () => {
+        tip.textContent = hint;
+        tip.classList.remove("is-active");
+      };
+      tile.addEventListener("mouseenter", show);
+      tile.addEventListener("focus", show);
+      tile.addEventListener("mouseleave", reset);
+      tile.addEventListener("blur", reset);
+      tile.addEventListener("click", () => onPick(row));
+      return tile;
+    })
+  );
+  return el("div", { class: "fit-tiles-block" }, [strip, tip]);
+}
+
+/** Builds the requirement map. Returns its section and, when the event
+ * carried the description's lines, a function that opens the heat map
+ * (optionally at one requirement). */
+function renderFitMap(data) {
+  const model = fitMapModel(data);
+  if (!model) return null;
+  const { levels, rows } = model;
 
   const mapId = ++fitMapCount;
   const state = { sortByEvidence: false };
@@ -2070,6 +2429,19 @@ function renderFitMap(data) {
     sortButton.setAttribute("aria-pressed", String(state.sortByEvidence));
     render();
   });
+  const tools = [sortButton];
+  let openHeat = null;
+  if (model.hasHeat) {
+    openHeat = (focusRow = null) => openHeatMap(model, { focusRow });
+    const heatButton = el("button", {
+      class: "fit-map-tool fit-map-tool--primary",
+      type: "button",
+      "aria-haspopup": "dialog",
+      text: "Open heat map",
+    });
+    heatButton.addEventListener("click", () => openHeat());
+    tools.unshift(heatButton);
+  }
   section.append(
     el("div", { class: "fit-map-head" }, [
       el("div", { class: "fit-map-heading" }, [
@@ -2079,24 +2451,18 @@ function renderFitMap(data) {
           text: `Judged by Jev · ${rows.length} requirements found in the description`,
         }),
       ]),
-      sortButton,
+      el("div", { class: "fit-map-tools" }, tools),
     ])
   );
+
+  // A tile opens the heat map at its requirement.
+  if (openHeat) section.append(fitTiles(rows, levels, (row) => openHeat(row)));
 
   const summary = el("p", { class: "fit-map-summary", "aria-live": "polite" });
   section.append(summary);
 
   // One hue, light to dark: the legend names every step the bars use.
-  section.append(
-    el(
-      "div",
-      { class: "fit-map-legend", "aria-label": "Evidence levels, weakest to strongest" },
-      levels.map((label, level) => el("span", { class: "fit-legend-item" }, [
-        el("span", { class: "fit-swatch", "data-level": String(level), "aria-hidden": "true" }),
-        el("span", { text: label }),
-      ]))
-    )
-  );
+  section.append(fitLegend(levels));
 
   const list = el("div", { class: "fit-map-rows", role: "list" });
   section.append(list);
@@ -2162,17 +2528,6 @@ function renderFitMap(data) {
     return copy;
   }
 
-  // "2 strong · 1 partial · 1 not documented", strongest first.
-  function tally(group) {
-    const counts = levels.map(() => 0);
-    group.forEach((row) => { counts[row.level] += 1; });
-    return counts
-      .map((count, level) => (count ? `${count} ${levels[level].toLowerCase()}` : null))
-      .filter(Boolean)
-      .reverse()
-      .join(" · ");
-  }
-
   function render() {
     const mustHaves = rows.filter((row) => row.mustHave);
     const others = rows.filter((row) => !row.mustHave);
@@ -2181,8 +2536,8 @@ function renderFitMap(data) {
       list.append(row.el);
     });
     summary.textContent = mustHaves.length
-      ? `Must-haves: ${tally(mustHaves)}${others.length ? ` · Others: ${tally(others)}` : ""}`
-      : `All ${rows.length} requirements: ${tally(rows)}. Mark your must-haves to regroup.`;
+      ? `Must-haves: ${fitTally(mustHaves, levels)}${others.length ? ` · Others: ${fitTally(others, levels)}` : ""}`
+      : `All ${rows.length} requirements: ${fitTally(rows, levels)}. Mark your must-haves to regroup.`;
   }
   render();
 
@@ -2196,7 +2551,7 @@ function renderFitMap(data) {
         "experience is missing. Worth asking Dakota directly.",
     })
   );
-  return section;
+  return { section, openHeat };
 }
 
 // --- Resume PDF download (password-gated; unlocked with the chat password) ---
@@ -2269,3 +2624,361 @@ initResumeDrawer();
 
 // Render the resume drawer and project rows from /api/resume.
 loadAndRenderResume();
+
+// ===== Heat map (pop-up) =====
+// The same Jev answers as the requirement map, drawn on the job description
+// itself: every line Jev judged a requirement is shaded by its most likely
+// evidence level, and opens to show the full distribution. Lines Jev did not
+// judge, or judged not to be requirements, stay plain.
+let heatDialog = null;
+
+function heatMapDialog() {
+  if (heatDialog) return heatDialog;
+  heatDialog = el("dialog", { class: "heat-dialog", "aria-labelledby": "heat-dialog-title" });
+  // A click on the backdrop lands on the dialog element itself.
+  heatDialog.addEventListener("click", (event) => {
+    if (event.target === heatDialog) heatDialog.close();
+  });
+  document.body.append(heatDialog);
+  return heatDialog;
+}
+
+/** The probability of each level as four small bars with their values. */
+function heatDistribution(probabilities, levels) {
+  return el(
+    "div",
+    { class: "heat-dist", role: "list", "aria-label": "Probability of each evidence level" },
+    levels.map((label, level) => {
+      const fill = el("span", { class: "heat-dist-fill", "data-level": String(level) });
+      fill.style.width = percentLabel(probabilities[level]);
+      return el("div", { class: "heat-dist-row", role: "listitem" }, [
+        el("span", { class: "heat-dist-label", text: label }),
+        el("span", { class: "heat-dist-track", "aria-hidden": "true" }, [fill]),
+        el("span", { class: "heat-dist-value", text: percentLabel(probabilities[level]) }),
+      ]);
+    })
+  );
+}
+
+/** A chip that closes the dialog and puts `question` to the chat. */
+function heatAskButton(dialog, label, question) {
+  const button = el("button", { class: "chip", type: "button", text: label });
+  button.addEventListener("click", () => {
+    if (isSending()) return;
+    dialog.close();
+    setComposerMode("chat");
+    askAssistant(question);
+  });
+  return button;
+}
+
+/** Tab 1: the description itself. Every line Jev judged a requirement is
+ * shaded by its most likely level and opens to show the distribution. */
+function heatDescriptionPanel(model, dialog) {
+  const { levels, descriptions, docLines, rows } = model;
+  const byLine = new Map(rows.filter((row) => row.line !== null).map((row) => [row.line, row]));
+  const doc = el("div", { class: "heat-doc" });
+  const controls = new Map(); // row.index -> { button, expand }
+  let open = null; // { button, detail } of the expanded line
+
+  function collapse() {
+    if (!open) return;
+    open.button.setAttribute("aria-expanded", "false");
+    open.detail.hidden = true;
+    open = null;
+  }
+
+  docLines.forEach((text, index) => {
+    const row = byLine.get(index);
+    if (!row) {
+      doc.append(el("p", { class: "heat-line", text }));
+      return;
+    }
+    const detailId = `heat-detail-${index}`;
+    const button = el(
+      "button",
+      {
+        class: "heat-line heat-line--req",
+        type: "button",
+        "data-level": String(row.level),
+        "aria-expanded": "false",
+        "aria-controls": detailId,
+      },
+      [
+        el("span", { class: "heat-line-text", text }),
+        el("span", { class: "heat-line-meta" }, [
+          row.mustHave ? el("span", { class: "heat-line-must", text: "Must-have" }) : null,
+          el("span", {
+            class: "heat-line-level",
+            text: `${levels[row.level]} · ${percentLabel(row.probabilities[row.level])}`,
+          }),
+        ]),
+      ]
+    );
+    const detail = el("div", { class: "heat-detail", id: detailId, hidden: "" });
+    function expand() {
+      if (open?.button === button) return;
+      collapse();
+      // Built on first open: most lines are never expanded.
+      if (!detail.childElementCount) {
+        const level = levels[row.level].toLowerCase();
+        detail.append(
+          el("p", {
+            class: "heat-detail-lead",
+            text: descriptions[row.level]
+              ? `Most likely ${level}. ${descriptions[row.level]}`
+              : `Most likely ${level}.`,
+          }),
+          heatDistribution(row.probabilities, levels),
+          heatAskButton(
+            dialog,
+            "Ask about this requirement",
+            `What in Dakota's experience relates to this requirement: "${row.text}"?`
+          )
+        );
+      }
+      button.setAttribute("aria-expanded", "true");
+      detail.hidden = false;
+      open = { button, detail };
+    }
+    button.addEventListener("click", () => {
+      if (open?.button === button) collapse();
+      else expand();
+    });
+    controls.set(row.index, { button, expand });
+    doc.append(el("div", { class: "heat-item" }, [button, detail]));
+  });
+
+  const panel = el("div", { class: "heat-panel", role: "tabpanel" }, [
+    fitLegend(levels),
+    doc,
+    el("p", {
+      class: "fit-map-note",
+      text:
+        "Darker means stronger evidence in the résumé. “Not documented” means the " +
+        "résumé is silent, not that the experience is missing. Unshaded lines were " +
+        "not scored: Jev judged them not to be requirements, or the description " +
+        "was longer than one pass covers.",
+    }),
+  ]);
+  return {
+    panel,
+    /** Open one requirement's line and bring it into view. */
+    reveal(row) {
+      const control = controls.get(row.index);
+      if (!control) return;
+      control.expand();
+      control.button.scrollIntoView({ block: "center" });
+      control.button.focus({ preventScroll: true });
+    },
+  };
+}
+
+/** Tab 2: a grid, one row per requirement and one column per part of the
+ * résumé. Each cell is the same judgment as the row's overall level, asked
+ * of that part alone, so the grid shows where the evidence comes from. */
+function heatMatrixPanel(model, dialog) {
+  const { levels, columns, rows } = model;
+  const grid = el("div", {
+    class: "heat-matrix",
+    role: "table",
+    "aria-label": "Evidence for each requirement, by part of the résumé",
+  });
+  grid.style.setProperty("--heat-columns", String(columns.length));
+  grid.append(
+    el("div", { class: "heat-matrix-row", role: "row" }, [
+      el("span", { class: "heat-matrix-corner", role: "columnheader", text: "Requirement" }),
+      ...columns.map((column) => el("span", {
+        class: "heat-matrix-col",
+        role: "columnheader",
+        text: column.label,
+      })),
+    ])
+  );
+
+  const hint = "Select a cell to see what that part of the résumé covers.";
+  const detail = el("div", { class: "heat-matrix-detail", "aria-live": "polite" }, [
+    el("p", { class: "heat-detail-lead", text: hint }),
+  ]);
+  let selected = null;
+  function pick(row, columnIndex, button) {
+    selected?.classList.remove("is-selected");
+    selected = button;
+    button.classList.add("is-selected");
+    const column = columns[columnIndex];
+    const cell = row.sources[columnIndex];
+    // Kept short so the grid above stays in view: the distribution is one
+    // stacked bar with its values in words, not four rows.
+    const bar = el(
+      "div",
+      { class: "fit-bar", "aria-hidden": "true" },
+      cell.probabilities.map((probability, level) => {
+        const segment = el("span", { class: "fit-seg", "data-level": String(level) });
+        segment.style.flexGrow = String(Math.max(probability, 0.001));
+        return segment;
+      })
+    );
+    detail.replaceChildren(
+      el("p", { class: "heat-matrix-detail-req", text: row.text }),
+      el("p", {
+        class: "heat-detail-lead",
+        text: `${column.label}: most likely ${levels[cell.level].toLowerCase()}. ` +
+          (column.items.length ? `This part covers ${column.items.join("; ")}.` : ""),
+      }),
+      bar,
+      el("p", {
+        class: "heat-matrix-detail-values",
+        text: cell.probabilities
+          .map((probability, level) => `${levels[level]} ${percentLabel(probability)}`)
+          .join(" · "),
+      }),
+      heatAskButton(
+        dialog,
+        "Ask about this",
+        `Looking at "${column.label}" in Dakota's résumé, what relates to this requirement: "${row.text}"?`
+      )
+    );
+    detail.scrollIntoView({ block: "nearest" });
+  }
+
+  rows.forEach((row) => {
+    grid.append(
+      el("div", { class: "heat-matrix-row", role: "row" }, [
+        el("span", { class: "heat-matrix-req", role: "rowheader", title: row.text, text: row.text }),
+        ...row.sources.map((cell, columnIndex) => {
+          const label = `${levels[cell.level]} · ${percentLabel(cell.probabilities[cell.level])}`;
+          const button = el("button", {
+            class: "heat-cell",
+            type: "button",
+            "data-level": String(cell.level),
+            title: `${columns[columnIndex].label}: ${label}`,
+            "aria-label": `${columns[columnIndex].label}: ${label}`,
+          });
+          button.addEventListener("click", () => pick(row, columnIndex, button));
+          return el("span", { class: "heat-matrix-cell", role: "cell" }, [button]);
+        }),
+      ])
+    );
+  });
+
+  const panel = el("div", { class: "heat-panel", role: "tabpanel", hidden: "" }, [
+    fitLegend(levels, { matrix: true }),
+    el("div", { class: "heat-matrix-scroll" }, [grid]),
+    detail,
+    el("p", {
+      class: "fit-map-note",
+      text:
+        "Each cell asks the same question of one part of the résumé on its own. " +
+        "A row can be stronger overall than any single cell, because the overall " +
+        "level reads the whole résumé together.",
+    }),
+  ]);
+  return { panel };
+}
+
+/** Open the heat map for a checked model (see fitMapModel). `focusRow`
+ * opens it at one requirement; `sampleRole` marks the saved example. */
+function openHeatMap(model, { focusRow = null, sampleRole = "" } = {}) {
+  const dialog = heatMapDialog();
+  const { levels, rows } = model;
+  const closeButton = el("button", { class: "heat-close", type: "button", text: "Close" });
+  closeButton.addEventListener("click", () => dialog.close());
+
+  const description = heatDescriptionPanel(model, dialog);
+  const views = [{ label: "Description", view: description }];
+  if (model.hasMatrix) views.push({ label: "Matrix", view: heatMatrixPanel(model, dialog) });
+
+  function select(index, { focus = false } = {}) {
+    views.forEach((item, i) => {
+      const isSelected = i === index;
+      item.tab.setAttribute("aria-selected", String(isSelected));
+      item.tab.tabIndex = isSelected ? 0 : -1;
+      item.view.panel.hidden = !isSelected;
+    });
+    if (focus) views[index].tab.focus();
+  }
+  views.forEach((item, index) => {
+    const panelId = `heat-panel-${index}`;
+    item.tab = el("button", {
+      class: "heat-tab",
+      type: "button",
+      role: "tab",
+      id: `heat-tab-${index}`,
+      "aria-controls": panelId,
+      text: item.label,
+    });
+    item.view.panel.id = panelId;
+    item.view.panel.setAttribute("aria-labelledby", item.tab.id);
+    item.tab.addEventListener("click", () => select(index));
+    // Arrow keys move between tabs, as the tab pattern expects.
+    item.tab.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      select((index + step + views.length) % views.length, { focus: true });
+    });
+  });
+
+  const mapped = rows.filter((row) => row.line !== null);
+  dialog.replaceChildren(
+    el("div", { class: "heat-head" }, [
+      el("div", { class: "fit-map-heading" }, [
+        el("span", { class: "fit-map-kicker" }, [
+          "Heat map",
+          sampleRole ? el("span", { class: "heat-sample-badge", text: "Sample role" }) : null,
+        ]),
+        el("h3", {
+          class: "heat-title",
+          id: "heat-dialog-title",
+          text: sampleRole || "Evidence for this role",
+        }),
+      ]),
+      closeButton,
+    ]),
+    el("p", {
+      class: "heat-summary",
+      text: `${mapped.length} requirements: ${fitTally(mapped, levels)}.` +
+        (sampleRole ? " This role is an example; the scores are Jev's real answers for it." : ""),
+    }),
+    fitTiles(mapped, levels, (row) => {
+      select(0);
+      description.reveal(row);
+    }),
+    views.length > 1
+      ? el("div", { class: "heat-tabs", role: "tablist", "aria-label": "Heat map views" },
+        views.map((item) => item.tab))
+      : null,
+    ...views.map((item) => item.view.panel)
+  );
+  dialog.showModal();
+  select(0);
+  if (focusRow) description.reveal(focusRow);
+}
+
+// ===== Ways in =====
+/** Switch to fit mode and open the file picker in one step. Cancelling the
+ * picker leaves the composer ready for a pasted description. */
+function startUpload() {
+  if (isSending()) return;
+  startFit();
+  jdFileInput?.click();
+}
+
+document.getElementById("hero-heat-cta")?.addEventListener("click", startUpload);
+
+// The sample is a saved analysis of an invented role (built by
+// scripts/build_sample_fitmap.py from real Jev answers). Its link stays
+// hidden until that file holds a map, so the page never shows made-up scores.
+const heroSample = document.getElementById("hero-sample");
+if (heroSample) {
+  fetch("./sample-fitmap.json")
+    .then((response) => (response.ok ? response.json() : null))
+    .then((sample) => {
+      const model = fitMapModel(sample?.fitmap);
+      if (!model || !model.hasHeat) return;
+      const sampleRole = String(sample.role || "").trim() || "Sample role";
+      heroSample.hidden = false;
+      heroSample.addEventListener("click", () => openHeatMap(model, { sampleRole }));
+    })
+    .catch(() => {});
+}

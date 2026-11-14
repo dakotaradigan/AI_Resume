@@ -17,11 +17,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 from app.config import Settings
+from app.fit_matrix import build_fit_matrix
 from app.llm import typesafe_http_client
 
 logger = logging.getLogger(__name__)
@@ -90,25 +92,40 @@ def _is_heading(line: str) -> bool:
     )
 
 
-def extract_candidate_lines(jd_text: str, limit: int = MAX_LINES) -> list[str]:
-    """The lines of a job description worth judging, in document order.
+@dataclass(frozen=True)
+class CandidateLine:
+    """One line offered to Jev: the text it judges (bullet marker removed) and
+    the index of the document line it came from, so the page can shade that
+    line in place."""
+
+    text: str
+    line: int
+
+
+def split_document_lines(jd_text: str) -> list[str]:
+    """The job description as the non-empty lines the page displays, in
+    order. A post pasted as one block is split into sentences instead."""
+    lines = [_normalize(line) for line in jd_text.splitlines()]
+    lines = [line for line in lines if line]
+    if len(lines) < 3:
+        parts = re.split(r"(?<=[.;!?])\s+", " ".join(lines))
+        lines = [part for part in (_normalize(part) for part in parts) if part]
+    return lines
+
+
+def select_candidate_lines(
+    document_lines: list[str], limit: int = MAX_LINES
+) -> list[CandidateLine]:
+    """The document lines worth judging, in document order.
 
     Bullets under a requirements-style heading come first when the post is
     longer than the limit, then other bullets, then plain lines. Headings are
     dropped; whether a surviving line is really a requirement is Jev's call.
-    A post pasted as one block is split into sentences instead.
     """
-    raw_lines = [_normalize(line) for line in jd_text.splitlines()]
-    raw_lines = [line for line in raw_lines if line]
-    if len(raw_lines) < 3:
-        raw_lines = [
-            _normalize(part) for part in re.split(r"(?<=[.;!?])\s+", " ".join(raw_lines))
-        ]
-
     ranked: list[tuple[int, int, str]] = []
     seen: set[str] = set()
     in_requirements = False
-    for index, line in enumerate(raw_lines):
+    for index, line in enumerate(document_lines):
         if _is_heading(line):
             if _OTHER_HEADING_RE.match(line):
                 in_requirements = False
@@ -128,7 +145,16 @@ def extract_candidate_lines(jd_text: str, limit: int = MAX_LINES) -> list[str]:
 
     ranked.sort()
     kept = sorted(ranked[:limit], key=lambda item: item[1])
-    return [text for _, _, text in kept]
+    return [CandidateLine(text=text, line=index) for _, index, text in kept]
+
+
+def extract_candidate_lines(jd_text: str, limit: int = MAX_LINES) -> list[str]:
+    """The text of each candidate line of a job description, in document
+    order (see ``select_candidate_lines``)."""
+    return [
+        candidate.text
+        for candidate in select_candidate_lines(split_document_lines(jd_text), limit)
+    ]
 
 
 def fit_map_payload(lines: list[str], resume_context: str, settings: Settings) -> dict[str, Any]:
@@ -173,12 +199,18 @@ def fit_map_payload(lines: list[str], resume_context: str, settings: Settings) -
     }
 
 
-def parse_fit_map(lines: list[str], body: dict[str, Any]) -> dict[str, Any] | None:
+def parse_fit_map(
+    lines: list[str],
+    body: dict[str, Any],
+    line_numbers: list[int] | None = None,
+) -> dict[str, Any] | None:
     """Turn Jev's answers into the map the page renders.
 
     Lines Jev does not consider requirements are dropped. Each kept line
     carries the full probability distribution over the evidence levels (the
-    page draws it) and the most likely level (the page labels it). Returns
+    page draws it) and the most likely level (the page labels it). With
+    ``line_numbers`` (one document-line index per entry of ``lines``), each
+    kept line also carries ``line``, its place in the description. Returns
     None when fewer than MIN_REQUIREMENTS lines survive.
     """
     answers = body.get("answers") or {}
@@ -195,18 +227,22 @@ def parse_fit_map(lines: list[str], body: dict[str, Any]) -> dict[str, Any] | No
         if not any(probabilities):
             continue
         level = max(range(level_count), key=probabilities.__getitem__)
-        requirements.append({
+        requirement: dict[str, Any] = {
             "text": text,
             "level": level,
             "probabilities": [round(p, 3) for p in probabilities],
             "expected": round(float(evidence.get("score", level)), 2),
             "confidence": round(float(evidence.get("confidence", 0.0)), 2),
             "requirement_probability": round(p_requirement, 2),
-        })
+        }
+        if line_numbers is not None:
+            requirement["line"] = line_numbers[index]
+        requirements.append(requirement)
     if len(requirements) < MIN_REQUIREMENTS:
         return None
     return {
         "levels": [label for label, _ in EVIDENCE_LEVELS],
+        "level_descriptions": [description for _, description in EVIDENCE_LEVELS],
         "requirements": requirements,
         "model": str(body.get("model") or ""),
         "judged": len(lines),
@@ -218,13 +254,60 @@ async def build_fit_map(
     resume_context: str,
     settings: Settings,
     http: httpx.AsyncClient | None = None,
+    *,
+    resume: dict | None = None,
 ) -> dict[str, Any] | None:
     """Ask Jev for the map. Returns None on any failure; never raises, so the
-    caller can run it alongside the prose stream without guarding it."""
-    lines = extract_candidate_lines(jd_text)
-    if len(lines) < MIN_REQUIREMENTS:
+    caller can run it alongside the prose stream without guarding it.
+
+    The map also carries ``lines``, the description as displayed, so the page
+    can draw the heat map without splitting the text a second time: each
+    requirement's ``line`` indexes into it.
+
+    Given the structured ``resume``, a second request (fit_matrix) runs beside
+    the first and adds ``columns`` to the map and ``sources`` to each
+    requirement: the same judgment per part of the résumé. It can only add;
+    when it fails, the map is returned without it.
+    """
+    document_lines = split_document_lines(jd_text)
+    candidates = select_candidate_lines(document_lines)
+    if len(candidates) < MIN_REQUIREMENTS:
         return None
+    lines = [candidate.text for candidate in candidates]
     client = http or typesafe_http_client()
+    matrix_task: asyncio.Task | None = None
+    if resume is not None and settings.fit_matrix_enabled:
+        matrix_task = asyncio.create_task(build_fit_matrix(lines, resume, settings, client))
+    try:
+        fit_map = await _request_fit_map(
+            lines, candidates, document_lines, resume_context, settings, client
+        )
+        if fit_map is None or matrix_task is None:
+            return fit_map
+        matrix = await matrix_task
+        if matrix:
+            # Candidate texts are unique, so the text finds the matrix row.
+            row_of = {text: index for index, text in enumerate(lines)}
+            fit_map["columns"] = matrix["columns"]
+            for requirement in fit_map["requirements"]:
+                requirement["sources"] = matrix["rows"][row_of[requirement["text"]]]
+        return fit_map
+    finally:
+        # No map, or a cancelled analysis: the matrix has nothing to join.
+        if matrix_task is not None and not matrix_task.done():
+            matrix_task.cancel()
+
+
+async def _request_fit_map(
+    lines: list[str],
+    candidates: list[CandidateLine],
+    document_lines: list[str],
+    resume_context: str,
+    settings: Settings,
+    client: httpx.AsyncClient,
+) -> dict[str, Any] | None:
+    """The requirement-map request itself: two questions per candidate line
+    against the whole résumé. None on any failure."""
     try:
         response = await client.post(
             f"{settings.typesafe_base_url.rstrip('/')}/v1/systemone",
@@ -240,11 +323,12 @@ async def build_fit_map(
         logger.warning("Jev requirement map failed; the analysis continues without it")
         return None
     try:
-        fit_map = parse_fit_map(lines, body)
+        fit_map = parse_fit_map(lines, body, [candidate.line for candidate in candidates])
     except (TypeError, ValueError, AttributeError):
         logger.warning("Jev requirement map response was malformed")
         return None
     if fit_map:
+        fit_map["lines"] = document_lines
         logger.info(
             "Jev requirement map: %d of %d lines kept", len(fit_map["requirements"]), len(lines)
         )

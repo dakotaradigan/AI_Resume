@@ -68,6 +68,10 @@ class Settings:
     # JD fit analysis ("Paste a job description")
     max_jd_chars: int = 15000  # Job descriptions are much longer than chat messages
     jd_daily_limit: int = 1  # Free analyses per visitor per day; password unlocks more
+    # The heat map's matrix tab: a second Jev request per analysis (one
+    # question per requirement line and résumé part). False keeps the
+    # requirement map and drops the matrix, and its cost.
+    fit_matrix_enabled: bool = True
 
     # Server-owned visitor identity (quota/unlock key; session_id is history-only)
     visitor_cookie_name: str = "resume_assistant_visitor_id"
@@ -165,6 +169,7 @@ def get_settings() -> Settings:
         per_ip_daily_limit=_to_int(os.getenv("PER_IP_DAILY_LIMIT"), 40),
         max_jd_chars=_to_int(os.getenv("MAX_JD_CHARS"), 15000),
         jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 1),
+        fit_matrix_enabled=_to_bool(os.getenv("FIT_MATRIX_ENABLED"), default=True),
         visitor_cookie_name=os.getenv("VISITOR_COOKIE_NAME", "resume_assistant_visitor_id"),
         visitor_ttl_seconds=_to_int(os.getenv("VISITOR_TTL_SECONDS"), 2592000),
         # Unset, a random per-process secret still signs cookies and keeps raw
