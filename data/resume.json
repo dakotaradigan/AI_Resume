@@ -27,7 +27,7 @@
     "interests": [
       "Hiking and skiing around the Pacific Northwest",
       "Regular at the gym, plus some golf",
-      "Building side projects — currently OfferBirds, his in-development bet on agent-native hiring: replacing the decades-old PDF-upload model with AI agents on both sides of the hiring table"
+      "Building side projects — currently OfferBirds, his bet on agent-native hiring, now live in prelaunch: replacing the decades-old PDF-upload model with AI agents on both sides of the hiring table"
     ],
     "path_into_product": "Dakota started his career on the client service side of finance. During his MBA he built a product end to end for the first time — and fell in love with product building. That kicked off a sustained investment in learning to code, moving from SQL reporting to Python to shipping production AI systems.",
     "what_energizes": "Building — and working with tools and people operating at the frontier of AI. Dakota is happiest in environments of constant learning and experimentation, where a weekend build can become a production system."
@@ -109,6 +109,30 @@
   ],
 
   "projects": [
+    {
+      "name": "OfferBirds: Agent-Native Hiring Platform",
+      "tagline": "Multi-tenant platform that turns any resume into a hosted AI agent",
+      "tech_stack": ["Python", "FastAPI", "PostgreSQL", "Alembic", "Redis", "Qdrant Vector DB", "Hybrid RAG (Vector + BM25)", "Anthropic Claude", "Plan-Aware Model Routing", "Prompt Caching", "MCP", "Docker", "Railway", "GitHub Actions"],
+      "description": "Dakota's bet that agents change hiring itself. For decades hiring has run on static documents, and most AI hiring tools still just scan the same PDF faster. OfferBirds gives every candidate a hosted AI agent at their own handle that recruiters, and recruiters' own AI tools, can question directly: chat with it, run a job description against it for an honest fit analysis, or connect to it over MCP. It turns this resume site, a single-person proof of concept, into a multi-tenant product.",
+      "highlights": [
+        "Live in production on Railway since September 2026 at offerbirds.com, in prelaunch mode: public landing page, early-access signup list, no payments yet",
+        "End-to-end onboarding: sign in with a magic link or Google, upload a resume (PDF, Word, or text), review the AI-extracted profile, pick a handle, and publish an agent at {handle}.offerbirds.com",
+        "Multi-tenant RAG on one Qdrant collection, with tenant filtering enforced inside the retrieval layer on every operation and a cross-tenant leak test suite proving one tenant's data never reaches another's answers",
+        "Per-tenant chat, job description fit analysis, access-code-gated PDF, llms.txt, and an MCP server (get_resume, ask, analyze_fit), so a recruiter's own agent can compare several candidates in one chat",
+        "Cost controls as product requirements: plan-aware model routing (free plans never reach the most expensive model), prompt caching (~90% fewer repeated input tokens, ~55-60% cheaper per turn), per-call token budgets, metered quotas, and a circuit breaker",
+        "Production-readiness program: threat model, CSP hardening, pip-audit, bandit, gitleaks, and Trivy in CI, data-retention jobs, full tenant deletion across Postgres, Qdrant, and Redis, 14 runbooks, metrics and alerts, and load and failure-injection testing",
+        "Built a golden-set eval harness that records and replays model calls (25 synthetic resumes, 40 chat and 20 job-fit cases) with blocking thresholds in CI; first recordings pending",
+        "Owner dashboard with visitor analytics, a private 'Test your bird' chat to check answers before publishing, eight page themes, and 500+ automated tests"
+      ],
+      "problem_solved": "Hiring still runs on static PDFs that candidates compress themselves into and recruiters skim in seconds. Dakota's own AI resume site proved a resume can be an agent, but only for one person.",
+      "impact": "Live in prelaunch at offerbirds.com: multi-tenant RAG with tenant isolation enforced in the retrieval layer; per-tenant chat, job-fit analysis, and MCP endpoints; plan-aware model routing and prompt caching that cuts per-turn cost ~55-60%.",
+      "context": "Side project Dakota builds in his free time (not an employer). In production on Railway since September 2026, in prelaunch mode.",
+      "timeframe": "2026",
+      "repo_url": "",
+      "demo_url": "https://offerbirds.com",
+      "images": [],
+      "detailed_description_file": "offerbirds.md"
+    },
     {
       "name": "Resume Assistant: AI-Powered Professional Portfolio",
       "tagline": "Interactive chatbot reimagining how recruiters discover talent through conversational AI",

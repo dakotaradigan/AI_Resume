@@ -904,13 +904,13 @@ const PROJECT_CARDS = [
     actionLabel: "See how it's built",
   },
   {
-    standalone: true,
+    match: "OfferBirds",
     title: "OfferBirds",
     blurb:
-      "This site proved a resume can be an agent — OfferBirds turns that into a product. Anyone uploads a resume and gets a hosted AI agent at their own handle, to share instead of a PDF. In build, not live yet: multi-tenant RAG with strict tenant isolation and plan-aware model routing.",
+      "This site proved a resume can be an agent — OfferBirds turns that into a product. Anyone uploads a resume and gets a hosted AI agent at their own handle, to share instead of a PDF. Live in prelaunch: multi-tenant RAG with strict tenant isolation, plan-aware model routing, and an MCP server for every agent.",
     tags: ["multi-tenant SaaS", "RAG", "tenant isolation", "model routing", "MCP"],
     link: "https://offerbirds.com",
-    actionLabel: "Follow the build",
+    actionLabel: "See it live",
   },
   {
     match: "Ben AI",
