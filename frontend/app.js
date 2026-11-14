@@ -865,7 +865,7 @@ document.querySelectorAll("[data-explore]").forEach((cardEl) => {
       setComposerMode("chat");
       focusChat();
     } else if (mode === "jd") {
-      startFit();
+      startUpload();
     } else if (mode === "resume") {
       openResumeDrawer();
     }
@@ -1658,6 +1658,10 @@ initChatAutoScroll();
 suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => {
     if (isSending()) return;
+    if (chip.dataset.action === "upload") {
+      startUpload();
+      return;
+    }
     setComposerMode("chat");
     sendMessage(chip.textContent.trim());
   });
@@ -2046,7 +2050,7 @@ function renderJDActions(host, openHeat = null) {
       "aria-haspopup": "dialog",
       text: "Open heat map",
     });
-    heatBtn.addEventListener("click", openHeat);
+    heatBtn.addEventListener("click", () => openHeat());
   }
 
   const actions = el("div", { class: "jd-actions" }, [
@@ -2279,10 +2283,14 @@ function percentLabel(probability) {
 }
 
 /** The legend names every step of the one-hue ramp, weakest to strongest. */
-function fitLegend(levels) {
+function fitLegend(levels, { matrix = false } = {}) {
   return el(
     "div",
-    { class: "fit-map-legend", "aria-label": "Evidence levels, weakest to strongest" },
+    {
+      // In the matrix a silent cell is the normal case, so its swatch recedes.
+      class: matrix ? "fit-map-legend fit-map-legend--matrix" : "fit-map-legend",
+      "aria-label": "Evidence levels, weakest to strongest",
+    },
     levels.map((label, level) => el("span", { class: "fit-legend-item" }, [
       el("span", { class: "fit-swatch", "data-level": String(level), "aria-hidden": "true" }),
       el("span", { text: label }),
@@ -2290,37 +2298,121 @@ function fitLegend(levels) {
   );
 }
 
-/** Builds the requirement map. Returns its section and, when the event
- * carried the description's lines, a function that opens the heat map. */
-function renderFitMap(data) {
+/** "2 strong · 1 partial · 1 not documented", strongest first. */
+function fitTally(rows, levels) {
+  const counts = levels.map(() => 0);
+  rows.forEach((row) => { counts[row.level] += 1; });
+  return counts
+    .map((count, level) => (count ? `${count} ${levels[level].toLowerCase()}` : null))
+    .filter(Boolean)
+    .reverse()
+    .join(" · ");
+}
+
+/** A fitmap payload (the live event, or the saved sample) as the checked
+ * model every view draws from. Returns null when there is nothing to draw. */
+function fitMapModel(data) {
   const levels = safeArray(data?.levels).map((label) => String(label || ""));
+  if (levels.length < 2) return null;
+  const clampLevel = (value) => Math.min(levels.length - 1, Math.max(0, Number(value) || 0));
+  const distribution = (list) => levels.map((_, level) => {
+    const p = Number(safeArray(list)[level]);
+    return Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
+  });
   const descriptions = safeArray(data?.level_descriptions).map((text) => String(text || ""));
   // The description as the server split it; each requirement's `line`
   // indexes into this list, so the heat map never re-splits the text.
   const docLines = safeArray(data?.lines).filter((line) => typeof line === "string");
+  // The matrix: the résumé parts (columns) and, per requirement, one cell each.
+  const columns = safeArray(data?.columns)
+    .filter((column) => column && typeof column.label === "string" && column.label.trim())
+    .map((column) => ({
+      label: column.label.trim(),
+      items: safeArray(column.items).filter((item) => typeof item === "string"),
+    }));
   const rows = safeArray(data?.requirements)
     .filter((item) => item && typeof item.text === "string" && item.text.trim())
     .map((item, index) => {
-      const probabilities = levels.map((_, level) => {
-        const p = Number(safeArray(item.probabilities)[level]);
-        return Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
-      });
-      const level = Math.min(levels.length - 1, Math.max(0, Number(item.level) || 0));
+      const level = clampLevel(item.level);
       const line = Number.isInteger(item.line) && item.line >= 0 && item.line < docLines.length
         ? item.line
+        : null;
+      const cells = safeArray(item.sources);
+      const sources = columns.length >= 2 && cells.length === columns.length
+        ? cells.map((cell) => ({
+          level: clampLevel(cell?.level),
+          probabilities: distribution(cell?.probabilities),
+        }))
         : null;
       return {
         index,
         text: item.text.trim(),
         line,
         level,
-        probabilities,
+        probabilities: distribution(item.probabilities),
         expected: Number.isFinite(Number(item.expected)) ? Number(item.expected) : level,
+        sources,
         mustHave: false,
         el: null,
       };
     });
-  if (levels.length < 2 || rows.length < 2) return null;
+  if (rows.length < 2) return null;
+  return {
+    levels,
+    descriptions,
+    docLines,
+    columns,
+    rows,
+    // The heat map needs the description and each requirement's place in it.
+    hasHeat: rows.filter((row) => row.line !== null).length >= 2,
+    hasMatrix: rows.every((row) => row.sources),
+  };
+}
+
+/** The picture of the whole analysis: one tile per requirement, strongest
+ * evidence first. Hover or focus names the requirement in the line below;
+ * a click hands the requirement to `onPick`. */
+function fitTiles(rows, levels, onPick) {
+  const ordered = [...rows].sort((a, b) => b.level - a.level || a.index - b.index);
+  const hint = "One tile per requirement, strongest evidence first. Select a tile to see it.";
+  const tip = el("p", { class: "fit-tiles-tip", text: hint });
+  const strip = el(
+    "div",
+    { class: "fit-tiles", role: "group", "aria-label": "Requirements by evidence, strongest first" },
+    ordered.map((row) => {
+      const label = `${levels[row.level]} · ${percentLabel(row.probabilities[row.level])}`;
+      const tile = el("button", {
+        class: "fit-tile",
+        type: "button",
+        "data-level": String(row.level),
+        "aria-label": `${label}: ${row.text}`,
+      });
+      const show = () => {
+        tip.textContent = `${label}: ${row.text}`;
+        tip.classList.add("is-active");
+      };
+      const reset = () => {
+        tip.textContent = hint;
+        tip.classList.remove("is-active");
+      };
+      tile.addEventListener("mouseenter", show);
+      tile.addEventListener("focus", show);
+      tile.addEventListener("mouseleave", reset);
+      tile.addEventListener("blur", reset);
+      tile.addEventListener("click", () => onPick(row));
+      return tile;
+    })
+  );
+  return el("div", { class: "fit-tiles-block" }, [strip, tip]);
+}
+
+/** Builds the requirement map. Returns its section and, when the event
+ * carried the description's lines, a function that opens the heat map
+ * (optionally at one requirement). */
+function renderFitMap(data) {
+  const model = fitMapModel(data);
+  if (!model) return null;
+  const { levels, rows } = model;
 
   const mapId = ++fitMapCount;
   const state = { sortByEvidence: false };
@@ -2337,20 +2429,17 @@ function renderFitMap(data) {
     sortButton.setAttribute("aria-pressed", String(state.sortByEvidence));
     render();
   });
-  // The heat map needs the description and each requirement's place in it.
   const tools = [sortButton];
   let openHeat = null;
-  if (rows.filter((row) => row.line !== null).length >= 2) {
-    openHeat = () => {
-      openHeatMap({ lines: docLines, rows, levels, descriptions, summary: tally(rows) });
-    };
+  if (model.hasHeat) {
+    openHeat = (focusRow = null) => openHeatMap(model, { focusRow });
     const heatButton = el("button", {
       class: "fit-map-tool fit-map-tool--primary",
       type: "button",
       "aria-haspopup": "dialog",
       text: "Open heat map",
     });
-    heatButton.addEventListener("click", openHeat);
+    heatButton.addEventListener("click", () => openHeat());
     tools.unshift(heatButton);
   }
   section.append(
@@ -2365,6 +2454,9 @@ function renderFitMap(data) {
       el("div", { class: "fit-map-tools" }, tools),
     ])
   );
+
+  // A tile opens the heat map at its requirement.
+  if (openHeat) section.append(fitTiles(rows, levels, (row) => openHeat(row)));
 
   const summary = el("p", { class: "fit-map-summary", "aria-live": "polite" });
   section.append(summary);
@@ -2436,17 +2528,6 @@ function renderFitMap(data) {
     return copy;
   }
 
-  // "2 strong · 1 partial · 1 not documented", strongest first.
-  function tally(group) {
-    const counts = levels.map(() => 0);
-    group.forEach((row) => { counts[row.level] += 1; });
-    return counts
-      .map((count, level) => (count ? `${count} ${levels[level].toLowerCase()}` : null))
-      .filter(Boolean)
-      .reverse()
-      .join(" · ");
-  }
-
   function render() {
     const mustHaves = rows.filter((row) => row.mustHave);
     const others = rows.filter((row) => !row.mustHave);
@@ -2455,8 +2536,8 @@ function renderFitMap(data) {
       list.append(row.el);
     });
     summary.textContent = mustHaves.length
-      ? `Must-haves: ${tally(mustHaves)}${others.length ? ` · Others: ${tally(others)}` : ""}`
-      : `All ${rows.length} requirements: ${tally(rows)}. Mark your must-haves to regroup.`;
+      ? `Must-haves: ${fitTally(mustHaves, levels)}${others.length ? ` · Others: ${fitTally(others, levels)}` : ""}`
+      : `All ${rows.length} requirements: ${fitTally(rows, levels)}. Mark your must-haves to regroup.`;
   }
   render();
 
@@ -2562,61 +2643,58 @@ function heatMapDialog() {
   return heatDialog;
 }
 
-function heatDetail(row, levels, descriptions, dialog) {
-  const bars = el(
+/** The probability of each level as four small bars with their values. */
+function heatDistribution(probabilities, levels) {
+  return el(
     "div",
     { class: "heat-dist", role: "list", "aria-label": "Probability of each evidence level" },
     levels.map((label, level) => {
       const fill = el("span", { class: "heat-dist-fill", "data-level": String(level) });
-      fill.style.width = percentLabel(row.probabilities[level]);
+      fill.style.width = percentLabel(probabilities[level]);
       return el("div", { class: "heat-dist-row", role: "listitem" }, [
         el("span", { class: "heat-dist-label", text: label }),
         el("span", { class: "heat-dist-track", "aria-hidden": "true" }, [fill]),
-        el("span", { class: "heat-dist-value", text: percentLabel(row.probabilities[level]) }),
+        el("span", { class: "heat-dist-value", text: percentLabel(probabilities[level]) }),
       ]);
     })
   );
-  const askButton = el("button", { class: "chip", type: "button", text: "Ask about this requirement" });
-  askButton.addEventListener("click", () => {
+}
+
+/** A chip that closes the dialog and puts `question` to the chat. */
+function heatAskButton(dialog, label, question) {
+  const button = el("button", { class: "chip", type: "button", text: label });
+  button.addEventListener("click", () => {
     if (isSending()) return;
     dialog.close();
     setComposerMode("chat");
-    askAssistant(`What in Dakota's experience relates to this requirement: "${row.text}"?`);
+    askAssistant(question);
   });
-  return [
-    el("p", {
-      class: "heat-detail-lead",
-      text: descriptions[row.level]
-        ? `Most likely ${levels[row.level].toLowerCase()}. ${descriptions[row.level]}`
-        : `Most likely ${levels[row.level].toLowerCase()}.`,
-    }),
-    bars,
-    askButton,
-  ];
+  return button;
 }
 
-function openHeatMap({ lines, rows, levels, descriptions, summary }) {
-  const dialog = heatMapDialog();
+/** Tab 1: the description itself. Every line Jev judged a requirement is
+ * shaded by its most likely level and opens to show the distribution. */
+function heatDescriptionPanel(model, dialog) {
+  const { levels, descriptions, docLines, rows } = model;
   const byLine = new Map(rows.filter((row) => row.line !== null).map((row) => [row.line, row]));
-  const closeButton = el("button", { class: "heat-close", type: "button", text: "Close" });
-  closeButton.addEventListener("click", () => dialog.close());
-
   const doc = el("div", { class: "heat-doc" });
+  const controls = new Map(); // row.index -> { button, expand }
   let open = null; // { button, detail } of the expanded line
+
   function collapse() {
     if (!open) return;
     open.button.setAttribute("aria-expanded", "false");
     open.detail.hidden = true;
     open = null;
   }
-  lines.forEach((text, index) => {
+
+  docLines.forEach((text, index) => {
     const row = byLine.get(index);
     if (!row) {
       doc.append(el("p", { class: "heat-line", text }));
       return;
     }
     const detailId = `heat-detail-${index}`;
-    const levelLabel = `${levels[row.level]} · ${percentLabel(row.probabilities[row.level])}`;
     const button = el(
       "button",
       {
@@ -2630,36 +2708,48 @@ function openHeatMap({ lines, rows, levels, descriptions, summary }) {
         el("span", { class: "heat-line-text", text }),
         el("span", { class: "heat-line-meta" }, [
           row.mustHave ? el("span", { class: "heat-line-must", text: "Must-have" }) : null,
-          el("span", { class: "heat-line-level", text: levelLabel }),
+          el("span", {
+            class: "heat-line-level",
+            text: `${levels[row.level]} · ${percentLabel(row.probabilities[row.level])}`,
+          }),
         ]),
       ]
     );
     const detail = el("div", { class: "heat-detail", id: detailId, hidden: "" });
-    button.addEventListener("click", () => {
-      const wasOpen = open?.button === button;
+    function expand() {
+      if (open?.button === button) return;
       collapse();
-      if (wasOpen) return;
       // Built on first open: most lines are never expanded.
-      if (!detail.childElementCount) detail.append(...heatDetail(row, levels, descriptions, dialog));
+      if (!detail.childElementCount) {
+        const level = levels[row.level].toLowerCase();
+        detail.append(
+          el("p", {
+            class: "heat-detail-lead",
+            text: descriptions[row.level]
+              ? `Most likely ${level}. ${descriptions[row.level]}`
+              : `Most likely ${level}.`,
+          }),
+          heatDistribution(row.probabilities, levels),
+          heatAskButton(
+            dialog,
+            "Ask about this requirement",
+            `What in Dakota's experience relates to this requirement: "${row.text}"?`
+          )
+        );
+      }
       button.setAttribute("aria-expanded", "true");
       detail.hidden = false;
       open = { button, detail };
+    }
+    button.addEventListener("click", () => {
+      if (open?.button === button) collapse();
+      else expand();
     });
+    controls.set(row.index, { button, expand });
     doc.append(el("div", { class: "heat-item" }, [button, detail]));
   });
 
-  dialog.replaceChildren(
-    el("div", { class: "heat-head" }, [
-      el("div", { class: "fit-map-heading" }, [
-        el("span", { class: "fit-map-kicker", text: "Heat map" }),
-        el("h3", { class: "heat-title", id: "heat-dialog-title", text: "The description, shaded by evidence" }),
-      ]),
-      closeButton,
-    ]),
-    el("p", {
-      class: "heat-summary",
-      text: `${byLine.size} requirement lines: ${summary}. Select a shaded line to see how sure Jev is.`,
-    }),
+  const panel = el("div", { class: "heat-panel", role: "tabpanel" }, [
     fitLegend(levels),
     doc,
     el("p", {
@@ -2669,8 +2759,226 @@ function openHeatMap({ lines, rows, levels, descriptions, summary }) {
         "résumé is silent, not that the experience is missing. Unshaded lines were " +
         "not scored: Jev judged them not to be requirements, or the description " +
         "was longer than one pass covers.",
-    })
+    }),
+  ]);
+  return {
+    panel,
+    /** Open one requirement's line and bring it into view. */
+    reveal(row) {
+      const control = controls.get(row.index);
+      if (!control) return;
+      control.expand();
+      control.button.scrollIntoView({ block: "center" });
+      control.button.focus({ preventScroll: true });
+    },
+  };
+}
+
+/** Tab 2: a grid, one row per requirement and one column per part of the
+ * résumé. Each cell is the same judgment as the row's overall level, asked
+ * of that part alone, so the grid shows where the evidence comes from. */
+function heatMatrixPanel(model, dialog) {
+  const { levels, columns, rows } = model;
+  const grid = el("div", {
+    class: "heat-matrix",
+    role: "table",
+    "aria-label": "Evidence for each requirement, by part of the résumé",
+  });
+  grid.style.setProperty("--heat-columns", String(columns.length));
+  grid.append(
+    el("div", { class: "heat-matrix-row", role: "row" }, [
+      el("span", { class: "heat-matrix-corner", role: "columnheader", text: "Requirement" }),
+      ...columns.map((column) => el("span", {
+        class: "heat-matrix-col",
+        role: "columnheader",
+        text: column.label,
+      })),
+    ])
+  );
+
+  const hint = "Select a cell to see what that part of the résumé covers.";
+  const detail = el("div", { class: "heat-matrix-detail", "aria-live": "polite" }, [
+    el("p", { class: "heat-detail-lead", text: hint }),
+  ]);
+  let selected = null;
+  function pick(row, columnIndex, button) {
+    selected?.classList.remove("is-selected");
+    selected = button;
+    button.classList.add("is-selected");
+    const column = columns[columnIndex];
+    const cell = row.sources[columnIndex];
+    // Kept short so the grid above stays in view: the distribution is one
+    // stacked bar with its values in words, not four rows.
+    const bar = el(
+      "div",
+      { class: "fit-bar", "aria-hidden": "true" },
+      cell.probabilities.map((probability, level) => {
+        const segment = el("span", { class: "fit-seg", "data-level": String(level) });
+        segment.style.flexGrow = String(Math.max(probability, 0.001));
+        return segment;
+      })
+    );
+    detail.replaceChildren(
+      el("p", { class: "heat-matrix-detail-req", text: row.text }),
+      el("p", {
+        class: "heat-detail-lead",
+        text: `${column.label}: most likely ${levels[cell.level].toLowerCase()}. ` +
+          (column.items.length ? `This part covers ${column.items.join("; ")}.` : ""),
+      }),
+      bar,
+      el("p", {
+        class: "heat-matrix-detail-values",
+        text: cell.probabilities
+          .map((probability, level) => `${levels[level]} ${percentLabel(probability)}`)
+          .join(" · "),
+      }),
+      heatAskButton(
+        dialog,
+        "Ask about this",
+        `Looking at "${column.label}" in Dakota's résumé, what relates to this requirement: "${row.text}"?`
+      )
+    );
+    detail.scrollIntoView({ block: "nearest" });
+  }
+
+  rows.forEach((row) => {
+    grid.append(
+      el("div", { class: "heat-matrix-row", role: "row" }, [
+        el("span", { class: "heat-matrix-req", role: "rowheader", title: row.text, text: row.text }),
+        ...row.sources.map((cell, columnIndex) => {
+          const label = `${levels[cell.level]} · ${percentLabel(cell.probabilities[cell.level])}`;
+          const button = el("button", {
+            class: "heat-cell",
+            type: "button",
+            "data-level": String(cell.level),
+            title: `${columns[columnIndex].label}: ${label}`,
+            "aria-label": `${columns[columnIndex].label}: ${label}`,
+          });
+          button.addEventListener("click", () => pick(row, columnIndex, button));
+          return el("span", { class: "heat-matrix-cell", role: "cell" }, [button]);
+        }),
+      ])
+    );
+  });
+
+  const panel = el("div", { class: "heat-panel", role: "tabpanel", hidden: "" }, [
+    fitLegend(levels, { matrix: true }),
+    el("div", { class: "heat-matrix-scroll" }, [grid]),
+    detail,
+    el("p", {
+      class: "fit-map-note",
+      text:
+        "Each cell asks the same question of one part of the résumé on its own. " +
+        "A row can be stronger overall than any single cell, because the overall " +
+        "level reads the whole résumé together.",
+    }),
+  ]);
+  return { panel };
+}
+
+/** Open the heat map for a checked model (see fitMapModel). `focusRow`
+ * opens it at one requirement; `sampleRole` marks the saved example. */
+function openHeatMap(model, { focusRow = null, sampleRole = "" } = {}) {
+  const dialog = heatMapDialog();
+  const { levels, rows } = model;
+  const closeButton = el("button", { class: "heat-close", type: "button", text: "Close" });
+  closeButton.addEventListener("click", () => dialog.close());
+
+  const description = heatDescriptionPanel(model, dialog);
+  const views = [{ label: "Description", view: description }];
+  if (model.hasMatrix) views.push({ label: "Matrix", view: heatMatrixPanel(model, dialog) });
+
+  function select(index, { focus = false } = {}) {
+    views.forEach((item, i) => {
+      const isSelected = i === index;
+      item.tab.setAttribute("aria-selected", String(isSelected));
+      item.tab.tabIndex = isSelected ? 0 : -1;
+      item.view.panel.hidden = !isSelected;
+    });
+    if (focus) views[index].tab.focus();
+  }
+  views.forEach((item, index) => {
+    const panelId = `heat-panel-${index}`;
+    item.tab = el("button", {
+      class: "heat-tab",
+      type: "button",
+      role: "tab",
+      id: `heat-tab-${index}`,
+      "aria-controls": panelId,
+      text: item.label,
+    });
+    item.view.panel.id = panelId;
+    item.view.panel.setAttribute("aria-labelledby", item.tab.id);
+    item.tab.addEventListener("click", () => select(index));
+    // Arrow keys move between tabs, as the tab pattern expects.
+    item.tab.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      select((index + step + views.length) % views.length, { focus: true });
+    });
+  });
+
+  const mapped = rows.filter((row) => row.line !== null);
+  dialog.replaceChildren(
+    el("div", { class: "heat-head" }, [
+      el("div", { class: "fit-map-heading" }, [
+        el("span", { class: "fit-map-kicker" }, [
+          "Heat map",
+          sampleRole ? el("span", { class: "heat-sample-badge", text: "Sample role" }) : null,
+        ]),
+        el("h3", {
+          class: "heat-title",
+          id: "heat-dialog-title",
+          text: sampleRole || "Evidence for this role",
+        }),
+      ]),
+      closeButton,
+    ]),
+    el("p", {
+      class: "heat-summary",
+      text: `${mapped.length} requirements: ${fitTally(mapped, levels)}.` +
+        (sampleRole ? " This role is an example; the scores are Jev's real answers for it." : ""),
+    }),
+    fitTiles(mapped, levels, (row) => {
+      select(0);
+      description.reveal(row);
+    }),
+    views.length > 1
+      ? el("div", { class: "heat-tabs", role: "tablist", "aria-label": "Heat map views" },
+        views.map((item) => item.tab))
+      : null,
+    ...views.map((item) => item.view.panel)
   );
   dialog.showModal();
-  doc.scrollTop = 0;
+  select(0);
+  if (focusRow) description.reveal(focusRow);
+}
+
+// ===== Ways in =====
+/** Switch to fit mode and open the file picker in one step. Cancelling the
+ * picker leaves the composer ready for a pasted description. */
+function startUpload() {
+  if (isSending()) return;
+  startFit();
+  jdFileInput?.click();
+}
+
+document.getElementById("hero-heat-cta")?.addEventListener("click", startUpload);
+
+// The sample is a saved analysis of an invented role (built by
+// scripts/build_sample_fitmap.py from real Jev answers). Its link stays
+// hidden until that file holds a map, so the page never shows made-up scores.
+const heroSample = document.getElementById("hero-sample");
+if (heroSample) {
+  fetch("./sample-fitmap.json")
+    .then((response) => (response.ok ? response.json() : null))
+    .then((sample) => {
+      const model = fitMapModel(sample?.fitmap);
+      if (!model || !model.hasHeat) return;
+      const sampleRole = String(sample.role || "").trim() || "Sample role";
+      heroSample.hidden = false;
+      heroSample.addEventListener("click", () => openHeatMap(model, { sampleRole }));
+    })
+    .catch(() => {});
 }

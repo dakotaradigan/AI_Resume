@@ -67,6 +67,14 @@
           <a href="#chat" id="hero-jd-cta" class="hero-action hero-action--secondary">Check fit for a role</a>
           <a href="#mcp" class="hero-action hero-action--secondary">Bring your own AI</a>
         </div>
+        <div class="hero-heat">
+          <button id="hero-heat-cta" class="hero-heat-cta" type="button">
+            <span class="hero-heat-tiles" aria-hidden="true"><i data-level="3"></i><i data-level="3"></i><i data-level="3"></i><i data-level="3"></i><i data-level="2"></i><i data-level="2"></i><i data-level="2"></i><i data-level="1"></i><i data-level="1"></i><i data-level="0"></i></span>
+            Upload a JD for a quick visual heat map
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+          </button>
+          <button id="hero-sample" class="hero-heat-sample" type="button" aria-haspopup="dialog" hidden>See a sample</button>
+        </div>
       </div>
 
       <section id="chat" class="chat-section" aria-labelledby="chat-section-title">
@@ -88,6 +96,7 @@
           <div id="step-announcer" class="sr-only" role="status" aria-live="polite"></div>
           <div id="suggestions" class="chat-suggestions">
             <div class="chips">
+              <button class="chip" type="button" data-action="upload">Upload a JD for a heat map</button>
               <button class="chip" type="button">What's Dakota's background?</button>
               <button class="chip" type="button">Tell me about Dakota's AI projects</button>
               <button class="chip" type="button">What can Dakota do for my company?</button>
@@ -181,8 +190,8 @@
         </button>
         <button class="interface-card" type="button" data-explore="jd">
           <h3 class="interface-title">Compare a role</h3>
-          <p class="interface-text">Paste or upload a job description for a structured fit analysis: strengths, honest gaps, interview questions, and a heat map of the evidence.</p>
-          <span class="interface-go" aria-hidden="true">Add a JD &rarr;</span>
+          <p class="interface-text">Upload a JD for a quick visual heat map, with a written fit analysis: strengths, honest gaps, and interview questions.</p>
+          <span class="interface-go" aria-hidden="true">Upload a JD &rarr;</span>
         </button>
         <a class="interface-card" href="#mcp">
           <h3 class="interface-title">Bring your own AI</h3>

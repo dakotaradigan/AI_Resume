@@ -24,6 +24,7 @@ Backend (`backend/`):
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
 - `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, prompt-cache system blocks, model-id checks.
 - `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose. The event also echoes the description as split lines (`lines`) and each requirement's index into them (`line`), which the page's heat map draws; the MCP tool drops `lines`.
+- `app/fit_matrix.py`: the requirement matrix — a second TypeSafe request that runs beside the map and asks the same graded question once per part of the résumé (`MATRIX_COLUMNS`: current role, earlier roles, projects, education and certs), adding `columns` to the map and `sources` to each requirement. Isolated: any failure returns the map without it. `FIT_MATRIX_ENABLED=false` switches it off.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
@@ -38,6 +39,7 @@ Frontend:
 - `frontend/app.js`: chat UX, resume rendering, feedback UI, markdown rendering, job-description upload (PDF/TXT read in the browser), requirement map and heat-map dialog.
 - `frontend/vendor/pdfjs/`: vendored pdf.js (Apache-2.0), loaded on demand to read an uploaded job-description PDF in the browser. The file is never uploaded; only its text goes to `/api/jd-match`. Vendored because the CSP allows scripts from `'self'` only.
 - `frontend/styles.css`: visual system and responsive layout.
+- `frontend/sample-fitmap.json`: the saved analysis behind the home page's "See a sample" heat map, for the invented role in `data/sample_jd.txt`. Build it with `scripts/build_sample_fitmap.py` (needs `TYPESAFE_API_KEY`; real Jev answers, never hand-written scores) and rebuild after changing the résumé, the sample role, the evidence levels, or `MATRIX_COLUMNS`. While its `fitmap` is null the page hides the sample link.
 - `frontend/share-card.png`: the link-preview image behind the Open Graph and
   Twitter tags in both pages; regenerate with `scripts/build_share_card.py`
   after changing the name, kicker, or tagline.

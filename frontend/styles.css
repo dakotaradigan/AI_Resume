@@ -404,6 +404,64 @@ summary:focus-visible,
   text-shadow: none;
 }
 
+/* The heat-map invitation under the hero actions: a light pill on the
+   photograph, so the tiles keep the contrast they have in the dialog. */
+.hero-heat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 22px;
+  text-shadow: none;
+}
+
+.hero-heat-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 10px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  transition: background 140ms ease;
+}
+
+.hero-heat-cta:hover { background: #ffffff; }
+.hero-heat-cta svg { flex: none; }
+
+.hero-heat-tiles { display: inline-flex; flex: none; gap: 2px; }
+
+.hero-heat-tiles i {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--fit-0);
+}
+
+.hero-heat-tiles i[data-level="1"] { background: var(--fit-1); }
+.hero-heat-tiles i[data-level="2"] { background: var(--fit-2); }
+.hero-heat-tiles i[data-level="3"] { background: var(--fit-3); }
+
+.hero-heat-sample {
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline-on-dark-strong);
+  background: transparent;
+  color: var(--on-dark);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hero-heat-sample[hidden] { display: none; }
+.hero-heat-sample:hover { border-bottom-color: var(--on-dark); }
+
 .hero-action {
   display: inline-flex;
   align-items: center;
@@ -1475,6 +1533,53 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
 }
 .fit-map-tool[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: #ffffff; }
 
+/* Tile strip: one square per requirement, strongest first. The marks are the
+   validated --fit ramp; 3px of surface separates them. */
+.fit-tiles-block { margin-top: 14px; }
+
+.fit-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.fit-tile {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: var(--fit-0);
+  cursor: pointer;
+}
+
+.fit-tile[data-level="1"] { background: var(--fit-1); }
+.fit-tile[data-level="2"] { background: var(--fit-2); }
+.fit-tile[data-level="3"] { background: var(--fit-3); }
+
+.fit-tile:hover,
+.fit-tile:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--ink);
+}
+
+/* Two lines are reserved so naming a long requirement moves nothing. */
+.fit-tiles-tip {
+  display: -webkit-box;
+  min-height: 2.9em;
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: var(--label);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.fit-tiles-tip.is-active { color: var(--ink); font-weight: 500; }
+
 .fit-map-summary {
   margin: 12px 0 0;
   color: var(--ink);
@@ -1666,6 +1771,147 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
   line-height: 1.5;
 }
 
+.heat-sample-badge {
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--tint-ink);
+  letter-spacing: 0.08em;
+}
+
+.heat-tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.heat-tab {
+  padding: 6px 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.heat-tab:hover { border-color: var(--ink); }
+.heat-tab[aria-selected="true"] { border-color: var(--ink); background: var(--ink); color: #ffffff; }
+
+.heat-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.heat-panel[hidden] { display: none; }
+
+/* Matrix: rows are requirements, columns are parts of the résumé. A silent
+   cell (level 0) recedes to the lightest wash so the evidence stands out. */
+.fit-map-legend--matrix .fit-swatch[data-level="0"] {
+  background: var(--heat-0);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.heat-matrix-scroll {
+  min-height: 210px;
+  flex: 1 1 auto;
+  margin-top: 14px;
+  padding: 12px 4px 12px 0;
+  overflow-y: auto;
+  border-block: 1px solid var(--hairline);
+}
+
+.heat-matrix {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(var(--heat-columns, 4), 88px);
+  gap: 3px;
+  align-items: stretch;
+}
+
+.heat-matrix-row { display: contents; }
+
+.heat-matrix-corner,
+.heat-matrix-col {
+  align-self: end;
+  padding: 0 2px 6px;
+  color: var(--label);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.heat-matrix-col { text-align: center; }
+
+.heat-matrix-req {
+  display: -webkit-box;
+  align-self: center;
+  padding: 4px 12px 4px 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.heat-matrix-cell { display: flex; min-height: 38px; }
+
+.heat-cell {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: var(--heat-0);
+  cursor: pointer;
+}
+
+.heat-cell[data-level="1"] { background: var(--fit-1); }
+.heat-cell[data-level="2"] { background: var(--fit-2); }
+.heat-cell[data-level="3"] { background: var(--fit-3); }
+
+.heat-cell:hover,
+.heat-cell:focus-visible,
+.heat-cell.is-selected {
+  outline: 0;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--ink);
+}
+
+.heat-matrix-detail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.heat-matrix-detail .fit-bar { width: min(100%, 420px); }
+
+.heat-matrix-detail-req {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.heat-matrix-detail-values {
+  margin: 0;
+  color: var(--label);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .heat-doc {
   display: flex;
   min-height: 120px;
@@ -1792,8 +2038,15 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
    would show only three or four lines at a time. */
 @media (max-width: 560px) {
   .heat-dialog[open] { padding: 18px 16px 16px; overflow-y: auto; }
-  .heat-doc { flex: none; overflow-y: visible; padding-right: 0; }
+  .heat-panel { flex: none; }
+  .heat-doc,
+  .heat-matrix-scroll { flex: none; overflow-y: visible; padding-right: 0; }
   .heat-line--req { flex-direction: column; }
+  /* The requirement sits on its own line above its cells. */
+  .heat-matrix { grid-template-columns: repeat(var(--heat-columns, 4), minmax(0, 1fr)); }
+  .heat-matrix-corner { display: none; }
+  .heat-matrix-req { grid-column: 1 / -1; padding: 10px 0 2px; }
+  .fit-tile { width: 26px; height: 26px; }
 }
 
 /* ===== Resume drawer ===== */
