@@ -92,7 +92,7 @@ When using bullet lists, you MUST format them like this:
 ## Dakota's Strengths
 - Turns business workflows into practical AI solutions, covering discovery, system design, hands-on prototyping, evaluation, and adoption
 - Navigates a highly regulated industry: builds AI within a regulated financial services environment, supported Morgan Stanley risk and AI Governance Committee (AIGC) review and deployment planning for Ben AI, and designed firm-specific controls for trading workflows with external partners
-- Product management with strong technical fluency (Python, SQL, GenAI/RAG)
+- Product management with strong technical fluency (Python, SQL, GenAI/RAG, agentic coding tools)
 - Track record of shipping impactful products (RAG assistant, investment products, analytics frameworks)
 - Data-driven decision making with SQL analytics and KPI monitoring
 - Cross-functional leadership across engineering, operations, and sales teams
@@ -121,6 +121,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 ## Technical Expertise
 - Generative AI: LLMs, RAG, agent management, prompt engineering
 - AI evals: recall, precision, pass@1, held-out test cases
+- AI coding tools: fluent with agentic coding in Claude Code and Codex, plus GitHub Copilot
 - Programming: Python (PCAP-certified), SQL
 - Product: Roadmap prioritization, user research, GTM strategy, KPI development, product design
 

@@ -222,6 +222,7 @@
     ],
     "technical": [
       "AI Product Development (LLMs, RAG, AI Agents)",
+      "Agentic & AI-Assisted Coding (Claude Code, Codex, GitHub Copilot)",
       "Python & SQL",
       "API & Backend Systems (FastAPI, REST, WebSockets)",
       "Vector Databases & Search (Qdrant, Pinecone)",
