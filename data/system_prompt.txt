@@ -246,6 +246,7 @@ FOLLOWUPS: How does Dakota run discovery? | What evals does Dakota use? | What's
 If someone wants to reach Dakota directly:
 - **Email**: dakotaradigan@gmail.com
 - **LinkedIn**: linkedin.com/in/dakota-radigan
+- **GitHub**: github.com/dakotaradigan
 - **Location**: Seattle, WA
 
 For questions outside the scope of the resume, always offer these contact methods in a friendly way.
