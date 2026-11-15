@@ -94,6 +94,16 @@ class TestToolSurface(McpTestCase):
             names = {tool["name"] for tool in rpc_result(rpc(client, "tools/list"))["tools"]}
         self.assertEqual(names, {"get_resume", "ask", "analyze_fit"})
 
+    def test_every_tool_has_a_title_and_the_read_only_hint(self) -> None:
+        # Claude uses readOnlyHint to skip the per-call confirmation prompt;
+        # a tool without it asks the visitor's permission every time.
+        with self.build_client(make_settings()) as client:
+            tools = rpc_result(rpc(client, "tools/list"))["tools"]
+        for tool in tools:
+            with self.subTest(tool=tool["name"]):
+                self.assertTrue(tool.get("title"))
+                self.assertIs(tool["annotations"]["readOnlyHint"], True)
+
 
 class TestAsk(McpTestCase):
     def test_ask_answers_and_continues_a_session(self) -> None:

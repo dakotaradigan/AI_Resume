@@ -222,7 +222,7 @@
         <div class="mcp-copy">
           <h2 id="mcp-title" class="section-title">Built for humans and agents</h2>
           <p class="mcp-lede">Most resumes are documents designed for people to read. This one is also available as structured data through MCP, so compatible AI tools can evaluate my experience directly.</p>
-          <p class="mcp-note">The MCP server doesn't run my AI assistant for you. It exposes my resume — experience, projects, skills, education, certifications — as structured, AI-readable data, and your own AI does the reasoning: comparing me against a role, mapping strengths and gaps, or preparing interview questions.</p>
+          <p class="mcp-note">Your AI gets three tools: read my resume as structured data, ask my assistant a question, or analyze my fit for a job description. It does its own reasoning on top.</p>
         </div>
         <div class="mcp-endpoint-card">
           <span class="mcp-panel-label">Remote MCP server &middot; streamable HTTP &middot; no auth</span>
@@ -230,10 +230,15 @@
             <code class="mcp-endpoint" id="mcp-endpoint">https://www.dakotaradigan.io/mcp</code>
             <button id="mcp-copy" class="mcp-copy-btn" type="button">Copy</button>
           </div>
-          <p class="mcp-flow" aria-label="How the MCP connection works">
-            <span>your AI client</span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span><code>get_resume</code></span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span>structured career data</span><span class="mcp-flow-arrow" aria-hidden="true">&rarr;</span><span>your AI reasons</span>
-          </p>
-          <a class="home-link" href="./how-it-works.html#connect-mcp">Connection instructions &rarr;</a>
+          <div class="mcp-steps">
+            <h3 class="mcp-steps-title">Add to Claude.ai</h3>
+            <ol class="mcp-steps-list">
+              <li>Go to <strong>Customize &rarr; Connectors &rarr; + &rarr; Add custom connector</strong>.</li>
+              <li>Paste the URL above.</li>
+            </ol>
+            <p class="mcp-steps-note">Free plans allow one custom connector. Paid plans allow more.</p>
+          </div>
+          <a class="home-link" href="./how-it-works.html#connect-mcp">Claude Code and other clients &rarr;</a>
         </div>
       </div>
     </section>
