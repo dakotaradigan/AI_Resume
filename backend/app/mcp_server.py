@@ -148,6 +148,7 @@ def build_mcp_server():
     ask, and analyze_fit (both guarded and metered like the page)."""
     from mcp.server.fastmcp import FastMCP
     from mcp.server.transport_security import TransportSecuritySettings
+    from mcp.types import ToolAnnotations
 
     server = FastMCP(
         "dakota-resume",
@@ -172,12 +173,19 @@ def build_mcp_server():
         enable_dns_rebinding_protection=False
     )
 
-    @server.tool()
+    # No tool changes anything the caller owns (ask and analyze_fit spend
+    # server-side quota, which is not caller data), so all three are
+    # read-only. Clients such as Claude use the hint to group the tools and
+    # skip a confirmation prompt per call. openWorldHint=False: the domain
+    # is this résumé, not outside systems reached on the caller's behalf.
+    read_only = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
+
+    @server.tool(title="Get resume", annotations=read_only)
     def get_resume() -> dict:
         """Dakota Radigan's full resume as structured JSON (phone number excluded)."""
         return load_resume_json_public()
 
-    @server.tool()
+    @server.tool(title="Ask the resume agent", annotations=read_only)
     async def ask(question: str, session_id: str | None = None) -> dict:
         """Ask Dakota's resume agent a question and get its answer.
 
@@ -186,7 +194,7 @@ def build_mcp_server():
         conversation."""
         return await _run_tool("ask", lambda: _ask_impl(question, session_id))
 
-    @server.tool()
+    @server.tool(title="Analyze job fit", annotations=read_only)
     async def analyze_fit(job_description: str, session_id: str | None = None) -> dict:
         """Analyze Dakota's fit for a pasted job description.
 

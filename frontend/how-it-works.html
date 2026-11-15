@@ -167,7 +167,7 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
       <p><code>get_resume</code> keeps the data-only path, so any compatible MCP client that supports remote servers gets the same structured access and what its AI concludes is up to it. The resume is also machine-readable without MCP: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth.</p>
       <p><strong>To connect a compatible client,</strong> add a remote MCP server with this URL (streamable-HTTP transport, no authentication):</p>
       <pre class="hiw-pre">https://www.dakotaradigan.io/mcp</pre>
-      <p><strong>Claude (claude.ai or desktop):</strong> Settings → Connectors → <em>Add custom connector</em>, then paste the URL above.</p>
+      <p><strong>Claude (claude.ai or desktop):</strong> Customize → Connectors → + → <em>Add custom connector</em>, then paste the URL above. Free plans allow one custom connector; paid plans allow more.</p>
       <p><strong>Claude Code (terminal):</strong></p>
       <pre class="hiw-pre">claude mcp add --transport http resume https://www.dakotaradigan.io/mcp</pre>
       <p>Then ask your assistant something like <em>"Using the resume tool, is Dakota a fit for this role?"</em> Other MCP-compatible clients that support remote servers work the same way.</p>
