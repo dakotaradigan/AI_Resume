@@ -928,6 +928,15 @@ const PROJECT_CARDS = [
     actionLabel: "Ask my AI about it",
   },
   {
+    match: "RFP Agentic System",
+    title: "RFP Agentic System",
+    blurb:
+      "Good RFP and DDQ answers depend on institutional knowledge that lives with SMEs and in past responses. This custom agentic system for a financial-services RFP team coordinates tools, memory, reusable skills, and a context layer to draft responses from approved content, with quality checks and SME review. In UAT, with calibrated evals running alongside it.",
+    tags: ["agentic orchestration", "tools + memory", "reusable skills", "context layer", "calibrated evals"],
+    ask: "Tell me about the RFP Agentic System",
+    actionLabel: "Ask my AI about it",
+  },
+  {
     standalone: true,
     title: "Solution Manager Toolkit",
     blurb:

@@ -37,15 +37,15 @@
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
       "role": "Vice President, AI Strategy, Senior Product Manager",
-      "duration": "Jul 2026 - Present",
+      "duration": "Sep 2026 - Present",
       "location": "Seattle, WA",
       "type": "Full-time",
       "description": "AI product leader translating business workflows into production AI systems through discovery, system design, hands-on building, evaluation, and adoption. Experience developing retrieval-based AI agents and agentic workflows within a regulated financial services environment.",
       "achievements": [
         "Lead AI product discovery and co-design with business teams and SMEs, turning operational problems and institutional knowledge into requirements, reusable skills, and testable solutions.",
         "Built and deployed BenAI, an AI agent for benchmark research combining RAG, function calling, and business rules over internal data; supported Morgan Stanley risk and AI Governance Committee (AIGC) review.",
-        "Built a custom RFP & DDQ application (in UAT): an agentic workflow whose orchestrator completes questionnaires for existing and prospective clients, coordinating retrieval over approved content, quality checks, and SME review.",
-        "Lead evaluation-driven development: human-graded, calibrated LLM-as-judge evals run alongside BenAI and the RFP & DDQ app, tracking precision, recall, F1, pass@k, pass^k to find failure modes and refine prompts and workflows.",
+        "Built the RFP Agentic System (in UAT), complex custom RFP and DDQ tooling for the firm's RFP team: an orchestrator coordinates tools, memory, reusable skills, and a context layer to complete questionnaires for existing and prospective clients, with retrieval over approved content, quality checks, and SME review.",
+        "Lead evaluation-driven development: human-graded, calibrated LLM-as-judge evals run alongside BenAI and the RFP Agentic System, tracking precision, recall, F1, pass@k, pass^k to find failure modes and refine prompts and workflows.",
         "Serve as an internal AI advisor to senior leaders and departments, steering AI roadmaps and educating executives through technology presentations and demos."
       ],
       "technologies": ["Python", "RAG", "GenAI", "AI Evals", "AI Strategy", "Product Strategy", "Cross-functional Leadership"]
@@ -53,7 +53,7 @@
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
       "role": "Vice President, Senior Product Manager",
-      "duration": "Jan 2024 - Jul 2026",
+      "duration": "Jan 2025 - Sep 2026",
       "location": "Seattle, WA",
       "type": "Full-time",
       "description": "Led product strategy and technical partnerships for investment solutions at a leading direct indexing firm.",
@@ -67,7 +67,7 @@
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
       "role": "Vice President, Product Manager",
-      "duration": "Jan 2023 - Jan 2024",
+      "duration": "Jan 2023 - Jan 2025",
       "location": "Seattle, WA",
       "type": "Full-time",
       "description": "Drove product innovation and cross-functional alignment for investment platform features.",
@@ -94,7 +94,7 @@
     },
     {
       "company": "Parametric Portfolio (Morgan Stanley)",
-      "role": "Supervisor, Account Onboarding",
+      "role": "Manager, Account Onboarding",
       "duration": "Jul 2019 - Jan 2021",
       "location": "Seattle, WA",
       "type": "Full-time",
@@ -208,6 +208,27 @@
           "Security Guardrails - prompt injection protection, input sanitization, output validation"
         ]
       }
+    },
+    {
+      "name": "RFP Agentic System: Custom RFP and DDQ Tooling",
+      "tagline": "A full-scale agentic system that drafts RFP and DDQ responses for a financial-services RFP team, now in UAT",
+      "tech_stack": ["Agentic Orchestration", "Tools", "Memory", "Reusable Skills", "Context Layer", "Retrieval over Approved Content", "Calibrated LLM-as-Judge Evals"],
+      "description": "Complex, custom RFP tooling Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley) for the firm's RFP team. It completes requests for proposal (RFPs) and due diligence questionnaires (DDQs) for existing and prospective clients. It is an agentic system, not a chatbot: an orchestrator coordinates tools, memory, reusable skills, and a context layer, drawing on approved content, with quality checks and SME review. Currently in UAT.",
+      "highlights": [
+        "An orchestrator coordinates tools, memory, reusable skills, and a context layer instead of one large prompt",
+        "Keeps the institutional knowledge an answer depends on, not just the text of past answers: decision rules and their exceptions, product metadata, and the surrounding source context, captured from SME discussions and historical RFPs",
+        "Answers draw on firm-approved content, with quality checks and SME review, as a regulated industry requires",
+        "Reusable drafting skills co-designed with SMEs, so the team builds AI fluency and improves the system themselves",
+        "Evaluation-driven: human grading plus an LLM judge calibrated against it, run continuously on UAT traffic and on held-out RFP cases, tracking precision, recall, F1, pass@k, and pass^k"
+      ],
+      "problem_solved": "A good RFP or DDQ answer depends on institutional knowledge (decision rules, their exceptions, product details) that lives with SMEs and in past responses, not just in the text of past answers.",
+      "impact": "In UAT with the firm's RFP team: a full-scale agentic system that drafts responses from approved content for SME review.",
+      "context": "Built at Parametric Portfolio (Morgan Stanley) in his AI Strategy role",
+      "timeframe": "2026",
+      "repo_url": "",
+      "demo_url": "",
+      "images": [],
+      "detailed_description_file": "rfp_application.md"
     }
   ],
 

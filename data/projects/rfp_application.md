@@ -1,6 +1,6 @@
-# RFP & DDQ Application and AI Strategy Work
+# RFP Agentic System and AI Strategy Work
 ## Overview & Status
-A custom RFP & DDQ application Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley). It completes RFPs (requests for proposal) and DDQs (due diligence questionnaires) for existing and prospective clients, and is currently in UAT (user acceptance testing). It is an agentic workflow, not a chatbot: instead of one large prompt, an orchestrator coordinates separate steps for the opportunity context, approved content, reusable skills, quality checks, and SME review. It sits alongside Ben AI, his benchmark research AI agent that is already deployed in production.
+The RFP Agentic System is complex, custom RFP and DDQ tooling Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley): a full-scale solution for the firm's RFP team. It completes RFPs (requests for proposal) and DDQs (due diligence questionnaires) for existing and prospective clients, and is currently in UAT (user acceptance testing). It is an agentic system, not a chatbot: instead of one large prompt, an orchestrator coordinates tools, memory, reusable skills, and a context layer, with separate steps for the opportunity context, approved content, quality checks, and SME review. It sits alongside Ben AI, his benchmark research AI agent that is already deployed in production.
 
 ## How the Orchestrator Works
 The orchestrator treats each RFP or DDQ as a set of coordinated parts rather than a single generation step:
@@ -25,7 +25,7 @@ Evals are central to how Dakota builds. He refined prompts and workflow behavior
 - Consistency
 - Remaining review needs: what still requires an SME
 
-Dakota leads evaluation-driven development for both the RFP & DDQ application and Ben AI. The evals run continuously alongside each app (on the RFP & DDQ application's UAT traffic and on Ben AI's production traffic) and combine two kinds of grading:
+Dakota leads evaluation-driven development for both the RFP Agentic System and Ben AI. The evals run continuously alongside each app (on the RFP Agentic System's UAT traffic and on Ben AI's production traffic) and combine two kinds of grading:
 - **Human grading**: people grade responses directly
 - **Calibrated LLM-as-judge**: an LLM judge whose verdicts are checked against the human grades, so its scores can be trusted at scale
 
