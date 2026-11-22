@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 os.environ["USE_RAG"] = "false"
 
 from anthropic import AnthropicError
-from app import chat_service, content, identity, llm, session_store
+from app import chat_service, content, identity, input_guard, llm, session_store
 from app import main as app_main
 from app.config import Settings
 from app.constants import GENERIC_CHAT_ERROR
@@ -183,6 +183,9 @@ class ChatStreamTestCase(unittest.TestCase):
         log_patcher = patch.object(chat_service, "log_query")
         log_patcher.start()
         self.addCleanup(log_patcher.stop)
+        guard_patcher = offline_input_guard()
+        guard_patcher.start()
+        self.addCleanup(guard_patcher.stop)
 
     def tearDown(self) -> None:
         session_store.reset_session_store()
@@ -691,6 +694,17 @@ def typesafe_settings() -> Settings:
 def typesafe_http(handler) -> httpx.AsyncClient:
     """httpx client whose transport is an in-process handler — no network."""
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+def offline_input_guard():
+    """Give the input guard a Jev client that answers 503. A test that sets a
+    TypeSafe key for another feature then never reaches the network through
+    the guard: it fails open, as it would in production. Tests of the guard
+    patch it on purpose."""
+    return patch.object(
+        input_guard, "typesafe_http_client",
+        return_value=typesafe_http(lambda request: httpx.Response(503)),
+    )
 
 
 def typesafe_answer(p_complex: float) -> dict:

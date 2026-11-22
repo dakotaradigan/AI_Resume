@@ -32,7 +32,13 @@ from app.chat_service import (
     split_followups,
 )
 from app.config import Settings
-from app.constants import BUSY_MESSAGE, GENERIC_CHAT_ERROR, JD_LIMIT_MESSAGE, JD_SENTINEL
+from app.constants import (
+    BUSY_MESSAGE,
+    GENERIC_CHAT_ERROR,
+    JD_BLOCKED_MESSAGE,
+    JD_LIMIT_MESSAGE,
+    JD_SENTINEL,
+)
 from app.content import (
     load_jd_match_prompt,
     load_resume_context,
@@ -41,6 +47,7 @@ from app.content import (
 )
 from app.fit_map import build_fit_map
 from app.identity import get_client_ip
+from app.input_guard import is_blocked
 from app.llm import (
     build_api_messages,
     make_anthropic_client,
@@ -132,6 +139,13 @@ async def prepare_jd_turn(
             status_code=429,
             detail="Too many fit analyses at once. Please wait a few minutes and try again.",
         ))
+
+    # Before the JD unit is reserved, so a false positive costs the visitor
+    # nothing; the rate limit above still caps probing. The raw text is
+    # checked, not the sanitized one: a fake </job_description> tag is
+    # itself a sign of an attack. A brief carries no new posting.
+    if payload.mode != "brief" and await is_blocked(ctx.message, "jd", settings):
+        await _reject(HTTPException(status_code=400, detail=JD_BLOCKED_MESSAGE))
 
     history = await store.get_history(ctx.conversation_key)
 

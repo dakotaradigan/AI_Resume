@@ -15,6 +15,7 @@ from app import chat_service
 from app.chat_service import (
     EMPTY_REPLY_FALLBACK,
     UNEXPECTED_ERROR_MESSAGE,
+    persist_blocked_turn,
     persist_cached_reply,
     persist_chat,
     prepare_generation,
@@ -24,9 +25,10 @@ from app.chat_service import (
     sse,
     starter_cache_key,
 )
-from app.constants import BUSY_MESSAGE, GENERIC_CHAT_ERROR
+from app.constants import BLOCKED_CHAT_REPLY, BUSY_MESSAGE, GENERIC_CHAT_ERROR
 from app.dependencies import app_settings, rag_pipeline
 from app.identity import set_visitor_cookie
+from app.input_guard import InputBlocked
 from app.llm import (
     build_api_messages,
     make_anthropic_client,
@@ -116,6 +118,15 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             logger.exception("Failed to load prompt or resume data")
             await _refund_on_error()
             yield sse("error", {"detail": GENERIC_CHAT_ERROR})
+            return
+        except InputBlocked:
+            await persist_blocked_turn(store, settings, ctx.conversation_key, message, today)
+            yield sse("delta", {"text": BLOCKED_CHAT_REPLY})
+            yield sse("done", {
+                "reply": BLOCKED_CHAT_REPLY, "used_rag": False, "sources": [],
+                "session_id": session_id, "model": "", "followups": [],
+                "quota_remaining": quota_remaining,
+            })
             return
         yield sse("status", {
             "stage": "rag_search", "state": "done",

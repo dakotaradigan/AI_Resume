@@ -25,6 +25,7 @@ Backend (`backend/`):
 - `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, prompt-cache system blocks, model-id checks.
 - `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose. The event also echoes the description as split lines (`lines`) and each requirement's index into them (`line`), which the page's heat map draws; the MCP tool drops `lines`.
 - `app/fit_matrix.py`: the requirement matrix — a second TypeSafe request that runs beside the map and asks the same graded question once per part of the résumé (`MATRIX_COLUMNS`: current role, earlier roles, projects, education and certs), adding `columns` to the map and `sources` to each requirement. Isolated: any failure returns the map without it. `FIT_MATRIX_ENABLED=false` switches it off.
+- `app/input_guard.py`: the input guard — one TypeSafe request of yes/no (Noul) questions that asks Jev whether visitor text is an attack before Claude reads it: a chat message (take control of the assistant, pull out its instructions, get harmful content) or a pasted JD (instructions aimed at the AI reader). `decide_action` turns the probabilities into allow, flag or block. Chat runs it beside retrieval and routing (no added latency) and answers a block with `BLOCKED_CHAT_REPLY`, keeping the text out of history; a JD is checked before its JD unit is reserved and refused with a 400. Fails open: Jev off, slow or down lets the text through, and the system prompt's instruction firewall still applies.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
@@ -91,6 +92,7 @@ Model routing (optional, defaults provided):
   default; `ANTHROPIC_MODEL` is used only when Jev's probability for
   `complex` reaches the threshold in `llm.py`, or when the router fails.
   The same key enables the requirement map on fit analyses (`fit_map.py`)
+  and the input guard (`input_guard.py`)
 
 Optional RAG:
 - `USE_RAG=true`

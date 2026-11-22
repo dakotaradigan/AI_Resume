@@ -20,9 +20,15 @@ from fastapi import HTTPException, Request
 from rag import RAGPipeline
 
 from app.config import Settings
-from app.constants import BUSY_MESSAGE, GENERIC_CHAT_ERROR, IP_DAILY_LIMIT_MESSAGE
+from app.constants import (
+    BLOCKED_CHAT_REPLY,
+    BUSY_MESSAGE,
+    GENERIC_CHAT_ERROR,
+    IP_DAILY_LIMIT_MESSAGE,
+)
 from app.content import load_resume_context, load_system_prompt
 from app.identity import get_client_ip, resolve_visitor_id
+from app.input_guard import InputBlocked, is_blocked
 from app.llm import (
     build_api_messages,
     estimate_cost_usd,
@@ -325,12 +331,16 @@ async def prepare_generation(
     client: AsyncAnthropic,
     settings: Settings,
 ) -> tuple[list[dict[str, Any]], bool, list[dict[str, Any]], str, str]:
-    """Run context retrieval and model routing concurrently (routing must not
-    add serial time-to-first-token)."""
-    (system, used_rag, sources), (model_id, route_reason) = await asyncio.gather(
+    """Run context retrieval, model routing and the input guard concurrently
+    (none of them may add serial time-to-first-token). Raises InputBlocked
+    when the guard blocks the message."""
+    (system, used_rag, sources), (model_id, route_reason), blocked = await asyncio.gather(
         asyncio.to_thread(build_chat_context, message, rag_pipeline, settings),
         route_model(message, client, settings),
+        is_blocked(message, "chat", settings),
     )
+    if blocked:
+        raise InputBlocked
     return system, used_rag, sources, model_id, route_reason
 
 
@@ -402,6 +412,29 @@ async def persist_cached_reply(
     )
 
 
+async def persist_blocked_turn(
+    store: SessionStore,
+    settings: Settings,
+    conversation_key: str,
+    message: str,
+    today: str,
+) -> None:
+    """Bookkeeping for a message the input guard blocked.
+
+    No model was called, so the daily model unit goes back. The chat-quota
+    unit stays spent: probing the guard costs the prober. Neither the message
+    nor the reply enters history, or the blocked text would reach Claude as a
+    prior turn on the visitor's next message. Analytics keeps it, marked
+    "blocked", so false positives can be reviewed."""
+    await store.release_daily_conversation(today)
+    await asyncio.to_thread(
+        log_query,
+        anonymize_session_id(conversation_key, settings.session_hash_secret),
+        message,
+        BLOCKED_CHAT_REPLY,
+        route_reason="blocked",
+    )
+
 
 @dataclass(frozen=True)
 class JsonChatResult:
@@ -465,6 +498,12 @@ async def run_json_chat_turn(
         logger.exception("Failed to load prompt or resume data")
         await _refund_on_error()
         raise HTTPException(status_code=500, detail=GENERIC_CHAT_ERROR) from exc
+    except InputBlocked:
+        await persist_blocked_turn(store, settings, ctx.conversation_key, message, today)
+        return JsonChatResult(
+            reply=BLOCKED_CHAT_REPLY, session_id=session_id, visitor_id=ctx.visitor_id,
+            sources=[], used_rag=False,
+        )
 
     # Same routed-model fallback as the streaming path: a failure on the
     # cheaper model retries once on the known-good primary model.

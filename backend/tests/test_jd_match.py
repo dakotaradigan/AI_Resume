@@ -21,6 +21,7 @@ from tests.test_chat_stream import (
     FakeAnthropic,
     FakeStreamingMessages,
     make_settings,
+    offline_input_guard,
     parse_sse,
     system_text,
 )
@@ -56,6 +57,9 @@ class JDMatchTestCase(unittest.TestCase):
         log_patcher = patch.object(chat_service, "log_query")
         log_patcher.start()
         self.addCleanup(log_patcher.stop)
+        guard_patcher = offline_input_guard()
+        guard_patcher.start()
+        self.addCleanup(guard_patcher.stop)
 
     def tearDown(self) -> None:
         session_store.reset_session_store()

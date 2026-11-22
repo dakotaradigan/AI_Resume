@@ -28,6 +28,20 @@ JD_LIMIT_MESSAGE = (
     "love to hear about the role."
 )
 
+# The input guard's replies (app/input_guard.py). The chat one is an ordinary
+# answer, so it reads like the assistant's own polite refusal; the JD one is a
+# 400 detail that tells a recruiter how to fix a false positive.
+BLOCKED_CHAT_REPLY = (
+    "I can only help with questions about Dakota's experience, projects, and "
+    "fit for a role. Try asking about a skill, a project, or how he'd fit "
+    "your team."
+)
+
+JD_BLOCKED_MESSAGE = (
+    "This job description includes text aimed at the AI assistant rather than "
+    "at applicants, so it wasn't analyzed. Remove that text and try again."
+)
+
 PDF_LOCKED_MESSAGE = (
     "The PDF download is unlocked with the password found on Dakota's "
     "resume — the same one that unlocks unlimited chat."
