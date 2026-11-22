@@ -10,7 +10,6 @@ visitor identity because MCP clients hold no cookies.
 
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import json
 import os
@@ -95,14 +94,28 @@ class TestToolSurface(McpTestCase):
             names = {tool["name"] for tool in rpc_result(rpc(client, "tools/list"))["tools"]}
         self.assertEqual(names, {"get_resume", "ask", "analyze_fit"})
 
+    def test_every_tool_has_a_title_and_the_read_only_hint(self) -> None:
+        # Claude uses readOnlyHint to skip the per-call confirmation prompt;
+        # a tool without it asks the visitor's permission every time.
+        with self.build_client(make_settings()) as client:
+            tools = rpc_result(rpc(client, "tools/list"))["tools"]
+        for tool in tools:
+            with self.subTest(tool=tool["name"]):
+                self.assertTrue(tool.get("title"))
+                self.assertIs(tool["annotations"]["readOnlyHint"], True)
+
 
 class TestAsk(McpTestCase):
     def test_ask_answers_and_continues_a_session(self) -> None:
-        with self.build_client(make_settings()) as client:
-            first = tool_json(mcp_call(client, "ask", {"question": "Does Dakota know Python?"}))
+        ip = "203.0.113.9"
+        with self.build_client(self.trusted()) as client:
+            first = tool_json(mcp_call(
+                client, "ask", {"question": "Does Dakota know Python?"}, ip=ip,
+            ))
             second = tool_json(mcp_call(
                 client, "ask",
-                {"question": "What else?", "session_id": first["session_id"]}, req_id=2,
+                {"question": "What else?", "session_id": first["session_id"]},
+                req_id=2, ip=ip,
             ))
         self.assertEqual(first["reply"], REPLY)
         self.assertEqual(first["session_id"], second["session_id"])
@@ -110,6 +123,37 @@ class TestAsk(McpTestCase):
         # The second turn carries the first exchange as history.
         roles = [m["role"] for m in FakeAnthropic.messages_api.create_calls[1]["messages"]]
         self.assertEqual(roles, ["user", "assistant", "user"])
+
+    def test_another_caller_reusing_a_session_id_gets_no_history(self) -> None:
+        # MCP callers are language models, and a model may invent a session
+        # id instead of passing back the one it was given. Two callers that
+        # both pick "session-1" must not read each other's conversation.
+        with self.build_client(self.trusted()) as client:
+            tool_json(mcp_call(
+                client, "ask",
+                {"question": "My marker is ZEBRA-42.", "session_id": "session-1"},
+                ip="203.0.113.9",
+            ))
+            tool_json(mcp_call(
+                client, "ask",
+                {"question": "What did I say?", "session_id": "session-1"},
+                req_id=2, ip="203.0.113.10",
+            ))
+        other_callers_turn = FakeAnthropic.messages_api.create_calls[1]["messages"]
+        self.assertEqual([m["role"] for m in other_callers_turn], ["user"])
+        self.assertNotIn("ZEBRA-42", json.dumps(other_callers_turn))
+
+    def test_no_conversation_memory_without_a_trustworthy_client_ip(self) -> None:
+        # With no identity to bind a conversation to, a session id alone
+        # must not continue one: it would be a bearer token again.
+        with self.build_client(make_settings()) as client:
+            first = tool_json(mcp_call(client, "ask", {"question": "Does Dakota know Python?"}))
+            tool_json(mcp_call(
+                client, "ask",
+                {"question": "What else?", "session_id": first["session_id"]}, req_id=2,
+            ))
+        roles = [m["role"] for m in FakeAnthropic.messages_api.create_calls[1]["messages"]]
+        self.assertEqual(roles, ["user"])
 
     def test_ask_binds_the_free_quota_to_the_client_ip(self) -> None:
         settings = self.trusted(free_chat_limit=1)
@@ -164,7 +208,12 @@ class TestAnalyzeFit(McpTestCase):
     def test_analysis_on_the_primary_model_with_the_jd_fenced(self) -> None:
         with self.build_client(make_settings()) as client:
             result = tool_json(mcp_call(client, "analyze_fit", {"job_description": REALISTIC_JD}))
-            history = asyncio.run(session_store.get_session_store().get_history(result["session_id"]))
+            # Stored under "<visitor id>:<session id>".
+            (history,) = [
+                stored
+                for key, stored in session_store.get_session_store()._messages.items()
+                if key.endswith(":" + result["session_id"])
+            ]
         self.assertEqual(result["analysis"], ANALYSIS)
         self.assertNotIn("requirement_map", result)
         call = FakeAnthropic.messages_api.create_calls[0]
@@ -193,8 +242,8 @@ class TestAnalyzeFit(McpTestCase):
         self.assertIn("Invalid arguments", text)
 
     def test_requirement_map_rides_along_when_jev_is_configured(self) -> None:
-        async def fake_fit_map(sanitized, resume_context, settings):
-            return {"requirements": [{"text": "SQL", "level": 3}]}
+        async def fake_fit_map(sanitized, resume_context, settings, **_kwargs):
+            return {"requirements": [{"text": "SQL", "level": 3}], "lines": ["- SQL"]}
 
         settings = dataclasses.replace(make_settings(), typesafe_api_key="test-typesafe-key")
         with (
@@ -203,6 +252,8 @@ class TestAnalyzeFit(McpTestCase):
         ):
             result = tool_json(mcp_call(client, "analyze_fit", {"job_description": REALISTIC_JD}))
         self.assertEqual(result["requirement_map"]["requirements"][0]["text"], "SQL")
+        # The description is not echoed back to the caller that sent it.
+        self.assertNotIn("lines", result["requirement_map"])
 
 
 if __name__ == "__main__":

@@ -203,7 +203,7 @@ python evals/scripts/run_eval.py --base-url http://localhost:8000  # localhost
 
 # Option B: Pull production data (requires ADMIN_TOKEN)
 curl -H "X-Admin-Token: $ADMIN_TOKEN" \
-  "https://chat.dakotaradigan.io/admin/analytics/export?file=queries" \
+  "https://www.dakotaradigan.io/admin/analytics/export?file=queries" \
   > evals/datasets/production_queries.jsonl
 
 # Step 2: Run judges on the data

@@ -18,7 +18,11 @@ def require_admin(request: Request, x_admin_token: str | None, settings: Setting
     development are allowed; everywhere else the endpoint fails closed.
     """
     if settings.admin_token:
-        if not hmac.compare_digest(x_admin_token or "", settings.admin_token):
+        # Compared as bytes: compare_digest raises TypeError for a str with
+        # non-ASCII characters, which turned a wrong token into a 500.
+        if not hmac.compare_digest(
+            (x_admin_token or "").encode("utf-8"), settings.admin_token.encode("utf-8")
+        ):
             raise HTTPException(status_code=401, detail="Unauthorized.")
         return
     client_host = request.client.host if request.client else ""

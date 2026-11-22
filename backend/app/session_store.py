@@ -356,9 +356,9 @@ class SessionStore:
     async def release_scoped_limit(self, key: str, scope: str, day_key: str) -> None:
         """Return a unit taken by check_and_increment_scoped_limit (floor 0).
 
-        Called when generation fails or is cancelled after the unit was
-        reserved — a visitor must never lose budget for an analysis that
-        was never delivered.
+        Called when generation fails on our side after the unit was
+        reserved: a visitor must never lose budget to an upstream error. A
+        client disconnect is not such a failure and keeps the unit spent.
         """
         if self._redis is not None:
             script = """
@@ -427,7 +427,9 @@ class SessionStore:
     async def reserve_daily_conversation(self, day_key: str, limit: int) -> bool:
         """Atomically reserve one unit of the global daily budget BEFORE the
         model call. Returns False once the cap is reached. Callers must
-        release_daily_conversation() if generation fails or is cancelled."""
+        release_daily_conversation() if generation fails on our side, and
+        only then: a client disconnect keeps the unit spent, because the
+        model call is already billed."""
         if self._redis is not None:
             script = """
             local key = KEYS[1]
@@ -451,7 +453,7 @@ class SessionStore:
             return True
 
     async def release_daily_conversation(self, day_key: str) -> None:
-        """Return a reserved unit after a failed or cancelled generation."""
+        """Return a reserved unit after a generation that failed on our side."""
         if self._redis is not None:
             script = """
             local current = tonumber(redis.call('GET', KEYS[1]) or '0')

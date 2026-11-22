@@ -136,8 +136,8 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
 
     <section class="hiw-section" id="requirement-map">
       <h2 class="hiw-section-title">Requirement map: judgments as data</h2>
-      <p>A pasted job description gets two answers at once. Claude writes the fit analysis in prose. In parallel, Jev receives the résumé and every candidate line of the posting in one request and answers two typed questions per line: is this a requirement at all, and how well does the résumé document it, on four ordered levels from "not documented" to "strong".</p>
-      <p>Jev returns a probability for each level rather than a sentence, so the page can do the rest without another model call: mark your must-haves and the map regroups; sort by evidence and it re-orders. Re-weighting is arithmetic on judgments that already exist. "Not documented" means the résumé is silent, which is a question for Dakota, not a verdict.</p>
+      <p>A job description, pasted or uploaded as a PDF, gets two answers at once. A PDF is read in your browser and only its text is sent, so the file never reaches the server. Claude writes the fit analysis in prose. In parallel, Jev receives the résumé and every candidate line of the posting in one request and answers two typed questions per line: is this a requirement at all, and how well does the résumé document it, on four ordered levels from "not documented" to "strong".</p>
+      <p>Jev returns a probability for each level rather than a sentence, so the page can do the rest without another model call: mark your must-haves and the map regroups; sort by evidence and it re-orders. Re-weighting is arithmetic on judgments that already exist. "Not documented" means the résumé is silent, which is a question for Dakota, not a verdict. The heat map is a second view of the same answers: a tile for each requirement, and the description itself with each requirement line shaded by its most likely level. Its matrix tab comes from one more request, sent at the same time: the same graded question, asked of each part of the résumé on its own, so the grid shows where the evidence for a requirement sits.</p>
       <pre class="hiw-pre">{"type": "score", "score": 2.71, "confidence": 0.82,
  "probabilities": {"0": 0.02, "1": 0.05, "2": 0.13, "3": 0.80},
  "legend": {"0": "Not documented", "1": "Adjacent", "2": "Partial", "3": "Strong"}}</pre>
@@ -167,7 +167,7 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
       <p><code>get_resume</code> keeps the data-only path, so any compatible MCP client that supports remote servers gets the same structured access and what its AI concludes is up to it. The resume is also machine-readable without MCP: <a href="/llms.txt">/llms.txt</a> is rendered live from the same source of truth.</p>
       <p><strong>To connect a compatible client,</strong> add a remote MCP server with this URL (streamable-HTTP transport, no authentication):</p>
       <pre class="hiw-pre">https://www.dakotaradigan.io/mcp</pre>
-      <p><strong>Claude (claude.ai or desktop):</strong> Settings → Connectors → <em>Add custom connector</em>, then paste the URL above.</p>
+      <p><strong>Claude (claude.ai or desktop):</strong> Customize → Connectors → + → <em>Add custom connector</em>, then paste the URL above. Free plans allow one custom connector; paid plans allow more.</p>
       <p><strong>Claude Code (terminal):</strong></p>
       <pre class="hiw-pre">claude mcp add --transport http resume https://www.dakotaradigan.io/mcp</pre>
       <p>Then ask your assistant something like <em>"Using the resume tool, is Dakota a fit for this role?"</em> Other MCP-compatible clients that support remote servers work the same way.</p>
@@ -191,8 +191,7 @@ event: done     {"reply": "...", "sources": [...], "followups": [...]}</pre>
   <footer id="contact" class="site-footer">
     <div class="footer-grid">
       <div class="footer-intro">
-        <span class="footer-kicker">GET IN TOUCH</span>
-        <h2 class="footer-heading">Let's talk.</h2>
+        <h2 class="footer-heading">Let's talk</h2>
         <p class="footer-subtitle">Working on one of those problems, or hiring someone who should be? I'd like to hear about it.</p>
       </div>
       <div class="footer-links">

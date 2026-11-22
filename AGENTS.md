@@ -6,7 +6,7 @@ Model-agnostic working guide for AI coding agents in this repository.
 
 Resume Assistant is an interactive AI resume site for Dakota Radigan. It serves a static frontend from a FastAPI backend, answers recruiter-style questions through an LLM, and can optionally retrieve focused context from a Qdrant vector database using OpenAI embeddings.
 
-Live site: https://chat.dakotaradigan.io
+Live site: https://www.dakotaradigan.io
 
 Primary goals:
 - Help recruiters and hiring managers explore Dakota's background faster than a static PDF.
@@ -23,11 +23,12 @@ Backend (`backend/`):
 - `app/jd_service.py`: the fit-analysis turn shared by `/api/jd-match` and the MCP `analyze_fit` tool — guardrails and budgets, prompt assembly, persistence, and the non-streaming `run_json_jd_turn`.
 - `app/session_store.py`: async-safe session/quota/rate-limit storage (in-memory or Redis).
 - `app/llm.py`: Anthropic client construction, model routing (TypeSafe Jev or Claude classifier), sampling params, prompt-cache system blocks, model-id checks.
-- `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose.
+- `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose. The event also echoes the description as split lines (`lines`) and each requirement's index into them (`line`), which the page's heat map draws; the MCP tool drops `lines`.
+- `app/fit_matrix.py`: the requirement matrix — a second TypeSafe request that runs beside the map and asks the same graded question once per part of the résumé (`MATRIX_COLUMNS`: current role, earlier roles, projects, education and certs), adding `columns` to the map and `sources` to each requirement. Isolated: any failure returns the map without it. `FIT_MATRIX_ENABLED=false` switches it off.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
 - `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
-- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers, MCP tools (`get_resume`, and `ask`/`analyze_fit` on the shared guarded pipelines with an IP-derived visitor identity), JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
+- `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers and the request body cap, MCP tools (`get_resume`, and `ask`/`analyze_fit` on the shared guarded pipelines with an IP-derived visitor identity), JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
 - `rag/`: retrieval library — `chunking.py` (resume/project chunking), `keyword_index.py` (BM25), `pipeline.py` (`RAGPipeline`, Qdrant + embeddings + rank fusion).
 - `analytics/analytics.py`: local analytics logging (per-turn model, route, token usage, estimated cost) and export helpers.
 - `tests/`: unittest suite (`test_*.py`), including an optional Qdrant integration test.
@@ -35,8 +36,10 @@ Backend (`backend/`):
 
 Frontend:
 - `frontend/index.html`: static page shell.
-- `frontend/app.js`: chat UX, resume rendering, feedback UI, markdown rendering.
+- `frontend/app.js`: chat UX, resume rendering, feedback UI, markdown rendering, job-description upload (PDF/TXT read in the browser), requirement map and heat-map dialog.
+- `frontend/vendor/pdfjs/`: vendored pdf.js (Apache-2.0), loaded on demand to read an uploaded job-description PDF in the browser. The file is never uploaded; only its text goes to `/api/jd-match`. Vendored because the CSP allows scripts from `'self'` only.
 - `frontend/styles.css`: visual system and responsive layout.
+- `frontend/sample-fitmap.json`: the saved analysis behind the home page's "See a sample" heat map, for the invented role in `data/sample_jd.txt`. Build it with `scripts/build_sample_fitmap.py` (needs `TYPESAFE_API_KEY`; real Jev answers, never hand-written scores) and rebuild after changing the résumé, the sample role, the evidence levels, or `MATRIX_COLUMNS`. While its `fitmap` is null the page hides the sample link.
 - `frontend/share-card.png`: the link-preview image behind the Open Graph and
   Twitter tags in both pages; regenerate with `scripts/build_share_card.py`
   after changing the name, kicker, or tagline.
@@ -104,6 +107,7 @@ Optional infrastructure and controls:
 - `FREE_CHAT_LIMIT`
 - `PER_IP_DAILY_LIMIT` (per-client-IP daily cap on token-spending requests; needs `TRUST_PROXY_HEADERS=true` to take effect)
 - `TRUST_PROXY_HEADERS` / `ALLOW_UNTRUSTED_CLIENT_IPS` (a production box refuses to boot with proxy headers untrusted unless the override says it has no proxy in front; Railway only switches traffic to a deployment that answers `/health`, per `railway.json`)
+- `CLIENT_IP_HEADER` (the header the proxy sets to the visitor's address; default `x-forwarded-for`, read at its right-most entry, and any other name such as `x-real-ip` is read as one address. Every per-IP limit keys on it, so measure with `GET /admin/client-ip` before changing it)
 - `RATE_LIMIT_REQUESTS_PER_MINUTE`
 - `SESSION_MAX_AGE_SECONDS`
 - `API_TIMEOUT_SECONDS`
@@ -176,7 +180,9 @@ Security and privacy:
 - Do not commit generated analytics, local caches, `.DS_Store`, virtualenvs, or ignored eval artifacts.
 - Avoid query-string admin tokens; prefer `X-Admin-Token`.
 - Keep admin endpoints authenticated in deployed environments.
-- Do not trust `X-Forwarded-For` unless a trusted proxy overwrites it.
+- Per-IP limits are only as good as `CLIENT_IP_HEADER`. Trust a header only after `GET /admin/client-ip` shows that the proxy sets it to the visitor's address and replaces a value the caller sent.
+- Refund budget units only for failures on our side (upstream errors, rejected input). A client disconnect keeps them spent: the model call is already billed.
+- Key stored conversation data by visitor identity plus session id (`chat_service.visitor_session_key`), never by the client's session id alone.
 - Keep dependencies current, especially FastAPI, Starlette, and multipart/form parsing packages.
 - CI runs pip-audit, bandit (medium+) and a full-history gitleaks scan on every push; a red there blocks like a failing test.
 - Preserve XSS protections in the frontend markdown rendering path.
@@ -208,8 +214,8 @@ falls back to the app's Qdrant credentials, and rejects an eval URL matching
 To export production analytics for evals, use the admin header:
 
 ```bash
-curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://chat.dakotaradigan.io/admin/analytics/export?file=queries" > evals/datasets/production_queries.jsonl
-curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://chat.dakotaradigan.io/admin/analytics/export?file=feedback" > evals/datasets/production_feedback.jsonl
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/export?file=queries" > evals/datasets/production_queries.jsonl
+curl -H "X-Admin-Token: $ADMIN_TOKEN" "https://www.dakotaradigan.io/admin/analytics/export?file=feedback" > evals/datasets/production_feedback.jsonl
 ```
 
 ## Current Status

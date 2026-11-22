@@ -55,6 +55,39 @@ class TestSecurityHeaders(ChatStreamTestCase):
             ) as response:
                 assert_security_headers(self, response.headers, production=False)
 
+    def test_vendored_pdf_reader_is_served_as_javascript(self) -> None:
+        # With nosniff, a browser refuses a module or worker script whose
+        # content type is not JavaScript, and the PDF upload would fail.
+        with self.build_client(make_settings()) as client:
+            for name in ("pdf.min.mjs", "pdf.worker.min.mjs"):
+                with self.subTest(name=name):
+                    response = client.get(f"/vendor/pdfjs/{name}")
+                    self.assertEqual(response.status_code, 200)
+                    self.assertIn("javascript", response.headers["content-type"])
+                    assert_security_headers(self, response.headers, production=False)
+
     def test_production_adds_hsts(self) -> None:
         with self.build_client(make_production_settings()) as client:
             assert_security_headers(self, client.get("/health").headers, production=True)
+
+
+class TestProductionCors(ChatStreamTestCase):
+    def preflight(self, client, origin: str):
+        return client.options(
+            "/api/chat",
+            headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
+        )
+
+    def test_only_live_origins_get_credentialed_cors(self) -> None:
+        live = "https://www.dakotaradigan.io"
+        with self.build_client(make_production_settings()) as client:
+            allowed = self.preflight(client, live).headers
+            self.assertEqual(allowed["access-control-allow-origin"], live)
+            self.assertEqual(allowed["access-control-allow-credentials"], "true")
+            # A hostname with no service behind it must not keep its trust,
+            # and an unrelated origin never had any.
+            for origin in ("https://chat.dakotaradigan.io", "https://evil.example"):
+                with self.subTest(origin=origin):
+                    self.assertNotIn(
+                        "access-control-allow-origin", self.preflight(client, origin).headers
+                    )

@@ -52,9 +52,13 @@ async def unlock_chat(
             message="Chat password not configured."
         )
 
-    # Verify password (case-insensitive, constant-time comparison)
+    # Verify password (case-insensitive, constant-time comparison). Compared
+    # as bytes: compare_digest raises TypeError for a str with non-ASCII
+    # characters, which turned a wrong password into a 500.
     provided = payload.password.strip().lower()
-    if not provided or not hmac.compare_digest(provided, settings.chat_password.lower()):
+    if not provided or not hmac.compare_digest(
+        provided.encode("utf-8"), settings.chat_password.lower().encode("utf-8")
+    ):
         return UnlockResponse(
             success=False,
             message="Incorrect password. Please check Dakota's resume."

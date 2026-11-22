@@ -1,10 +1,10 @@
-# Ben AI: Intelligent Benchmark Assistant
+# Ben AI: Intelligent Benchmark Agent
 ## From Personal PoC to Production Deployment
 
 **The Journey:** Personal project (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)
 
 ## What It Does
-AI-powered chatbot that helps financial advisors instantly determine benchmark eligibility for client portfolios. Reduces complex research queries from 30+ minutes to seconds. Grounded in Salesforce data, so answers come from the system of record instead of email threads and manual searches across multiple sources.
+A tool-using AI agent that helps financial advisors instantly determine benchmark eligibility for client portfolios. It is an agent rather than a fixed pipeline: the model chooses which functions to call and calls them iteratively until it can answer, with guardrails against infinite loops and timeouts. Reduces complex research queries from 30+ minutes to seconds. Grounded in Salesforce data, so answers come from the system of record instead of email threads and manual searches across multiple sources.
 
 ## The Evolution Story
 
@@ -23,9 +23,17 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 - Integrated with existing advisor workflows
 - Built comprehensive error handling and logging
 
+## Current Status & Evaluation
+- Deployed at Parametric and continually extended to additional products and features
+- Supported Morgan Stanley risk and AI Governance Committee (AIGC) review and deployment planning, a core part of shipping AI in a highly regulated industry
+- Evals run continuously alongside production, combining human grading with an LLM-as-judge calibrated against those human grades
+- Built with evaluation-driven development: held-out test sets scored on precision, recall, and F1 (for both retrieval and answer/classification correctness), plus pass@k and pass^k for capability and reliability, used to find failure modes and refine prompts, retrieval, and workflows
+- Eval practice draws on Hamel Husain's applied evals approach
+
 ## Tech Stack
 **Backend:** FastAPI, Python
 **AI/ML:** OpenAI Responses API, RAG Pipeline, Pinecone Vector Database, text-embedding-3-small
+**Cloud & Storage:** AWS DynamoDB, AWS S3
 **Communication:** WebSockets (with REST API fallback)
 **Frontend:** JavaScript, Claude-inspired UI
 

@@ -1,4 +1,5 @@
-"""Admin endpoints: cache clearing, RAG reindexing, analytics export."""
+"""Admin endpoints: cache clearing, RAG reindexing, analytics export, and
+the client-IP report."""
 
 from __future__ import annotations
 
@@ -12,11 +13,24 @@ from fastapi.responses import PlainTextResponse
 
 from app import chat_service, content, resume_pdf
 from app.dependencies import app_settings, rag_pipeline
+from app.identity import get_client_ip
+from app.routes.health import clear_collection_check
 from app.security import require_admin
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin")
+
+# The headers a proxy may carry the visitor's address in. The report shows
+# each as this app received it.
+CLIENT_ADDRESS_HEADERS = (
+    "x-real-ip",
+    "x-forwarded-for",
+    "forwarded",
+    "cf-connecting-ip",
+    "true-client-ip",
+    "x-envoy-external-address",
+)
 
 # Reindex lock: prevent concurrent re-indexing operations (wastes API costs).
 _reindex_lock: asyncio.Lock | None = None
@@ -124,8 +138,10 @@ async def reindex_rag(
                     "last_result": result,
                 }
             )
-            # Clear cached resume data so subsequent requests use fresh data
+            # Clear cached resume data so subsequent requests use fresh data,
+            # and the cached collection state so /health/rag shows the new index.
             clear_all_caches()
+            clear_collection_check(request.app)
             logger.info(f"RAG re-index completed: {result['message']}")
             return result
         except Exception as exc:
@@ -168,3 +184,35 @@ async def export_analytics(
     return PlainTextResponse(
         path.read_text(encoding="utf-8"), media_type="application/jsonl"
     )
+
+
+
+@router.get("/client-ip")
+async def client_ip_report(
+    request: Request,
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """How this request's client address reached the app.
+
+    Every rate limit and per-IP cap keys on get_client_ip, and that is only
+    as good as CLIENT_IP_HEADER. Which header a platform puts the visitor's
+    address in, and whether it replaces a value the caller sent, differs
+    between platforms and has changed over time, so measure it:
+
+    1. Call this from a machine whose public address you know. The header
+       whose value is that address is the candidate.
+    2. Call it again sending made-up values in the candidate headers. A
+       header that comes back with your made-up value is one the caller
+       controls and must not be trusted.
+
+    Admin-only: the values include the platform's internal addresses.
+    """
+    settings = app_settings(request)
+    require_admin(request, x_admin_token, settings)
+    return {
+        "resolved_client_ip": get_client_ip(request, settings),
+        "trust_proxy_headers": settings.trust_proxy_headers,
+        "client_ip_header": settings.client_ip_header,
+        "socket_peer": request.client.host if request.client else None,
+        "received": {name: request.headers.get(name) for name in CLIENT_ADDRESS_HEADERS},
+    }

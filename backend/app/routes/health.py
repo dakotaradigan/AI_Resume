@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
 from anthropic import AnthropicError
@@ -16,6 +17,54 @@ from app.security import require_admin
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# /health/rag is public and unthrottled, and every call used to make two
+# Qdrant requests on a worker thread that chat retrieval also needs. The
+# collection state is now checked at most once per window, however often
+# the endpoint is called.
+COLLECTION_CHECK_TTL_SECONDS = 15.0
+
+
+def clear_collection_check(app: Any) -> None:
+    """Forget the cached collection state (a reindex has just changed it)."""
+    app.state.rag_collection_check = None
+
+
+async def _collection_state(request: Request, pipeline: Any) -> tuple[bool | None, int | None]:
+    """(collection_exists, points_count), at most COLLECTION_CHECK_TTL_SECONDS
+    old. A failed check is cached like any other, so a struggling vector
+    database is not hammered. The lock makes callers that arrive during a
+    check wait for its result instead of starting their own."""
+    state = request.app.state
+    if not hasattr(state, "rag_collection_lock"):
+        state.rag_collection_lock = asyncio.Lock()
+    async with state.rag_collection_lock:
+        cached = getattr(state, "rag_collection_check", None)
+        if cached and time.monotonic() - cached[0] < COLLECTION_CHECK_TTL_SECONDS:
+            return cached[1]
+
+        collection_exists: bool | None = None
+        points_count: int | None = None
+        try:
+            collection_exists = await asyncio.to_thread(
+                pipeline.qdrant_client.collection_exists,
+                collection_name=pipeline.collection_name,
+            )
+            if collection_exists:
+                count_result = await asyncio.to_thread(
+                    pipeline.qdrant_client.count,
+                    collection_name=pipeline.collection_name,
+                    exact=True,
+                )
+                points_count = int(getattr(count_result, "count", 0) or 0)
+            else:
+                points_count = 0
+        except Exception:
+            logger.exception("Failed to check RAG collection health")
+
+        result = (collection_exists, points_count)
+        state.rag_collection_check = (time.monotonic(), result)
+        return result
 
 
 @router.get("/health")
@@ -46,22 +95,7 @@ async def rag_health(request: Request) -> dict[str, Any]:
         dense_retrieval_status = str(
             getattr(pipeline, "dense_retrieval_status", "not_tested")
         )
-        try:
-            collection_exists = await asyncio.to_thread(
-                pipeline.qdrant_client.collection_exists,
-                collection_name=pipeline.collection_name,
-            )
-            if collection_exists:
-                count_result = await asyncio.to_thread(
-                    pipeline.qdrant_client.count,
-                    collection_name=pipeline.collection_name,
-                    exact=True,
-                )
-                points_count = int(getattr(count_result, "count", 0) or 0)
-            else:
-                points_count = 0
-        except Exception:
-            logger.exception("Failed to check RAG collection health")
+        collection_exists, points_count = await _collection_state(request, pipeline)
 
     vector_db_live = bool(collection_exists and (points_count or 0) > 0)
     indexes_ready = bool(

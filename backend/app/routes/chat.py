@@ -72,7 +72,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
     today = date.today().isoformat()
 
     cache_key = starter_cache_key(message)
-    history = await store.get_history(session_id)
+    history = await store.get_history(ctx.conversation_key)
     cached_reply = chat_service.get_cached_starter(cache_key) if not history else None
     quota_remaining = await store.get_remaining_quota(
         ctx.visitor_id, settings.free_chat_limit
@@ -96,7 +96,9 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             await store.release_daily_conversation(today)
             yield sse("status", {"stage": "cached", "state": "done"})
             yield sse("delta", {"text": cached_reply})
-            await persist_cached_reply(store, settings, session_id, message, cached_reply)
+            await persist_cached_reply(
+                store, settings, ctx.conversation_key, message, cached_reply
+            )
             yield sse("done", {
                 "reply": cached_reply, "used_rag": False, "sources": [],
                 "session_id": session_id, "model": "", "followups": [],
@@ -171,7 +173,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             reply_text, followups = split_followups(reply_text)
 
             await persist_chat(
-                store, settings, session_id, message, reply_text,
+                store, settings, ctx.conversation_key, message, reply_text,
                 history_was_empty=not history, cache_key=cache_key,
                 model_id=used_model, route_reason=route_reason,
                 cacheable=had_text, usage=usage_record(final),
@@ -183,11 +185,12 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                 "followups": followups, "quota_remaining": quota_remaining,
             })
         except asyncio.CancelledError:
-            # Client disconnected: close the upstream Anthropic stream (the
-            # async with does this on unwind), return the reserved daily
-            # unit, and skip all persistence.
+            # Client disconnected: the async with closes the upstream stream on
+            # unwind, and nothing is persisted. The reserved daily unit stays
+            # spent. The model call is already billed, and returning the unit
+            # let a caller read most of an answer, hang up, and never touch
+            # the daily budget.
             logger.info("Client disconnected mid-stream; skipping persistence")
-            await store.release_daily_conversation(today)
             raise
         except RateLimitError:
             logger.warning("Anthropic rate limit or spending cap hit")

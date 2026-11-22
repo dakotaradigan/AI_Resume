@@ -1,0 +1,21 @@
+Senior Product Manager, AI Platform
+
+About the role
+You will own the roadmap for the AI platform that our investment and client teams build on: retrieval, evaluation and agent tooling. You will work with engineering, compliance and client-facing teams every week.
+
+Requirements
+- 7+ years of product management experience, including at least three years shipping machine learning or large language model products to production users
+- Hands-on experience with retrieval-augmented generation, vector databases and evaluation frameworks for LLM applications
+- Fluency in SQL and Python
+- Experience in asset management, wealth management or another regulated financial-services business
+- Working knowledge of model risk management and AI governance
+- Has managed a team of five or more product managers
+- Strong cross-functional leadership and executive communication skills
+
+Nice to have
+- Experience building with the Model Context Protocol or agent frameworks
+- An MBA or CFA charter
+- Experience launching products to institutional clients
+
+Benefits
+Competitive salary, 401(k) match and hybrid work.

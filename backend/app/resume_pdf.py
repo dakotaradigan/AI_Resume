@@ -47,6 +47,15 @@ def render_resume_pdf() -> bytes:
             .replace(">", "&gt;")
         )
 
+    def contact_part(value: str) -> str:
+        # URLs show without their scheme so the contact line fits on one line;
+        # the <link> keeps them clickable in every PDF viewer.
+        if not value.startswith(("http://", "https://")):
+            return esc(value)
+        label = value.split("://", 1)[1].removeprefix("www.").rstrip("/")
+        href = esc(value).replace('"', "&quot;")
+        return f'<link href="{href}">{esc(label)}</link>'
+
     name_style = ParagraphStyle(
         "name", fontName="Helvetica", fontSize=24, leading=28,
         textColor=colors.HexColor(_PDF_TEXT), alignment=TA_LEFT,
@@ -77,9 +86,9 @@ def render_resume_pdf() -> bytes:
         Spacer(1, 4),
         Paragraph(
             " · ".join(
-                esc(part) for part in (
+                contact_part(part) for part in (
                     personal.get("location"), personal.get("email"),
-                    personal.get("linkedin"), SITE_URL,
+                    personal.get("linkedin"), personal.get("github"), SITE_URL,
                 ) if part
             ),
             contact_style,
@@ -107,7 +116,7 @@ def render_resume_pdf() -> bytes:
                 role_style,
             )
         )
-        for achievement in (job.get("achievements") or [])[:4]:
+        for achievement in (job.get("achievements") or [])[:5]:
             story.append(Paragraph(esc(achievement), bullet_style, bulletText="•"))
 
     section("Projects")

@@ -22,6 +22,8 @@ from app.fit_map import (
     extract_candidate_lines,
     fit_map_payload,
     parse_fit_map,
+    select_candidate_lines,
+    split_document_lines,
 )
 
 from tests.test_chat_stream import parse_sse, typesafe_http, typesafe_settings
@@ -102,6 +104,25 @@ class TestExtractCandidateLines(unittest.TestCase):
         post = "- Python\n- Experience with FastAPI\n- experience with fastapi\n- Go"
         self.assertEqual(extract_candidate_lines(post), ["Experience with FastAPI"])
 
+    def test_each_candidate_points_at_its_document_line(self) -> None:
+        document_lines = split_document_lines(REALISTIC_JD)
+        candidates = select_candidate_lines(document_lines)
+        self.assertEqual(
+            [candidate.text for candidate in candidates], extract_candidate_lines(REALISTIC_JD)
+        )
+        for candidate in candidates:
+            # The document keeps the bullet marker; the judged text drops it.
+            self.assertTrue(document_lines[candidate.line].endswith(candidate.text))
+        self.assertIn("Requirements:", document_lines)
+        self.assertNotIn("", document_lines)
+
+    def test_single_block_document_lines_are_its_sentences(self) -> None:
+        blob = "We need a product manager. You have shipped machine learning features."
+        self.assertEqual(
+            split_document_lines(blob),
+            ["We need a product manager.", "You have shipped machine learning features."],
+        )
+
 
 class TestFitMapPayload(unittest.TestCase):
     def test_two_typed_questions_per_line_over_one_state(self) -> None:
@@ -134,6 +155,18 @@ class TestParseFitMap(unittest.TestCase):
         self.assertEqual(len(strong["probabilities"]), len(EVIDENCE_LEVELS))
         self.assertAlmostEqual(sum(strong["probabilities"]), 1.0, places=2)
         self.assertEqual(strong["confidence"], 0.8)
+
+    def test_line_numbers_follow_the_kept_requirements(self) -> None:
+        body = jev_fit_answers(self.LINES, not_requirements={1})
+        result = parse_fit_map(self.LINES, body, line_numbers=[4, 7, 9])
+        self.assertEqual([r["line"] for r in result["requirements"]], [4, 9])
+        self.assertEqual(
+            result["level_descriptions"], [description for _, description in EVIDENCE_LEVELS]
+        )
+
+    def test_no_line_numbers_means_no_line_field(self) -> None:
+        result = parse_fit_map(self.LINES, jev_fit_answers(self.LINES))
+        self.assertNotIn("line", result["requirements"][0])
 
     def test_too_few_requirements_is_no_map(self) -> None:
         body = jev_fit_answers(self.LINES, not_requirements={1, 2})
@@ -169,6 +202,16 @@ class TestBuildFitMap(unittest.TestCase):
         self.assertEqual(seen["auth"], "Bearer test-typesafe-key")
         self.assertEqual(seen["body"]["state"]["resume"], "RESUME TEXT")
         self.assertEqual(len(result["requirements"]), len(seen["body"]["state"]["job_lines"]))
+
+    def test_map_carries_the_document_and_each_requirement_its_line(self) -> None:
+        result = self.build(
+            lambda request: httpx.Response(
+                200, json=jev_fit_answers(json.loads(request.content)["state"]["job_lines"])
+            )
+        )
+        self.assertEqual(result["lines"], split_document_lines(REALISTIC_JD))
+        for requirement in result["requirements"]:
+            self.assertTrue(result["lines"][requirement["line"]].endswith(requirement["text"]))
 
     def test_http_error_yields_no_map(self) -> None:
         self.assertIsNone(self.build(lambda _: httpx.Response(500, json={"detail": "boom"})))
@@ -228,6 +271,9 @@ class TestFitMapInAnalysisStream(JDMatchTestCase):
         # The stub scored the first two candidate lines Strong and Partial.
         self.assertEqual([item["level"] for item in payload["requirements"][:2]], [3, 2])
         self.assertEqual(len(payload["requirements"][0]["probabilities"]), 4)
+        # The heat map draws the description from the event itself.
+        first = payload["requirements"][0]
+        self.assertTrue(payload["lines"][first["line"]].endswith(first["text"]))
 
     def test_no_map_without_a_typesafe_key(self) -> None:
         with self.build_client(jd_settings()) as client:
@@ -253,9 +299,10 @@ class TestFitMapInAnalysisStream(JDMatchTestCase):
 
         with self.with_jev(handler), self.build_client(self.jev_settings()) as client:
             self.assertEqual(self.run_jd(client, REALISTIC_JD, "s1").status_code, 200)
-            self.assertEqual(len(calls), 1)
+            # One analysis makes two Jev requests: the map and the matrix.
+            self.assertEqual(len(calls), 2)
             brief = self.run_jd(client, "brief", "s1", mode="brief")
-        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(calls), 2)
         names = [name for name, _ in parse_sse(brief.text)]
         self.assertNotIn("fitmap", names)
 

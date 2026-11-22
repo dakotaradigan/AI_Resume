@@ -15,7 +15,9 @@ another's id. Only when the client IP is real: proxy headers trusted
 (Railway), or the box declared it has no proxy. Otherwise every caller
 would share the proxy's address and one caller's free turns would lock
 everyone out, so the binding fails open (a fresh identity per call, like a
-cookie-less browser) and the rate limit and daily budget still bind.
+cookie-less browser) and the rate limit and daily budget still bind. History
+is stored under the same identity, so a caller only continues its own
+conversations, and a fresh identity per call has no conversation memory.
 
 Error posture: FastMCP sends str(exception) to the client, so every tool
 runs behind _run_tool, which passes through guardrail refusals (their
@@ -133,7 +135,11 @@ async def _analyze_fit_impl(job_description: str, session_id: str | None) -> dic
     )
     result: dict[str, Any] = {"analysis": analysis, "session_id": turn_session_id}
     if fit_map:
-        result["requirement_map"] = fit_map
+        # `lines` echoes the whole description so the web page can draw its
+        # heat map. The MCP caller sent that text and has no page to draw.
+        result["requirement_map"] = {
+            key: value for key, value in fit_map.items() if key != "lines"
+        }
     return result
 
 
@@ -142,6 +148,7 @@ def build_mcp_server():
     ask, and analyze_fit (both guarded and metered like the page)."""
     from mcp.server.fastmcp import FastMCP
     from mcp.server.transport_security import TransportSecuritySettings
+    from mcp.types import ToolAnnotations
 
     server = FastMCP(
         "dakota-resume",
@@ -166,12 +173,19 @@ def build_mcp_server():
         enable_dns_rebinding_protection=False
     )
 
-    @server.tool()
+    # No tool changes anything the caller owns (ask and analyze_fit spend
+    # server-side quota, which is not caller data), so all three are
+    # read-only. Clients such as Claude use the hint to group the tools and
+    # skip a confirmation prompt per call. openWorldHint=False: the domain
+    # is this résumé, not outside systems reached on the caller's behalf.
+    read_only = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
+
+    @server.tool(title="Get resume", annotations=read_only)
     def get_resume() -> dict:
         """Dakota Radigan's full resume as structured JSON (phone number excluded)."""
         return load_resume_json_public()
 
-    @server.tool()
+    @server.tool(title="Ask the resume agent", annotations=read_only)
     async def ask(question: str, session_id: str | None = None) -> dict:
         """Ask Dakota's resume agent a question and get its answer.
 
@@ -180,7 +194,7 @@ def build_mcp_server():
         conversation."""
         return await _run_tool("ask", lambda: _ask_impl(question, session_id))
 
-    @server.tool()
+    @server.tool(title="Analyze job fit", annotations=read_only)
     async def analyze_fit(job_description: str, session_id: str | None = None) -> dict:
         """Analyze Dakota's fit for a pasted job description.
 

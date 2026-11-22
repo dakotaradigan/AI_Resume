@@ -103,8 +103,8 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
                 "followups": [], "quota_remaining": None,
             })
         except asyncio.CancelledError:
+            # Both budget units stay spent (JDTurn.release_budgets says why).
             logger.info("Client disconnected mid-analysis; skipping persistence")
-            await turn.release_budgets()
             raise
         except RateLimitError:
             logger.warning("Anthropic rate limit or spending cap hit")

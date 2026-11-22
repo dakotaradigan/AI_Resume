@@ -20,7 +20,7 @@ from pathlib import Path
 
 import requests
 
-BASE_URL = "https://chat.dakotaradigan.io"
+BASE_URL = "https://www.dakotaradigan.io"
 CHAT_ENDPOINT = f"{BASE_URL}/api/chat"
 
 # Rate limit: 20 req/min on production. Stay under with 4s between requests.

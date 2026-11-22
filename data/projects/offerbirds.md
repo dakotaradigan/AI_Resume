@@ -10,7 +10,9 @@ When asked "what is OfferBirds," lead with this vision, then the mechanics.
 
 ## Status
 
-OfferBirds is a side project Dakota is building in his free time. It is **in development and not live yet** — nothing is deployed publicly and it has no users. Frame it as "what Dakota is building," never as a launched product. Code: https://github.com/dakotaradigan/offerbirds
+OfferBirds is a side project Dakota builds in his free time. It is not an employer: his only employer is Parametric Portfolio (Morgan Stanley).
+
+It has been **live in production since September 2026** at https://offerbirds.com, running on Railway with Postgres and Redis, in **prelaunch mode**: the landing page is public, sign-up is limited to an early-access list, and it does not charge money yet. Describe it as "live in prelaunch," never as a public launch, and never claim user numbers. It is feature-complete for a closed beta and finishing a Production Readiness v1 milestone before public signup opens.
 
 ## How It Works
 
@@ -18,21 +20,40 @@ Dakota's own AI resume site (this one) is the proof of concept: recruiters chat 
 
 A recruiter opening someone's OfferBirds link can chat with an AI grounded in that person's actual background, paste a job description for a structured fit analysis, or download a PDF resume gated behind an owner-set access code — the same interaction model as Dakota's own site, available to everyone.
 
-## What's Built So Far
+## The Product Today
 
-The project is in its early build phase, ported carefully from the architecture of Dakota's single-tenant AI resume site:
+- **Onboarding**: sign in with a magic link or Google, upload a resume (PDF, Word, or pasted text), review and edit the AI-extracted profile, pick a handle, and publish an agent at {handle}.offerbirds.com
+- **The agent page**: chat grounded in the person's background, job description fit analysis, an access-code-gated PDF resume, llms.txt, and eight page themes
+- **Recruiter-side agents**: each agent has its own MCP server (get_resume, ask, analyze_fit), so a recruiter can load several candidates' agents into one AI chat and compare them
+- **Owner dashboard**: visitor analytics and usage, a private "Test your bird" chat to check answers against the draft profile before publishing, profile photo, and settings for personality, look, and privacy
+- **Publishing model**: each publish is an immutable snapshot with its own staged search index, so a half-finished edit never reaches visitors
 
-- Multi-tenant RAG core: one deployment and one vector collection serve every user ("tenant"), with tenant filtering enforced inside the retrieval layer on every operation — a tenant-isolation regression test suite proves one tenant's data can never leak into another's answers
-- Tenant-scoped session, quota, and budget storage
-- Plan-aware model routing (free plans are capped and never route to the most expensive models)
-- A local onboarding flow: sign in by email, upload or paste a resume, review the extracted profile, pick a handle, and publish an agent page
-- Per-tenant endpoints for chat, JD fit analysis, resume JSON, llms.txt, and a tenant-scoped MCP server
-- Synthetic seed tenants only — real resume data never lands in the repository
+## Architecture
+
+- **Multi-tenant RAG**: one deployment and one Qdrant collection serve every user ("tenant"), with tenant filtering enforced inside the retrieval layer on every operation. A cross-tenant leak test suite proves one tenant's data never reaches another's answers. Retrieval is hybrid: vector search fused with BM25 keyword search.
+- **Data**: PostgreSQL with Alembic migrations (run automatically before each deploy), Redis for tenant-scoped sessions, quotas, budgets, and token metering
+- **Synthetic data only in the repo**: real resume data never lands in the codebase
+
+## Cost Controls
+
+Dakota treats AI cost as a product requirement, not an afterthought:
+- Plan-aware model routing: free plans can never reach the most expensive model
+- Prompt caching on every model call site: about 90% fewer repeated input tokens, cutting a chat turn's cost by about 55-60%
+- Per-call token budgets, input-size caps, metered quotas, and an AI policy module with a concurrency ceiling, a circuit breaker, and spend estimates
+
+## Production Readiness
+
+Before opening public signup, Dakota is running a full production-readiness program:
+- Security: a written threat model, CSP hardening, CSRF origin checks, and pip-audit, bandit, gitleaks, and Trivy scans in CI
+- Privacy: a data-retention program with scheduled jobs, plus account deletion that removes a tenant across Postgres, Qdrant, Redis, and caches, with a verification sweep
+- Operations: 14 incident runbooks, metrics and alert thresholds, load testing, failure-injection testing, a log-redaction audit, and an uptime probe
+- Quality: 500+ automated tests, browser tests at phone width with accessibility checks, and a prompt-injection test suite
+- Evals: a golden-set eval harness that records and replays model calls (25 synthetic resumes, 40 chat cases, 20 job-fit cases) with blocking thresholds in CI. The first recordings are still pending, so there are no eval results to report yet.
 
 ## Why It Matters
 
-OfferBirds shows Dakota doing end-to-end product work in his spare time: taking a proven single-user concept, re-architecting it for multi-tenancy, and treating security and cost controls (tenant isolation, metered budgets, plan-based routing) as first-class product requirements rather than afterthoughts. It is product strategy, system design, and hands-on AI engineering in one project.
+OfferBirds shows Dakota doing end-to-end product work in his spare time: taking a proven single-user concept, re-architecting it for multi-tenancy, shipping it to production, and treating security, privacy, and cost controls as first-class product requirements. It is product strategy, system design, and hands-on AI engineering in one project.
 
 ## Tech Stack
 
-Python, FastAPI, PostgreSQL, Redis, Qdrant vector search, hybrid retrieval (semantic + BM25), Anthropic models with plan-aware routing, Alembic migrations, Docker, and per-tenant MCP endpoints.
+Python, FastAPI, PostgreSQL, Alembic, Redis, Qdrant vector search, hybrid retrieval (vector + BM25), Anthropic Claude models with plan-aware routing and prompt caching, per-tenant MCP servers, Docker, Railway, and GitHub Actions CI.

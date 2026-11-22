@@ -14,6 +14,7 @@ from anthropic import AnthropicError, RateLimitError
 from app import chat_service, config, identity, llm, session_store
 from app import main as app_main
 from app.constants import BUSY_MESSAGE
+from app.routes import health as health_route
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
@@ -98,10 +99,13 @@ def configured_app(**env: str):
 def make_request(
     client_host: str = "203.0.113.20",
     forwarded_for: str | None = None,
+    real_ip: str | None = None,
 ) -> Request:
     headers = []
     if forwarded_for is not None:
         headers.append((b"x-forwarded-for", forwarded_for.encode("utf-8")))
+    if real_ip is not None:
+        headers.append((b"x-real-ip", real_ip.encode("utf-8")))
     return Request({
         "type": "http",
         "method": "GET",
@@ -154,6 +158,47 @@ class TestSecurityHardening(unittest.TestCase):
                 client_host="198.51.100.10",
                 forwarded_for="spoofed-garbage",
             )
+
+            self.assertEqual(
+                identity.get_client_ip(request, config.get_settings()), "198.51.100.10"
+            )
+
+    def test_client_ip_header_defaults_to_forwarded_for(self) -> None:
+        with configured_app():
+            self.assertEqual(config.get_settings().client_ip_header, "x-forwarded-for")
+
+    def test_client_ip_reads_the_configured_header_as_one_address(self) -> None:
+        # Some platforms put the visitor's address in a header of its own and
+        # leave X-Forwarded-For holding their edge's address. Pointed at that
+        # header, the app reads it and ignores X-Forwarded-For entirely.
+        with configured_app(TRUST_PROXY_HEADERS="true", CLIENT_IP_HEADER="X-Real-IP"):
+            request = make_request(
+                client_host="198.51.100.10",
+                forwarded_for="192.0.2.1, 192.0.2.2",
+                real_ip="203.0.113.77",
+            )
+
+            self.assertEqual(
+                identity.get_client_ip(request, config.get_settings()), "203.0.113.77"
+            )
+
+    def test_client_ip_falls_back_to_the_peer_when_the_header_is_unusable(self) -> None:
+        # Missing, malformed, or a list where one address belongs: the shared
+        # socket-peer bucket, which fails closed.
+        with configured_app(TRUST_PROXY_HEADERS="true", CLIENT_IP_HEADER="x-real-ip"):
+            settings = config.get_settings()
+            for real_ip in (None, "not-an-ip", "203.0.113.77, 203.0.113.78"):
+                with self.subTest(real_ip=real_ip):
+                    request = make_request(
+                        client_host="198.51.100.10",
+                        forwarded_for="192.0.2.2",
+                        real_ip=real_ip,
+                    )
+                    self.assertEqual(identity.get_client_ip(request, settings), "198.51.100.10")
+
+    def test_client_ip_header_is_ignored_without_proxy_trust(self) -> None:
+        with configured_app(TRUST_PROXY_HEADERS="false", CLIENT_IP_HEADER="x-real-ip"):
+            request = make_request(client_host="198.51.100.10", real_ip="203.0.113.77")
 
             self.assertEqual(
                 identity.get_client_ip(request, config.get_settings()), "198.51.100.10"
@@ -303,6 +348,48 @@ class TestSecurityHardening(unittest.TestCase):
         self.assertEqual(payload["dense_retrieval_status"], "healthy")
         self.assertTrue(payload["retrieval_ready"])
         self.assertNotIn("qdrant.example", str(payload))
+
+    def test_rag_health_checks_the_collection_once_per_window(self) -> None:
+        # The endpoint is public and unthrottled. Each call used to cost the
+        # vector database two requests; now a burst costs one check.
+        calls = {"exists": 0, "count": 0}
+
+        class CountingQdrantClient:
+            def collection_exists(self, collection_name: str) -> bool:
+                calls["exists"] += 1
+                return True
+
+            def count(self, collection_name: str, exact: bool) -> SimpleNamespace:
+                calls["count"] += 1
+                return SimpleNamespace(count=7)
+
+        clock = {"now": 1000.0}
+        with (
+            configured_app(USE_RAG="true", QDRANT_URL="https://qdrant.example") as app,
+            patch.object(health_route.time, "monotonic", lambda: clock["now"]),
+        ):
+            app.state.rag_pipeline = SimpleNamespace(
+                collection_name="resume",
+                qdrant_client=CountingQdrantClient(),
+                keyword_documents_count=7,
+                keyword_index_ready=True,
+                corpus_current=True,
+                dense_retrieval_status="healthy",
+            )
+            client = TestClient(app)
+            payloads = [client.get("/health/rag").json() for _ in range(5)]
+            self.assertEqual(calls, {"exists": 1, "count": 1})
+            self.assertTrue(all(payload["points_count"] == 7 for payload in payloads))
+
+            # Past the window the next call checks again...
+            clock["now"] += health_route.COLLECTION_CHECK_TTL_SECONDS + 1
+            client.get("/health/rag")
+            self.assertEqual(calls, {"exists": 2, "count": 2})
+
+            # ...and a reindex makes the very next call check, whatever the clock.
+            health_route.clear_collection_check(app)
+            client.get("/health/rag")
+            self.assertEqual(calls, {"exists": 3, "count": 3})
 
     def test_rag_health_reports_count_mismatch_as_not_ready(self) -> None:
         class FakeQdrantClient:

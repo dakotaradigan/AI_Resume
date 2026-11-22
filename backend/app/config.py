@@ -45,7 +45,12 @@ class Settings:
     max_user_message_chars: int = 2000  # Prevent token exhaustion / abuse
     admin_token: str = ""  # Protect admin endpoints when set (recommended in prod)
     redis_url: str = ""  # Shared session store for multi-instance deployments
-    trust_proxy_headers: bool = False  # Trust X-Forwarded-For only behind a safe proxy
+    trust_proxy_headers: bool = False  # Read the client IP from client_ip_header
+    # The header the proxy in front sets to the visitor's address, replacing
+    # whatever the caller sent. "x-forwarded-for" reads its right-most entry;
+    # any other name ("x-real-ip") is read as one address. Platforms differ,
+    # so measure with GET /admin/client-ip before changing it.
+    client_ip_header: str = "x-forwarded-for"
     # The explicit override for a production box that faces clients with no
     # proxy in front (the socket peer is the visitor). Never true on Railway.
     allow_untrusted_client_ips: bool = False
@@ -63,6 +68,10 @@ class Settings:
     # JD fit analysis ("Paste a job description")
     max_jd_chars: int = 15000  # Job descriptions are much longer than chat messages
     jd_daily_limit: int = 1  # Free analyses per visitor per day; password unlocks more
+    # The heat map's matrix tab: a second Jev request per analysis (one
+    # question per requirement line and résumé part). False keeps the
+    # requirement map and drops the matrix, and its cost.
+    fit_matrix_enabled: bool = True
 
     # Server-owned visitor identity (quota/unlock key; session_id is history-only)
     visitor_cookie_name: str = "resume_assistant_visitor_id"
@@ -149,6 +158,7 @@ def get_settings() -> Settings:
         admin_token=os.getenv("ADMIN_TOKEN", ""),
         redis_url=os.getenv("REDIS_URL", ""),
         trust_proxy_headers=_to_bool(os.getenv("TRUST_PROXY_HEADERS"), default=False),
+        client_ip_header=(os.getenv("CLIENT_IP_HEADER") or "x-forwarded-for").strip().lower(),
         allow_untrusted_client_ips=_to_bool(
             os.getenv("ALLOW_UNTRUSTED_CLIENT_IPS"), default=False
         ),
@@ -159,6 +169,7 @@ def get_settings() -> Settings:
         per_ip_daily_limit=_to_int(os.getenv("PER_IP_DAILY_LIMIT"), 40),
         max_jd_chars=_to_int(os.getenv("MAX_JD_CHARS"), 15000),
         jd_daily_limit=_to_int(os.getenv("JD_DAILY_LIMIT"), 1),
+        fit_matrix_enabled=_to_bool(os.getenv("FIT_MATRIX_ENABLED"), default=True),
         visitor_cookie_name=os.getenv("VISITOR_COOKIE_NAME", "resume_assistant_visitor_id"),
         visitor_ttl_seconds=_to_int(os.getenv("VISITOR_TTL_SECONDS"), 2592000),
         # Unset, a random per-process secret still signs cookies and keeps raw
