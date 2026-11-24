@@ -1663,6 +1663,19 @@ introMsg.classList.add("intro");
 // Robust chat stick-to-bottom behavior.
 initChatAutoScroll();
 
+const chatSection = document.getElementById("chat");
+const chatCard = document.getElementById("chat-card");
+const chatSizeToggle = document.getElementById("chat-size-toggle");
+chatSizeToggle.addEventListener("click", () => {
+  const stickToBottom = isChatNearBottom();
+  const expanded = chatSection.classList.toggle("is-expanded");
+  chatSizeToggle.setAttribute("aria-expanded", String(expanded));
+  chatSizeToggle.textContent = expanded ? "Collapse chat" : "Expand chat";
+  autosizeComposer();
+  if (stickToBottom) chatLog.scrollTop = chatLog.scrollHeight;
+  chatCard.scrollIntoView({ block: expanded ? "start" : "nearest", behavior: "instant" });
+});
+
 // Suggestion chips - click to send, remove on use.
 suggestionsEl?.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => {
