@@ -53,7 +53,7 @@ class MatrixColumn:
 MATRIX_COLUMNS: tuple[MatrixColumn, ...] = (
     MatrixColumn("current_role", "Current role", experience=slice(0, 1)),
     MatrixColumn("earlier_roles", "Earlier Parametric roles", experience=slice(1, None)),
-    MatrixColumn("projects", "Projects", projects=True),
+    MatrixColumn("projects", "Current projects", projects=True),
     MatrixColumn("education", "Education & certs", education=True, certifications=True),
 )
 
