@@ -78,7 +78,7 @@
       </div>
 
       <section id="chat" class="chat-section" aria-labelledby="chat-section-title">
-        <div class="chat-card">
+        <div id="chat-card" class="chat-card">
           <div class="chat-header">
             <span class="chat-header-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8Z"/></svg>
@@ -87,6 +87,7 @@
               <h2 id="chat-section-title" class="chat-header-title">Ask about my experience</h2>
               <p class="ai-disclaimer">Dakota's AI &middot; Claude + Jev &middot; may make mistakes</p>
             </div>
+            <button id="chat-size-toggle" class="chat-size-toggle" type="button" aria-controls="chat-card" aria-expanded="false">Expand chat</button>
           </div>
           <div id="composer-mode-bar" class="composer-mode-bar" hidden>
             <span class="composer-mode-title">Check fit for a role</span>

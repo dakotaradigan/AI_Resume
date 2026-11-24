@@ -613,6 +613,40 @@ a.hero-contact-item:hover .hero-contact-text { text-decoration: underline; }
 
 .chat-header-icon svg { width: 18px; height: 18px; display: block; }
 
+.chat-size-toggle {
+  flex: none;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-size-toggle:hover { border-color: var(--ink); }
+
+.chat-section.is-expanded {
+  grid-column: 1 / -1;
+  justify-self: center;
+  max-width: 1040px;
+}
+
+.chat-section.is-expanded .chat-card {
+  display: flex;
+  min-height: calc(100dvh - 2rem);
+  flex-direction: column;
+  scroll-margin-block: 1rem;
+}
+
+.chat-section.is-expanded .chat-log {
+  flex: 1 0 auto;
+  min-height: 20rem;
+}
+
 .chat-header-copy {
   display: flex;
   min-width: 0;
