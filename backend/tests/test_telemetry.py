@@ -8,6 +8,7 @@ in test_mcp_tools.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import unittest
 from unittest.mock import patch
@@ -21,11 +22,12 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import StatusCode
 
-from app import mcp_server, telemetry
+from app import chat_service, mcp_server, telemetry
 from app.chat_service import UNEXPECTED_ERROR_MESSAGE
 from app.constants import CHAT_LIMIT_MESSAGE
-from app.telemetry import MAX_CONTENT_CHARS, content_attribute
+from app.telemetry import MAX_CONTENT_CHARS, TRUNCATION_MARKER, content_attribute
 
+from tests.test_chat_stream import FakeAnthropic, FakeStreamingMessages, make_settings
 from tests.test_mcp_tools import REPLY, McpTestCase, mcp_call, tool_json, tool_result
 
 EXPORTER = InMemorySpanExporter()
@@ -126,6 +128,111 @@ class TestToolErrors(TracingTestCase):
         self.assertNotIn("SECRET", repr(dict(span.attributes)))
 
 
+class TestChatTurnTrace(TracingTestCase):
+    """One web chat turn: invoke_agent at the root, routing and the Claude
+    call under it, tokens on the chat span."""
+
+    QUESTION = "Walk me through Dakota's AI product leadership."
+
+    def setUp(self) -> None:
+        super().setUp()
+        FakeAnthropic.messages_api = FakeStreamingMessages(["Dakota ", "leads AI work."])
+
+    def stream_turn(self) -> str:
+        """Run one streamed turn; return the session id the visitor got."""
+        with self.build_client(make_settings()) as client:
+            events = self.stream_events(client, self.QUESTION)
+        return dict(events)["session"]["session_id"]
+
+    def spans_by_name(self) -> dict:
+        """Finished spans by name; the chat span also as "chat" (its name
+        carries whichever model the router picked)."""
+        spans = {s.name: s for s in EXPORTER.get_finished_spans()}
+        spans["chat"] = next(s for name, s in spans.items() if name.startswith("chat "))
+        return spans
+
+    def test_a_streamed_turn_is_one_tree(self) -> None:
+        self.stream_turn()
+        spans = self.spans_by_name()
+        agent = spans["invoke_agent resume-assistant"]
+        route = spans["route_model"]
+        chat = spans["chat"]
+        self.assertEqual(agent.attributes["app.turn.kind"], "chat")
+        self.assertEqual(route.parent.span_id, agent.context.span_id)
+        self.assertEqual(chat.parent.span_id, agent.context.span_id)
+        self.assertEqual(route.attributes["app.route.model"], chat.attributes["gen_ai.request.model"])
+
+    def test_the_chat_span_carries_tokens_in_the_genai_shape(self) -> None:
+        self.stream_turn()
+        chat = self.spans_by_name()["chat"]
+        self.assertEqual(chat.attributes["gen_ai.operation.name"], "chat")
+        self.assertEqual(chat.attributes["gen_ai.provider.name"], "anthropic")
+        # FAKE_USAGE: 120 uncached + 3900 cache-read input tokens. The
+        # convention's input count includes the cached part.
+        self.assertEqual(chat.attributes["gen_ai.usage.input_tokens"], 4020)
+        self.assertEqual(chat.attributes["gen_ai.usage.cache_read.input_tokens"], 3900)
+        self.assertEqual(chat.attributes["gen_ai.usage.output_tokens"], 40)
+
+    def test_the_conversation_id_is_hashed_never_the_live_session_id(self) -> None:
+        session_id = self.stream_turn()
+        agent = self.spans_by_name()["invoke_agent resume-assistant"]
+        conversation_id = agent.attributes["gen_ai.conversation.id"]
+        self.assertTrue(conversation_id)
+        self.assertNotEqual(conversation_id, session_id)
+
+    def test_question_and_reply_are_recorded_only_with_capture_on(self) -> None:
+        self.stream_turn()
+        agent = self.spans_by_name()["invoke_agent resume-assistant"]
+        self.assertNotIn("gen_ai.input.messages", agent.attributes)
+
+        EXPORTER.clear()
+        self.capture(True)
+        self.stream_turn()
+        spans = self.spans_by_name()
+        agent = spans["invoke_agent resume-assistant"]
+        chat = spans["chat"]
+        self.assertIn(self.QUESTION, agent.attributes["gen_ai.input.messages"])
+        self.assertIn("Dakota leads AI work.", agent.attributes["gen_ai.output.messages"])
+        self.assertIn("Dakota leads AI work.", chat.attributes["gen_ai.output.messages"])
+
+
+class TestMcpTurnTrace(TracingTestCase):
+    def test_the_model_call_hangs_under_the_tool_span(self) -> None:
+        self.ask()
+        spans = {s.name: s for s in EXPORTER.get_finished_spans()}
+        tool = spans["execute_tool ask"]
+        chat = next(s for name, s in spans.items() if name.startswith("chat "))
+        self.assertEqual(chat.parent.span_id, tool.context.span_id)
+        self.assertIn("gen_ai.conversation.id", tool.attributes)
+
+    def test_the_session_id_never_appears_in_recorded_content(self) -> None:
+        # Sent in the arguments and echoed in the result: hidden in both.
+        self.capture(True)
+        with self.build_client(self.trusted()) as client:
+            tool_json(mcp_call(
+                client, "ask", {"question": QUESTION, "session_id": "session-1"}, ip=IP,
+            ))
+        attributes = self.only_tool_span().attributes
+        for key in ("gen_ai.tool.call.arguments", "gen_ai.tool.call.result"):
+            with self.subTest(key=key):
+                self.assertNotIn("session-1", attributes[key])
+                self.assertIn("<hidden>", attributes[key])
+
+
+class TestRetrievalSpan(TracingTestCase):
+    def test_retrieval_records_the_documents_it_found(self) -> None:
+        class FakePipeline:
+            def search(self, query, limit, score_threshold):
+                return [{"title": "Parametric", "text": "AI strategy", "score": 0.81}]
+
+        settings = dataclasses.replace(make_settings(), use_rag=True)
+        chat_service.build_chat_context(QUESTION, FakePipeline(), settings)
+        [span] = [s for s in EXPORTER.get_finished_spans() if s.name == "retrieval resume"]
+        self.assertEqual(span.attributes["gen_ai.operation.name"], "retrieval")
+        self.assertIs(span.attributes["app.retrieval.used_rag"], True)
+        self.assertIn("Parametric", span.attributes["gen_ai.retrieval.documents"])
+
+
 class TestContentAttribute(unittest.TestCase):
     """The contract for content_attribute, whatever its implementation."""
 
@@ -137,6 +244,19 @@ class TestContentAttribute(unittest.TestCase):
     def test_is_never_longer_than_the_cap(self) -> None:
         out = content_attribute({"job_description": "x" * 50_000})
         self.assertLessEqual(len(out), MAX_CONTENT_CHARS)
+        self.assertTrue(out.endswith(TRUNCATION_MARKER))
+
+    def test_a_key_cut_by_the_cap_is_still_redacted(self) -> None:
+        # Cutting before redacting would leave "sk-ant-" plus a few key
+        # characters at the end: too short for the pattern, so they leak.
+        key = "sk-ant-" + "Z" * 40
+        room = MAX_CONTENT_CHARS - len(TRUNCATION_MARKER)
+        # Place the key so a cut-first implementation keeps 5 of its
+        # characters. The space matters: redact() needs a word boundary
+        # before "sk-ant-", as in real text.
+        text = "x" * (room - len('{"q": "') - len("sk-ant-") - 5 - 1) + " " + key
+        out = content_attribute({"q": text})
+        self.assertNotIn("Z", out)
 
     def test_credentials_are_redacted(self) -> None:
         # A caller can paste anything into a tool argument, a key included.

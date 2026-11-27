@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 from anthropic import AsyncAnthropic
+from opentelemetry import trace
 
 from app.config import Settings
 
@@ -297,6 +298,9 @@ async def route_model(
             logger.warning("TypeSafe router classification failed; using primary model")
             return settings.anthropic_model, "router-error"
         logger.info("Jev route p_complex=%.2f", p_complex)
+        # Lands on the route_model span (telemetry.route_span); a no-op when
+        # tracing is off.
+        trace.get_current_span().set_attribute("app.route.p_complex", p_complex)
         if p_complex >= _ROUTE_COMPLEX_MIN_PROBABILITY:
             return settings.anthropic_model, "complex"
         return settings.anthropic_model_simple, "simple"

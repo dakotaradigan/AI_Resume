@@ -35,6 +35,14 @@ from app.llm import (
 from app.retrieval import retrieve_rag_context
 from app.schemas import ChatRequest
 from app.session_store import SessionStore
+from app.telemetry import (
+    chat_span,
+    record_chat_response,
+    record_retrieval,
+    record_route,
+    retrieval_span,
+    route_span,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -306,9 +314,11 @@ def build_chat_context(
     """
     system_prompt = load_system_prompt()
     if settings.use_rag and rag_pipeline is not None:
-        resume_context, used_rag, sources = retrieve_rag_context(
-            rag_pipeline, message, 4, 0.30
-        )
+        with retrieval_span(message) as span:
+            resume_context, used_rag, sources = retrieve_rag_context(
+                rag_pipeline, message, 4, 0.30
+            )
+            record_retrieval(span, used_rag, sources)
         context_label = "RETRIEVED CONTEXT" if used_rag else "RESUME DATA"
     else:
         resume_context = load_resume_context()
@@ -329,9 +339,20 @@ async def prepare_generation(
     add serial time-to-first-token)."""
     (system, used_rag, sources), (model_id, route_reason) = await asyncio.gather(
         asyncio.to_thread(build_chat_context, message, rag_pipeline, settings),
-        route_model(message, client, settings),
+        _traced_route(message, client, settings),
     )
     return system, used_rag, sources, model_id, route_reason
+
+
+async def _traced_route(
+    message: str, client: AsyncAnthropic, settings: Settings
+) -> tuple[str, str]:
+    # Its own coroutine so the route span opens inside the task gather
+    # starts for it, beside the retrieval span rather than around it.
+    with route_span() as span:
+        model_id, route_reason = await route_model(message, client, settings)
+        record_route(span, model_id, route_reason)
+    return model_id, route_reason
 
 
 async def persist_chat(
@@ -476,13 +497,15 @@ async def run_json_chat_turn(
         api_response = None
         for attempt_index, attempt_model in enumerate(candidate_models):
             try:
-                api_response = await client.messages.create(
-                    model=attempt_model,
-                    max_tokens=settings.anthropic_max_tokens,
-                    **sampling_kwargs(attempt_model, 0.1),
-                    system=system,
-                    messages=build_api_messages(history, message),
-                )
+                with chat_span(attempt_model, settings.anthropic_max_tokens, message) as span:
+                    api_response = await client.messages.create(
+                        model=attempt_model,
+                        max_tokens=settings.anthropic_max_tokens,
+                        **sampling_kwargs(attempt_model, 0.1),
+                        system=system,
+                        messages=build_api_messages(history, message),
+                    )
+                    record_chat_response(span, api_response)
                 model_id = attempt_model
                 break
             except AnthropicError:

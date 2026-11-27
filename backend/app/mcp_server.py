@@ -35,6 +35,7 @@ from typing import Any, Awaitable, Callable
 
 from fastapi import HTTPException
 from fastapi.responses import RedirectResponse
+from opentelemetry import trace
 from pydantic import ValidationError
 from starlette.requests import Request
 
@@ -46,7 +47,12 @@ from app.identity import get_client_ip
 from app.jd_service import run_json_jd_turn
 from app.schemas import ChatRequest, JDMatchRequest
 from app.session_store import get_session_store
-from app.telemetry import record_tool_error, record_tool_result, tool_span
+from app.telemetry import (
+    record_conversation,
+    record_tool_error,
+    record_tool_result,
+    tool_span,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +136,7 @@ async def _ask_impl(question: str, session_id: str | None) -> dict:
         payload, request, get_session_store(), settings, rag_pipeline(request),
         visitor_id=_visitor_identity(request, settings),
     )
+    record_conversation(trace.get_current_span(), result.session_id, settings)
     return {
         "reply": result.reply,
         "session_id": result.session_id,
@@ -152,6 +159,7 @@ async def _analyze_fit_impl(job_description: str, session_id: str | None) -> dic
         payload, request, get_session_store(), settings,
         visitor_id=_visitor_identity(request, settings),
     )
+    record_conversation(trace.get_current_span(), turn_session_id, settings)
     result: dict[str, Any] = {"analysis": analysis, "session_id": turn_session_id}
     if fit_map:
         # `lines` echoes the whole description so the web page can draw its

@@ -24,6 +24,14 @@ from app.jd_service import (
 from app.llm import build_api_messages, make_anthropic_client, sampling_kwargs, usage_record
 from app.schemas import JDMatchRequest
 from app.session_store import get_session_store
+from app.telemetry import (
+    chat_span,
+    record_agent_output,
+    record_chat_response,
+    record_conversation,
+    start_agent_span,
+    traced_stream,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,19 +77,23 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
         # Always the primary model: JD analysis is the synthesis-heavy case.
         client = make_anthropic_client(settings)
         try:
-            async with client.messages.stream(
-                model=settings.anthropic_model,
-                max_tokens=settings.anthropic_max_tokens,
-                **sampling_kwargs(settings.anthropic_model, 0.1),
-                system=prompt.system,
-                messages=build_api_messages(turn.history, prompt.user_text),
-            ) as stream:
-                async for text in stream.text_stream:
-                    yield sse("delta", {"text": text})
-                    fit_map = _take_fit_map()
-                    if fit_map:
-                        yield sse("fitmap", fit_map)
-                final = await stream.get_final_message()
+            with chat_span(
+                settings.anthropic_model, settings.anthropic_max_tokens, prompt.user_text
+            ) as span:
+                async with client.messages.stream(
+                    model=settings.anthropic_model,
+                    max_tokens=settings.anthropic_max_tokens,
+                    **sampling_kwargs(settings.anthropic_model, 0.1),
+                    system=prompt.system,
+                    messages=build_api_messages(turn.history, prompt.user_text),
+                ) as stream:
+                    async for text in stream.text_stream:
+                        yield sse("delta", {"text": text})
+                        fit_map = _take_fit_map()
+                        if fit_map:
+                            yield sse("fitmap", fit_map)
+                    final = await stream.get_final_message()
+                record_chat_response(span, final)
 
             if fit_task is not None:
                 # Jev is normally long done by now. Give it a short grace so
@@ -97,6 +109,7 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
             reply_text = await finish_jd_turn(
                 settings, turn, prompt.stored_user_text, reply_text, usage_record(final)
             )
+            record_agent_output(turn_span, reply_text)
             yield sse("done", {
                 "reply": reply_text, "mode": turn.mode,
                 "session_id": turn.session_id, "used_rag": False, "sources": [],
@@ -123,8 +136,12 @@ async def jd_match(payload: JDMatchRequest, request: Request) -> StreamingRespon
             if fit_task is not None and not fit_task.done():
                 fit_task.cancel()
 
+    # The turn's root span starts after the guardrails passed and ends with
+    # the stream (traced_stream).
+    turn_span = start_agent_span("fit_analysis", turn.sanitized)
+    record_conversation(turn_span, turn.session_id, settings)
     streaming_response = StreamingResponse(
-        event_gen(),
+        traced_stream(turn_span, event_gen()),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

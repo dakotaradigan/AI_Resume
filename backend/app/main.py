@@ -21,7 +21,7 @@ from app.request_context import RequestContextMiddleware
 from app.retrieval import initialize_rag
 from app.routes import admin, chat, feedback, health, jd_match, resume, unlock
 from app.session_store import get_session_store
-from app.telemetry import configure_tracing
+from app.telemetry import FASTAPI_TELEMETRY, configure_tracing
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +127,7 @@ def build_app() -> FastAPI:
         redoc_url=None,
         openapi_url=None,
         lifespan=lifespan,
+        telemetry=FASTAPI_TELEMETRY,
     )
     settings = get_settings()
     _check_boot_requirements(settings)
@@ -142,7 +143,7 @@ def build_app() -> FastAPI:
         "last_error": None,
     }
     # Before RAG starts, so its first embedding and Qdrant calls are traced.
-    configure_tracing(app, settings)
+    configure_tracing(settings)
 
     # Initialize RAG pipeline on startup and store in app.state
     app.state.rag_pipeline = initialize_rag(settings)

@@ -50,6 +50,7 @@ from app.llm import (
 )
 from app.schemas import ChatRequest, JDMatchRequest
 from app.session_store import SessionStore
+from app.telemetry import chat_span, record_chat_response
 
 logger = logging.getLogger(__name__)
 
@@ -268,13 +269,17 @@ async def run_json_jd_turn(
     client = make_anthropic_client(settings)
     api_response = None
     try:
-        api_response = await client.messages.create(
-            model=settings.anthropic_model,
-            max_tokens=settings.anthropic_max_tokens,
-            **sampling_kwargs(settings.anthropic_model, 0.1),
-            system=prompt.system,
-            messages=build_api_messages(turn.history, prompt.user_text),
-        )
+        with chat_span(
+            settings.anthropic_model, settings.anthropic_max_tokens, prompt.user_text
+        ) as span:
+            api_response = await client.messages.create(
+                model=settings.anthropic_model,
+                max_tokens=settings.anthropic_max_tokens,
+                **sampling_kwargs(settings.anthropic_model, 0.1),
+                system=prompt.system,
+                messages=build_api_messages(turn.history, prompt.user_text),
+            )
+            record_chat_response(span, api_response)
     except RateLimitError as exc:
         logger.warning("Anthropic rate limit or spending cap hit")
         await turn.release_budgets()

@@ -37,6 +37,15 @@ from app.llm import (
 )
 from app.schemas import ChatRequest, ChatResponse
 from app.session_store import get_session_store
+from app.telemetry import (
+    agent_span,
+    chat_span,
+    record_agent_output,
+    record_chat_response,
+    record_conversation,
+    start_agent_span,
+    traced_stream,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +56,12 @@ async def chat(payload: ChatRequest, request: Request, response: Response) -> Ch
     """Non-streaming chat. The turn itself lives in chat_service so the MCP
     ``ask`` tool runs the identical pipeline."""
     settings = app_settings(request)
-    result = await run_json_chat_turn(
-        payload, request, get_session_store(), settings, rag_pipeline(request)
-    )
+    with agent_span("chat", payload.message) as span:
+        result = await run_json_chat_turn(
+            payload, request, get_session_store(), settings, rag_pipeline(request)
+        )
+        record_conversation(span, result.session_id, settings)
+        record_agent_output(span, result.reply)
     set_visitor_cookie(response, result.visitor_id, settings)
     return ChatResponse(
         reply=result.reply, session_id=result.session_id,
@@ -99,6 +111,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             await persist_cached_reply(
                 store, settings, ctx.conversation_key, message, cached_reply
             )
+            record_agent_output(turn_span, cached_reply)
             yield sse("done", {
                 "reply": cached_reply, "used_rag": False, "sources": [],
                 "session_id": session_id, "model": "", "followups": [],
@@ -142,17 +155,21 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             for attempt_index, attempt_model in enumerate(candidate_models):
                 streamed_any = False
                 try:
-                    async with client.messages.stream(
-                        model=attempt_model,
-                        max_tokens=settings.anthropic_max_tokens,
-                        **sampling_kwargs(attempt_model, 0.1),
-                        system=system,
-                        messages=build_api_messages(history, message),
-                    ) as stream:
-                        async for text in stream.text_stream:
-                            streamed_any = True
-                            yield sse("delta", {"text": text})
-                        final = await stream.get_final_message()
+                    with chat_span(
+                        attempt_model, settings.anthropic_max_tokens, message
+                    ) as span:
+                        async with client.messages.stream(
+                            model=attempt_model,
+                            max_tokens=settings.anthropic_max_tokens,
+                            **sampling_kwargs(attempt_model, 0.1),
+                            system=system,
+                            messages=build_api_messages(history, message),
+                        ) as stream:
+                            async for text in stream.text_stream:
+                                streamed_any = True
+                                yield sse("delta", {"text": text})
+                            final = await stream.get_final_message()
+                        record_chat_response(span, final)
                     used_model = attempt_model
                     break
                 except AnthropicError:
@@ -178,6 +195,7 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
                 model_id=used_model, route_reason=route_reason,
                 cacheable=had_text, usage=usage_record(final),
             )
+            record_agent_output(turn_span, reply_text)
             yield sse("done", {
                 "reply": reply_text, "used_rag": used_rag, "sources": sources,
                 "session_id": session_id, "model": model_short_label(used_model),
@@ -205,8 +223,12 @@ async def chat_stream(payload: ChatRequest, request: Request) -> StreamingRespon
             await _refund_on_error()
             yield sse("error", {"detail": UNEXPECTED_ERROR_MESSAGE})
 
+    # The turn's root span starts here, after the guardrails passed, and ends
+    # with the stream (traced_stream).
+    turn_span = start_agent_span("chat", message)
+    record_conversation(turn_span, session_id, settings)
     streaming_response = StreamingResponse(
-        event_gen(),
+        traced_stream(turn_span, event_gen()),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
