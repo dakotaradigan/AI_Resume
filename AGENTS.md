@@ -26,6 +26,7 @@ Backend (`backend/`):
 - `app/fit_map.py`: the requirement map — one TypeSafe request per fit analysis that asks Jev, for every candidate line of the pasted JD, whether it is a requirement (Noul) and how well the résumé documents it (Score over four levels); streamed as the `fitmap` SSE event before `done`, best-effort, never blocking the prose. The event also echoes the description as split lines (`lines`) and each requirement's index into them (`line`), which the page's heat map draws; the MCP tool drops `lines`.
 - `app/fit_matrix.py`: the requirement matrix — a second TypeSafe request that runs beside the map and asks the same graded question once per part of the résumé (`MATRIX_COLUMNS`: current role, earlier roles, projects, education and certs), adding `columns` to the map and `sources` to each requirement. Isolated: any failure returns the map without it. `FIT_MATRIX_ENABLED=false` switches it off.
 - `app/retrieval.py`: RAG startup and per-turn context retrieval with static fallback.
+- `app/telemetry.py`: OpenTelemetry tracing, off unless `OTEL_TRACES_EXPORTER` is set. Automatic spans for FastAPI requests and httpx calls (so Anthropic, OpenAI, Qdrant and TypeSafe calls), and one `execute_tool` span per MCP tool call (GenAI semantic conventions). Tool arguments and results go on spans only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`, through `content_attribute`; refusals and errors carry only the visitor-safe message.
 - `app/identity.py`: signed visitor cookie identity and client-IP resolution; `app/security.py`: admin auth.
 - `app/content.py` / `app/resume_pdf.py`: prompt/resume loading, llms.txt, PDF rendering.
 - `app/constants.py`, `app/schemas.py`, `app/middleware.py`, `app/mcp_server.py`, `app/logging_setup.py`, `app/request_context.py`, `app/dependencies.py`: messages, API models, CORS/security headers and the request body cap, MCP tools (`get_resume`, and `ask`/`analyze_fit` on the shared guarded pipelines with an IP-derived visitor identity), JSON logging with credential redaction, the per-request id (`X-Request-ID` on every response and log line), app-state accessors.
@@ -99,6 +100,11 @@ Optional RAG:
 - `QDRANT_API_KEY`
 - `EVAL_QDRANT_URL` / `EVAL_QDRANT_API_KEY` — dedicated non-production
   retrieval-eval target; never inherited from the app's Qdrant settings
+
+Optional tracing (see `backend/.env.example`):
+- `OTEL_TRACES_EXPORTER` (`console` or `otlp`; unset = off)
+- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` / `OTEL_EXPORTER_OTLP_TRACES_HEADERS` / `OTEL_RESOURCE_ATTRIBUTES` (read by the OTel SDK itself)
+- `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` (record MCP tool arguments and results; visitor content, off by default)
 
 Optional infrastructure and controls:
 - `REDIS_URL`

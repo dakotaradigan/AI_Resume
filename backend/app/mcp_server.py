@@ -46,6 +46,7 @@ from app.identity import get_client_ip
 from app.jd_service import run_json_jd_turn
 from app.schemas import ChatRequest, JDMatchRequest
 from app.session_store import get_session_store
+from app.telemetry import record_tool_error, record_tool_result, tool_span
 
 logger = logging.getLogger(__name__)
 
@@ -59,21 +60,35 @@ class _SafeToolError(ValueError):
     """A tool error whose message is visitor-facing by construction."""
 
 
-async def _run_tool(name: str, impl: Callable[[], Awaitable[dict]]) -> dict:
-    """Run a tool body, translating failures to safe client-facing errors.
+async def _run_tool(
+    name: str, arguments: dict[str, Any], impl: Callable[[], Awaitable[dict]]
+) -> dict:
+    """Run a tool body inside its trace span, translating failures to safe
+    client-facing errors.
 
     Guardrail refusals (HTTPException) carry visitor-facing detail strings;
     surface them. Cancellation propagates (budget handling is the impl's
-    job). Everything else is logged server-side and replaced."""
-    try:
-        return await impl()
-    except (_SafeToolError, asyncio.CancelledError):
-        raise
-    except HTTPException as exc:
-        raise _SafeToolError(str(exc.detail)) from exc
-    except Exception as exc:
-        logger.exception("Unexpected error in MCP tool %s", name)
-        raise _SafeToolError(UNEXPECTED_ERROR_MESSAGE) from exc
+    job). Everything else is logged server-side and replaced. The span gets
+    the same safe message the client sees, never the original exception."""
+    with tool_span(name, arguments) as span:
+        try:
+            result = await impl()
+        except asyncio.CancelledError:
+            record_tool_error(span, "cancelled", "Tool call cancelled.")
+            raise
+        except _SafeToolError as exc:
+            record_tool_error(span, "tool_error", str(exc))
+            raise
+        except HTTPException as exc:
+            record_tool_error(span, str(exc.status_code), str(exc.detail))
+            raise _SafeToolError(str(exc.detail)) from exc
+        except Exception as exc:
+            logger.exception("Unexpected error in MCP tool %s", name)
+            # The class name only: its message may carry upstream error text.
+            record_tool_error(span, type(exc).__name__, UNEXPECTED_ERROR_MESSAGE)
+            raise _SafeToolError(UNEXPECTED_ERROR_MESSAGE) from exc
+        record_tool_result(span, result)
+        return result
 
 
 def mcp_visitor_id(client_ip: str, secret: str) -> str:
@@ -96,6 +111,10 @@ def _tool_request() -> Request:
     if scope is None:
         raise _SafeToolError(UNEXPECTED_ERROR_MESSAGE)
     return Request(scope)
+
+
+async def _get_resume_impl() -> dict:
+    return load_resume_json_public()
 
 
 async def _ask_impl(question: str, session_id: str | None) -> dict:
@@ -181,9 +200,9 @@ def build_mcp_server():
     read_only = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 
     @server.tool(title="Get resume", annotations=read_only)
-    def get_resume() -> dict:
+    async def get_resume() -> dict:
         """Dakota Radigan's full resume as structured JSON (phone number excluded)."""
-        return load_resume_json_public()
+        return await _run_tool("get_resume", {}, _get_resume_impl)
 
     @server.tool(title="Ask the resume agent", annotations=read_only)
     async def ask(question: str, session_id: str | None = None) -> dict:
@@ -192,7 +211,11 @@ def build_mcp_server():
         Subject to the same rate limits and free-turn quota as the chat on
         the page. Pass the returned session_id back to continue a
         conversation."""
-        return await _run_tool("ask", lambda: _ask_impl(question, session_id))
+        return await _run_tool(
+            "ask",
+            {"question": question, "session_id": session_id},
+            lambda: _ask_impl(question, session_id),
+        )
 
     @server.tool(title="Analyze job fit", annotations=read_only)
     async def analyze_fit(job_description: str, session_id: str | None = None) -> dict:
@@ -203,7 +226,9 @@ def build_mcp_server():
         Includes a per-requirement evidence map when the Jev judge is
         configured."""
         return await _run_tool(
-            "analyze_fit", lambda: _analyze_fit_impl(job_description, session_id)
+            "analyze_fit",
+            {"job_description": job_description, "session_id": session_id},
+            lambda: _analyze_fit_impl(job_description, session_id),
         )
 
     return server

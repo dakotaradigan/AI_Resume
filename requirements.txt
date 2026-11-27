@@ -24,3 +24,12 @@ reportlab>=4.2.0,<5.0
 
 # MCP endpoint: /mcp with a single data-only get_resume tool (Phase E)
 mcp>=1.28.0,<2.0
+
+# Tracing (app/telemetry.py): the OpenTelemetry SDK and OTLP/HTTP exporter, plus
+# automatic spans for FastAPI requests and httpx calls. The SDK (1.x) and the
+# instrumentation packages (0.x beta) release in lockstep; pip resolves a
+# matching set from these ranges.
+opentelemetry-sdk>=1.45.0,<2.0
+opentelemetry-exporter-otlp-proto-http>=1.45.0,<2.0
+opentelemetry-instrumentation-fastapi>=0.66b0,<1.0
+opentelemetry-instrumentation-httpx>=0.66b0,<1.0

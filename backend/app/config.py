@@ -82,6 +82,12 @@ class Settings:
     analytics_retention_days: int = 90
     session_hash_secret_generated: bool = False  # True when no SESSION_HASH_SECRET was set
 
+    # OpenTelemetry tracing (app/telemetry.py). Standard OTel env var names.
+    otel_traces_exporter: str = ""  # "console" or "otlp"; empty = tracing off
+    # Record MCP tool arguments and results on spans. That is visitor content
+    # leaving the app for the tracing backend, so it is off by default.
+    otel_capture_content: bool = False
+
     # RAG settings (Phase 3)
     openai_api_key: str = ""  # For embeddings
     qdrant_url: str | None = None  # Required when USE_RAG=true
@@ -179,6 +185,10 @@ def get_settings() -> Settings:
         session_hash_secret=os.getenv("SESSION_HASH_SECRET") or secrets.token_hex(16),
         session_hash_secret_generated=not os.getenv("SESSION_HASH_SECRET"),
         analytics_retention_days=_to_int(os.getenv("ANALYTICS_RETENTION_DAYS"), 90),
+        otel_traces_exporter=(os.getenv("OTEL_TRACES_EXPORTER") or "").strip().lower(),
+        otel_capture_content=_to_bool(
+            os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"), default=False
+        ),
         # RAG settings
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         qdrant_url=os.getenv("QDRANT_URL"),
