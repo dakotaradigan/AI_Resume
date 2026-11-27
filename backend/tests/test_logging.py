@@ -22,6 +22,18 @@ BEARER = "Bearer " + "abcdef1234567890"
 ANTHROPIC_KEY = "sk-ant-" + "api03-abcdefghijkl"
 OPENAI_KEY = "sk-proj-" + "abcdefghijklmnop"
 AWS_KEY = "AKIA" + "IOSFODNN7EXAMPLE"
+LEGACY_BODY = "Ab3" * 8  # mixes upper, lower and digits, as a random key does
+LEGACY_OPENAI_KEY = "sk-" + LEGACY_BODY
+GITHUB_BODY = "Ab3" * 12
+GITHUB_KEY = "ghp_" + GITHUB_BODY
+# Each provider key -> (its secret part, its redacted form).
+PROVIDER_KEYS = {
+    ANTHROPIC_KEY: ("api03-abcdefghijkl", "sk-ant-***"),
+    OPENAI_KEY: ("abcdefghijklmnop", "sk-proj-***"),
+    LEGACY_OPENAI_KEY: (LEGACY_BODY, "sk-***"),
+    AWS_KEY: ("IOSFODNN7EXAMPLE", "AKIA***"),
+    GITHUB_KEY: (GITHUB_BODY, "ghp_***"),
+}
 PEM_BEGIN = "-----BEGIN " + "PRIVATE KEY-----"
 PEM_END = "-----END " + "PRIVATE KEY-----"
 
@@ -45,6 +57,28 @@ class TestRedact(unittest.TestCase):
                 scrubbed = redact(text)
                 self.assertNotIn(secret, scrubbed)
                 self.assertIn(expected, scrubbed)
+
+    def test_keys_glued_to_a_preceding_word_are_scrubbed(self) -> None:
+        # Visitor text can glue a pasted key to the word before it. A leading
+        # \b needs a non-word character there, so these used to slip through.
+        for key, (secret, expected) in PROVIDER_KEYS.items():
+            for before in ("x ", "xxxx", "_", "7"):
+                with self.subTest(text=before + key):
+                    scrubbed = redact(before + key + " end")
+                    self.assertNotIn(secret, scrubbed)
+                    self.assertEqual(scrubbed, before + expected + " end")
+                    self.assertEqual(redact(scrubbed), scrubbed)  # idempotent
+
+    def test_generic_sk_rule_spares_ids_and_words_glued_to_it(self) -> None:
+        # "sk-" also ends task-, disk-, risk-. Glued there, a body without the
+        # upper/lower/digit mix of a random key is an id or a word: kept.
+        for line in (
+            "task-" + "9f86d081" * 5,
+            "disk-" + "0123456789ABCDEF" * 2,
+            "risk-" + "adjustedperformancemetrics",
+        ):
+            with self.subTest(line=line):
+                self.assertEqual(redact(line), line)
 
     def test_clean_text_is_unchanged(self) -> None:
         line = "Model usage: model=claude-sonnet-5 route=simple input=120 output=40"
