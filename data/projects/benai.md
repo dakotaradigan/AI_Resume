@@ -4,7 +4,7 @@
 **The Journey:** Personal project (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)
 
 ## What It Does
-A tool-using AI agent that helps financial advisors instantly determine benchmark eligibility for client portfolios. It is an agent rather than a fixed pipeline: the model chooses which functions to call and calls them iteratively until it can answer, with guardrails against infinite loops and timeouts. Reduces complex research queries from 30+ minutes to seconds. Grounded in Salesforce data, so answers come from the system of record instead of email threads and manual searches across multiple sources.
+A tool-using AI agent that helps financial advisors instantly determine benchmark eligibility for client portfolios. It is an agent rather than a fixed pipeline: the model chooses which functions to call and calls them iteratively until it can answer, with guardrails against infinite loops and timeouts. Reduces complex research queries from hours or days to seconds. Grounded in Salesforce data, so answers come from the system of record instead of email threads and manual searches across multiple sources.
 
 ## The Evolution Story
 
@@ -18,7 +18,7 @@ Built initial version at home to validate whether RAG architecture could effecti
 ### Phase 2: Production Scaling (Parametric Deployment)
 After validating the architecture, brought Ben AI to Parametric and scaled it for production use:
 - Hardened for enterprise reliability and security
-- Optimized for production workload (projected 1,800+ annual client inquiries)
+- Optimized for production workload (projected ~2,000 annual client inquiries)
 - Added advanced features: iterative function calling, multi-benchmark comparisons
 - Integrated with existing advisor workflows
 - Built comprehensive error handling and logging
@@ -46,9 +46,9 @@ After validating the architecture, brought Ben AI to Parametric and scaled it fo
 - **Session Handling**: Context-aware conversation memory with intelligent compression
 
 ## Business Impact
-- **Time Savings**: Reduced advisor research from 30+ minutes to <5 seconds per query
-- **Scale**: Projected to autonomously resolve 1,800+ client inquiries a year
-- **Response Time**: Client inquiries resolved in minutes instead of hours
+- **Time Savings**: Reduced advisor research from hours or days to <5 seconds per query
+- **Scale**: Projected to autonomously resolve ~2,000 client inquiries a year
+- **Response Time**: Client inquiries resolved in seconds instead of hours or days
 - **Internal Email Reduction**: Reduces internal email across teams that previously answered questions by hand
 - **Hours Saved**: ~2,000 hours a year saved across multiple teams that no longer search several sources manually
 - **Catalog as Strategic Advantage**: Matches client criteria to the best-fit solution rather than the familiar default, unlocking Parametric's full offering catalog that teams historically underused

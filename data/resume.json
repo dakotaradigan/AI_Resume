@@ -169,66 +169,6 @@
           "Production Engineering - scalable architecture with pluggable state, environment-aware config"
         ]
       }
-    },
-    {
-      "name": "Ben AI: Intelligent Benchmark Agent",
-      "tagline": "Tool-using AI agent: personal PoC to production deployment, cutting advisor research time from hours to seconds",
-      "tech_stack": ["OpenAI Responses API", "RAG Pipeline", "Pinecone Vector DB", "AWS DynamoDB", "AWS S3", "FastAPI", "WebSocket/REST", "Python", "text-embedding-3-small", "Intent Classification", "Function Calling"],
-      "description": "Personal project evolved to production deployment: Built an enterprise-grade AI agent starting as a home PoC (early 2025) to validate RAG architecture for complex financial benchmark queries. After proving technical viability, brought it to Parametric and scaled it to production for advisor workflow automation. Single cohesive project demonstrating end-to-end ownership from initial architecture design through production scaling.",
-      "highlights": [
-        "Phase 1 (Personal PoC): Built initial proof-of-concept at home to validate RAG + hybrid intelligence architecture for complex benchmark eligibility queries",
-        "Phase 2 (Production): Brought validated PoC to Parametric, scaled architecture to handle production workload, reducing advisor research time from 30+ minutes to seconds",
-        "Designed layered architecture: User Interface → Backend (Request Router, Intent Classification, Session Handler) → AI Orchestration (Function Calling Engine, RAG Pipeline, OpenAI Responses API) → Vector Store + Knowledge Base",
-        "Implemented natural language intelligence with intent classification routing and conversation memory",
-        "Architected hybrid AI system combining RAG retrieval, LLM reasoning, and deterministic calculations for grounded responses",
-        "Built security guardrails including prompt injection protection and input/output sanitization",
-        "Achieved tangible business impact: projected to resolve 1,800+ client inquiries a year autonomously and save ~2,000 hours annually across teams, instant complex query resolution, organic SMAP retention, visible client-facing innovation",
-        "Implemented real-time WebSocket communication with automatic REST API fallback for reliability",
-        "Deployed and continually extended to additional products and features; measured by human-graded and calibrated LLM-as-judge evals running alongside production, tracking precision, recall, F1, pass@k, and pass^k, drawing on Hamel Husain's applied evals practices"
-      ],
-      "problem_solved": "Financial advisors spent hours researching complex benchmark eligibility requirements (portfolio minimums, ESG criteria, alternatives). Internally, teams answered those questions over email and by manually searching Salesforce and several other sources, which pushed recommendations toward the offerings people already knew rather than the best fit for the client's criteria, leaving Parametric's full offering catalog underused.",
-      "impact": "Unlocks Parametric's full offering catalog as a strategic advantage: grounded in Salesforce data, it matches client criteria to the best-fit solution rather than the familiar default. Reduced research time from hours/days to seconds; projected to resolve 1,800+ client inquiries a year autonomously, reduce internal email across teams, and save ~2,000 hours annually. Enabled organic SMAP ecosystem retention and visible client-facing innovation.",
-      "context": "Personal PoC (early 2025) → Production deployment at Parametric Portfolio (Morgan Stanley)",
-      "timeframe": "2025",
-      "repo_url": "",
-      "demo_url": "",
-      "images": ["benai-architecture.png", "benai-screenshot.png"],
-      "detailed_description_file": "benai.md",
-      "architecture_details": {
-        "frontend": "Advisor natural language interface with WebSocket/REST communication and typing indicators",
-        "backend": "FastAPI with Request Router, Intent Classification, Session Handler for context management",
-        "ai_orchestration": "Function Calling Engine, OpenAI Responses API, RAG Pipeline (Pinecone + semantic embeddings)",
-        "data_layer": "Salesforce as system of record, Vector Store (Pinecone) with benchmark embeddings + JSON knowledge base, AWS DynamoDB and S3",
-        "core_capabilities": [
-          "Natural Language Intelligence - understands complex queries like 'S&P 500 but more ESG'",
-          "Intent Classification Routing - sophisticated routing to appropriate functions",
-          "Conversation Memory - smart context retention through intelligent compression",
-          "Context-Aware Response Generation - tailored answers based on portfolio size, criteria, intent",
-          "Hybrid AI Architecture - RAG + LLM + deterministic logic for accurate, grounded responses",
-          "Security Guardrails - prompt injection protection, input sanitization, output validation"
-        ]
-      }
-    },
-    {
-      "name": "RFP Agentic System: Custom RFP and DDQ Tooling",
-      "tagline": "A full-scale agentic system that drafts RFP and DDQ responses for a financial-services RFP team, now in UAT",
-      "tech_stack": ["Agentic Orchestration", "Tools", "Memory", "Reusable Skills", "Context Layer", "Retrieval over Approved Content", "Calibrated LLM-as-Judge Evals"],
-      "description": "Complex, custom RFP tooling Dakota built in his AI Strategy role at Parametric Portfolio (Morgan Stanley) for the firm's RFP team. It completes requests for proposal (RFPs) and due diligence questionnaires (DDQs) for existing and prospective clients. It is an agentic system, not a chatbot: an orchestrator coordinates tools, memory, reusable skills, and a context layer, drawing on approved content, with quality checks and SME review. Currently in UAT.",
-      "highlights": [
-        "An orchestrator coordinates tools, memory, reusable skills, and a context layer instead of one large prompt",
-        "Keeps the institutional knowledge an answer depends on, not just the text of past answers: decision rules and their exceptions, product metadata, and the surrounding source context, captured from SME discussions and historical RFPs",
-        "Answers draw on firm-approved content, with quality checks and SME review, as a regulated industry requires",
-        "Reusable drafting skills co-designed with SMEs, so the team builds AI fluency and improves the system themselves",
-        "Evaluation-driven: human grading plus an LLM judge calibrated against it, run continuously on UAT traffic and on held-out RFP cases, tracking precision, recall, F1, pass@k, and pass^k"
-      ],
-      "problem_solved": "A good RFP or DDQ answer depends on institutional knowledge (decision rules, their exceptions, product details) that lives with SMEs and in past responses, not just in the text of past answers.",
-      "impact": "In UAT with the firm's RFP team: a full-scale agentic system that drafts responses from approved content for SME review.",
-      "context": "Built at Parametric Portfolio (Morgan Stanley) in his AI Strategy role",
-      "timeframe": "2026",
-      "repo_url": "",
-      "demo_url": "",
-      "images": [],
-      "detailed_description_file": "rfp_application.md"
     }
   ],
 

@@ -119,7 +119,7 @@ def render_resume_pdf() -> bytes:
         for achievement in (job.get("achievements") or [])[:5]:
             story.append(Paragraph(esc(achievement), bullet_style, bulletText="•"))
 
-    section("Projects")
+    section("Current Projects")
     for project in data.get("projects", []):
         story.append(
             Paragraph(

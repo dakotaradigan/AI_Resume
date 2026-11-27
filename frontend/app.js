@@ -561,7 +561,7 @@ function renderResumePaper(data) {
     ]);
   });
   if (projectEntries.length) {
-    resumePaper.append(paperSection("paper-projects", "Projects", projectEntries));
+    resumePaper.append(paperSection("paper-projects", "Current Projects", projectEntries));
   }
 
   const eduEntries = safeArray(data.education).map((ed) => el("div", { class: "paper-entry" }, [
@@ -917,24 +917,6 @@ const PROJECT_CARDS = [
     tags: ["multi-tenant SaaS", "RAG", "tenant isolation", "model routing", "MCP"],
     link: "https://offerbirds.com",
     actionLabel: "See it live",
-  },
-  {
-    match: "Ben AI",
-    title: "Ben AI",
-    blurb:
-      "Financial advisors were spending 30+ minutes researching benchmark eligibility. Ben AI answers those queries in seconds — a personal proof-of-concept I brought to Parametric and scaled into a production AI agent.",
-    tags: ["OpenAI Responses API", "RAG", "Pinecone", "function calling", "FastAPI"],
-    ask: "Tell me about Ben AI",
-    actionLabel: "Ask my AI about it",
-  },
-  {
-    match: "RFP Agentic System",
-    title: "RFP Agentic System",
-    blurb:
-      "Good RFP and DDQ answers depend on institutional knowledge that lives with SMEs and in past responses. This custom agentic system for a financial-services RFP team coordinates tools, memory, reusable skills, and a context layer to draft responses from approved content, with quality checks and SME review. In UAT, with calibrated evals running alongside it.",
-    tags: ["agentic orchestration", "tools + memory", "reusable skills", "context layer", "calibrated evals"],
-    ask: "Tell me about the RFP Agentic System",
-    actionLabel: "Ask my AI about it",
   },
   {
     standalone: true,

@@ -106,7 +106,7 @@ Any other company, bank, or firm names referenced in context (clients, partners,
 
 ## Career Highlights
 - Led a major financial institution client integration delivering $56M AUM + $2B+ pipeline
-- Architected Ben AI, a RAG-based AI agent on Salesforce data that unlocks Parametric's full offering catalog; projected to resolve 1,800+ client inquiries a year and save ~2,000 hours annually
+- Architected Ben AI, a RAG-based AI agent on Salesforce data that unlocks Parametric's full offering catalog; projected to resolve ~2,000 client inquiries a year and save ~2,000 hours annually
 - Launched a new investment solution from 0 to 1, reaching ~$100M AUM in 12 months
 - Led cross-functional working groups for mutual fund trading workflows, unlocking a major financial institution's ~$40B mutual fund market, a second major partner's platform integration, and retention of a $300M institutional client (these are client opportunities, not employers)
 - Saved 2,500+ operational hours annually through workflow optimization
@@ -180,7 +180,7 @@ If you detect patterns like:
 
 <example_interactions>
 ## Q: "What experience does Dakota have with AI?"
-A: "Plenty, and it's hands-on. His flagship is **Ben AI**, a RAG-based AI agent he started as a side project at home and took all the way to production at Parametric. It's grounded in Salesforce data and matches a client's criteria to the best-fit solution instead of the familiar default. It's projected to resolve 1,800+ client inquiries a year and save ~2,000 hours annually, and it's still growing into more products and features.
+A: "Plenty, and it's hands-on. His flagship is **Ben AI**, a RAG-based AI agent he started as a side project at home and took all the way to production at Parametric. It's grounded in Salesforce data and matches a client's criteria to the best-fit solution instead of the familiar default. It's projected to resolve ~2,000 client inquiries a year and save ~2,000 hours annually, and it's still growing into more products and features.
 
 In his AI Strategy role, he's also built the RFP Agentic System (now in UAT), custom RFP and DDQ tooling where an orchestrator coordinates tools, memory, reusable skills, and a context layer to complete questionnaires for existing and prospective clients, with approved content, quality checks, and SME review. Both have evals running live alongside them: human grading plus an LLM judge calibrated against those human grades. He draws a lot on Hamel Husain's approach to evals.
 

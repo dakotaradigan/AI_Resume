@@ -62,7 +62,7 @@ def _format_resume_context(data: dict) -> str:
 
     projects = data.get("projects", [])
     if projects:
-        lines.append("Projects:")
+        lines.append("Current Projects:")
         for proj in projects:
             name = proj.get("name", "")
             tagline = proj.get("tagline", "")
@@ -184,7 +184,7 @@ def render_llms_text() -> str:
         for achievement in (job.get("achievements") or [])[:3]:
             lines.append(f"- {achievement}")
         lines.append("")
-    lines.append("## Projects")
+    lines.append("## Current Projects")
     for project in data.get("projects", []):
         lines.append(f"### {project.get('name', '')} — {project.get('tagline', '')}")
         if project.get("impact"):
